@@ -1233,7 +1233,7 @@ fun LockVerifyScreen(
                             val currentPatternStr = patternList.joinToString(",")
                             val savedPattern = prefs.savedPattern
 
-                            if (currentPatternStr == savedPattern) {
+                            if (com.example.util.SecurityUtils.verifySecret(currentPatternStr, savedPattern)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "Unlock successful!"
                                 coroutineScope.launch {
@@ -1266,7 +1266,7 @@ fun LockVerifyScreen(
                         onCancelClick = onCancel,
                         onPinComplete = { pin ->
                             val savedPin = prefs.savedPasscode
-                            if (pin == savedPin) {
+                            if (com.example.util.SecurityUtils.verifySecret(pin, savedPin)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "PIN verified!"
                                 coroutineScope.launch {
@@ -1294,7 +1294,7 @@ fun LockVerifyScreen(
                         resetIdentifier = pinAndPasswordAttemptId,
                         onPasswordComplete = { password ->
                             val savedPassword = prefs.savedPasscode
-                            if (password == savedPassword) {
+                            if (com.example.util.SecurityUtils.verifySecret(password, savedPassword)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "Password verified!"
                                 coroutineScope.launch {

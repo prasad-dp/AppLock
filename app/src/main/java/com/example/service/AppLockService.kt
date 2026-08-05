@@ -269,7 +269,11 @@ class AppLockService : Service() {
         super.onDestroy()
         Log.d(TAG, "Service Destroyed")
         AppLockSession.setServiceRunning(false)
-        unregisterReceiver(screenLockReceiver)
+        try {
+            unregisterReceiver(screenLockReceiver)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering screenLockReceiver", e)
+        }
         serviceJob.cancel()
     }
 

@@ -228,7 +228,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 if (current.firstAttempt == pattern) {
                     // Success! Store pattern sequence
                     val patternString = pattern.joinToString(",")
-                    prefs.savedPattern = patternString
+                    prefs.savedPattern = com.example.util.SecurityUtils.hashSecret(patternString)
                     prefs.lockType = "pattern"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
@@ -248,7 +248,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
             is SetupState.ConfirmPin -> {
                 if (current.firstAttempt == pin) {
-                    prefs.savedPasscode = pin
+                    prefs.savedPasscode = com.example.util.SecurityUtils.hashSecret(pin)
                     prefs.lockType = "pin"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
@@ -267,7 +267,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
             is SetupState.ConfirmPassword -> {
                 if (current.firstAttempt == password) {
-                    prefs.savedPasscode = password
+                    prefs.savedPasscode = com.example.util.SecurityUtils.hashSecret(password)
                     prefs.lockType = "password"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
