@@ -964,6 +964,8 @@ fun LockVerifyScreen(
         ) 
     }
 
+    var userDismissedBiometric by remember(packageName) { mutableStateOf(false) }
+
     val triggerFingerprintScan = {
         val endMillis = prefs.getLockoutEndTimestamp(packageName)
         if (System.currentTimeMillis() < endMillis) {
@@ -981,7 +983,12 @@ fun LockVerifyScreen(
                         object : BiometricPrompt.AuthenticationCallback() {
                             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                                 super.onAuthenticationError(errorCode, errString)
-                                if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                if (errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                                    errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                                    errorCode == BiometricPrompt.ERROR_CANCELED
+                                ) {
+                                    userDismissedBiometric = true
+                                } else if (errorCode != BiometricPrompt.ERROR_LOCKOUT && errorCode != BiometricPrompt.ERROR_LOCKOUT_PERMANENT) {
                                     Toast.makeText(fa, "Biometric error: $errString", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -1020,10 +1027,18 @@ fun LockVerifyScreen(
         }
     }
 
-    LaunchedEffect(packageName) {
-        val endMillis = prefs.getLockoutEndTimestamp(packageName)
-        if (prefs.isBiometricEnabled && System.currentTimeMillis() >= endMillis) {
-            triggerFingerprintScan()
+    DisposableEffect(lifecycleOwner, packageName) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val endMillis = prefs.getLockoutEndTimestamp(packageName)
+                if (prefs.isBiometricEnabled && !userDismissedBiometric && System.currentTimeMillis() >= endMillis) {
+                    triggerFingerprintScan()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -1245,6 +1260,7 @@ fun LockVerifyScreen(
                         resetIdentifier = pinAndPasswordAttemptId,
                         isBiometricEnabled = prefs.isBiometricEnabled,
                         onBiometricClick = {
+                            userDismissedBiometric = false
                             triggerFingerprintScan()
                         },
                         onCancelClick = onCancel,
@@ -1320,7 +1336,23 @@ fun LockVerifyScreen(
                 }
             }
 
-            // Biometric trigger buttons removed
+            if (prefs.isBiometricEnabled) {
+                OutlinedButton(
+                    onClick = {
+                        userDismissedBiometric = false
+                        triggerFingerprintScan()
+                    },
+                    modifier = Modifier.testTag("manual_biometric_trigger_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Fingerprint,
+                        contentDescription = "Use Fingerprint",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Fingerprint")
+                }
+            }
         }
 
         var showPremiumDialogInUnlockScreen by remember { mutableStateOf(false) }

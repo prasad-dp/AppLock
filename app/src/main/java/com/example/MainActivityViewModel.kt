@@ -83,6 +83,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     appName = appName,
                     isLocked = lockedPackagesMap.containsKey(packageName)
                 )
+            }.toMutableList()
+
+            for (lockedApp in lockedList) {
+                if (mapped.none { it.packageName == lockedApp.packageName }) {
+                    mapped.add(
+                        GridAppInfo(
+                            packageName = lockedApp.packageName,
+                            appName = lockedApp.appName,
+                            isLocked = true
+                        )
+                    )
+                }
             }
 
             val filteredBySearch = if (query.isEmpty()) {
@@ -292,6 +304,27 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun setIntruderDetectionEnabled(enabled: Boolean) {
         prefs.isIntruderDetectionEnabled = enabled
+    }
+
+    fun isAutoCleanupEnabled(): Boolean {
+        return prefs.isAutoCleanupEnabled
+    }
+
+    fun setAutoCleanupEnabled(enabled: Boolean) {
+        prefs.isAutoCleanupEnabled = enabled
+        if (enabled) {
+            performAutoCleanupIfNeeded()
+        }
+    }
+
+    fun performAutoCleanupIfNeeded() {
+        if (!prefs.isAutoCleanupEnabled) return
+        viewModelScope.launch {
+            val alerts = intruderAlertsFlow.value
+            val cutoffTimestamp = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L)
+            val expiredAlerts = alerts.filter { it.timestamp < cutoffTimestamp }
+            expiredAlerts.forEach { repository.deleteIntruderAlert(it) }
+        }
     }
 
     val intruderAlertsFlow: StateFlow<List<IntruderAlert>> = repository.allIntruderAlertsFlow

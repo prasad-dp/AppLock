@@ -563,15 +563,17 @@ fun DashboardView(
     var isServiceActiveState by remember { mutableStateOf(viewModel.isServiceActive()) }
     var isBiometricEnabledState by remember { mutableStateOf(viewModel.isBiometricEnabled()) }
     var isIntruderDetectionEnabledState by remember { mutableStateOf(viewModel.isIntruderDetectionEnabled()) }
+    var isAutoCleanupEnabledState by remember { mutableStateOf(viewModel.isAutoCleanupEnabled()) }
     var isPremiumUser by remember { mutableStateOf(prefs.isPremiumUser) }
     var showGoPremiumDialog by remember { mutableStateOf(false) }
     var revealedPhotoAlertTimestamps by remember { mutableStateOf(setOf<Long>()) }
     var alertTargetForRewardedAd by remember { mutableStateOf<IntruderAlert?>(null) }
+    var alertTargetForShareAd by remember { mutableStateOf<IntruderAlert?>(null) }
     var zoomPhotoAlert by remember { mutableStateOf<IntruderAlert?>(null) }
-    var showClearLogsInterstitial by remember { mutableStateOf(false) }
     var showTransitionInterstitial by remember { mutableStateOf<String?>(null) }
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
+    val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -687,14 +689,17 @@ fun DashboardView(
         )
     }
 
-    if (showClearLogsInterstitial) {
-        com.example.ui.components.InterstitialAdDialog(
-            actionTitle = "Security Logs Cleared",
-            onAdDismissed = {
-                viewModel.clearAllIntruderAlerts()
-                showClearLogsInterstitial = false
-                Toast.makeText(context, "All security logs cleared", Toast.LENGTH_SHORT).show()
-            }
+    if (alertTargetForShareAd != null) {
+        com.example.ui.components.RewardedAdDialog(
+            adTitle = "Share Intruder Snapshot",
+            onRewardGranted = {
+                val alert = alertTargetForShareAd
+                if (alert != null) {
+                    shareIntruderSnapshot(context, alert)
+                }
+                alertTargetForShareAd = null
+            },
+            onDismiss = { alertTargetForShareAd = null }
         )
     }
 
@@ -844,6 +849,30 @@ fun DashboardView(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    val currentAlert = zoomPhotoAlert
+                                    if (currentAlert != null) {
+                                        if (isPremiumUser) {
+                                            shareIntruderSnapshot(context, currentAlert)
+                                        } else {
+                                            alertTargetForShareAd = currentAlert
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("dialog_share_snapshot_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Share Snapshot")
+                            }
                         }
                     }
                 }
@@ -1530,7 +1559,7 @@ fun DashboardView(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    val isSettingsLocked = appGridState.any { it.packageName == "com.android.settings" && it.isLocked }
+                                    val isSettingsLocked = remember(allLockedApps) { allLockedApps.any { it.packageName == "com.android.settings" } }
                                     Switch(
                                         checked = isSettingsLocked,
                                         onCheckedChange = { active ->
@@ -1602,15 +1631,74 @@ fun DashboardView(
                                     if (intruderAlerts.isNotEmpty()) {
                                         TextButton(
                                             onClick = {
-                                                if (isPremiumUser) {
-                                                    viewModel.clearAllIntruderAlerts()
-                                                } else {
-                                                    showClearLogsInterstitial = true
-                                                }
+                                                viewModel.clearAllIntruderAlerts()
+                                                Toast.makeText(context, "All security logs cleared", Toast.LENGTH_SHORT).show()
                                             }
                                         ) {
                                             Text("Clear All", color = MaterialTheme.colorScheme.error)
                                         }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("auto_cleanup_card")
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "Auto Delete Logs (30 Days)",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "PAID",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onPrimary,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = "Automatically purge intruder snapshots older than 30 days",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Switch(
+                                            checked = isAutoCleanupEnabledState && isPremiumUser,
+                                            onCheckedChange = { active ->
+                                                if (!isPremiumUser) {
+                                                    showGoPremiumDialog = true
+                                                    Toast.makeText(context, "Auto Delete after 30 days is a Paid Feature. Upgrade to Premium!", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    isAutoCleanupEnabledState = active
+                                                    viewModel.setAutoCleanupEnabled(active)
+                                                    Toast.makeText(context, if (active) "Auto Delete (30 days) enabled" else "Auto Delete disabled", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.testTag("auto_cleanup_logs_switch")
+                                        )
                                     }
                                 }
 
@@ -1813,7 +1901,25 @@ fun DashboardView(
                                                 }
 
                                                 IconButton(
-                                                    onClick = { viewModel.deleteIntruderAlert(alert) }
+                                                    onClick = {
+                                                        if (isPremiumUser) {
+                                                            shareIntruderSnapshot(context, alert)
+                                                        } else {
+                                                            alertTargetForShareAd = alert
+                                                        }
+                                                    },
+                                                    modifier = Modifier.testTag("share_snapshot_button")
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Share,
+                                                        contentDescription = "Share snapshot",
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = { viewModel.deleteIntruderAlert(alert) },
+                                                    modifier = Modifier.testTag("delete_snapshot_button")
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Delete,
@@ -1825,6 +1931,14 @@ fun DashboardView(
                                         }
                                     }
                                 }
+
+                                if (!isPremiumUser) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    com.example.ui.components.AdMobBanner(
+                                        isPremium = isPremiumUser,
+                                        onGoPremiumClick = { showGoPremiumDialog = true }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1833,6 +1947,38 @@ fun DashboardView(
         }
     }
 }
+
+fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert) {
+        try {
+            val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(alert.timestamp))
+            val appName = alert.attemptedPackage ?: "App Locker"
+            val shareText = "Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
+
+            val photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
+            if (photoFile != null && photoFile.exists()) {
+                val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    photoFile
+                )
+                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "image/jpeg"
+                    putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
+                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot"))
+            } else {
+                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                }
+                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Alert"))
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to share snapshot: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
 class DrawablePainter(private val drawable: android.graphics.drawable.Drawable) : androidx.compose.ui.graphics.painter.Painter() {
     override val intrinsicSize: androidx.compose.ui.geometry.Size

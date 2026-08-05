@@ -22,6 +22,10 @@ class LockPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_INTRUDER_DETECTION_ENABLED, value).apply()
 
+    var isAutoCleanupEnabled: Boolean
+        get() = prefs.getBoolean("auto_cleanup_logs_enabled", false)
+        set(value) = prefs.edit().putBoolean("auto_cleanup_logs_enabled", value).apply()
+
     var lockType: String
         get() = prefs.getString(KEY_LOCK_TYPE, "pattern") ?: "pattern"
         set(value) = prefs.edit().putString(KEY_LOCK_TYPE, value).apply()
