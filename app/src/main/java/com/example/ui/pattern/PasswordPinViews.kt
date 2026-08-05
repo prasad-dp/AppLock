@@ -52,7 +52,10 @@ import android.widget.Toast
 import com.example.data.LockPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontStyle
@@ -70,6 +73,7 @@ fun PinPadView(
     onCancelClick: (() -> Unit)? = null
 ) {
     var inputtedPin by remember(resetIdentifier) { mutableStateOf("") }
+    val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(resetIdentifier) {
         inputtedPin = ""
@@ -80,7 +84,7 @@ fun PinPadView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Bullet indicators
+        // Bullet indicators with smooth spring animation
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -88,14 +92,26 @@ fun PinPadView(
         ) {
             for (i in 0 until pinLength) {
                 val isFilled = i < inputtedPin.length
+                val bulletScale by animateFloatAsState(
+                    targetValue = if (isFilled) 1.25f else 1.0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "bulletScale"
+                )
+                val bulletColor by animateColorAsState(
+                    targetValue = if (isFilled) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                    animationSpec = tween(durationMillis = 200),
+                    label = "bulletColor"
+                )
                 Box(
                     modifier = Modifier
                         .size(16.dp)
+                        .scale(bulletScale)
                         .clip(CircleShape)
-                        .background(
-                            if (isFilled) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                        )
+                        .background(bulletColor)
                 )
             }
         }
@@ -144,6 +160,9 @@ fun PinPadView(
                                         }
                                     )
                                     .clickable {
+                                        try {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        } catch (_: Exception) {}
                                         when (key) {
                                             "⌫" -> {
                                                 if (inputtedPin.isNotEmpty()) {
@@ -1198,19 +1217,28 @@ fun LockVerifyScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Status Feed message
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = when (patternState) {
-                PatternState.SUCCESS -> Color(0xFF66BB6A)
-                PatternState.ERROR -> MaterialTheme.colorScheme.error
-                PatternState.DRAWING -> MaterialTheme.colorScheme.primary
+        // Status Feed message with smooth crossfade
+        AnimatedContent(
+            targetState = statusText,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.95f)) togetherWith
+                        (fadeOut(animationSpec = tween(150)))
             },
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+            label = "statusTextTransition"
+        ) { targetText ->
+            Text(
+                text = targetText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = when (patternState) {
+                    PatternState.SUCCESS -> Color(0xFF66BB6A)
+                    PatternState.ERROR -> MaterialTheme.colorScheme.error
+                    PatternState.DRAWING -> MaterialTheme.colorScheme.primary
+                },
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 

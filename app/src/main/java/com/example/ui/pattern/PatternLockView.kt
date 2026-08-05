@@ -1,5 +1,7 @@
 package com.example.ui.pattern
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -40,11 +42,17 @@ fun PatternLockView(
     val errorColor = MaterialTheme.colorScheme.error
     val dotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
 
-    val lineColor = when (state) {
+    val targetLineColor = when (state) {
         PatternState.DRAWING -> primaryColor
         PatternState.SUCCESS -> successColor
         PatternState.ERROR -> errorColor
     }
+
+    val lineColor by animateColorAsState(
+        targetValue = targetLineColor,
+        animationSpec = tween(durationMillis = 300),
+        label = "lineColorAnimation"
+    )
 
     // Reset pattern if the state changes back to drawing externally
     LaunchedEffect(state) {
