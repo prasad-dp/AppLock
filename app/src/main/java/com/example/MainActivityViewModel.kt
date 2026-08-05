@@ -16,6 +16,12 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class AppFilterMode {
+    ALL,
+    LOCKED,
+    UNLOCKED
+}
+
 data class GridAppInfo(
     val packageName: String,
     val appName: String,
@@ -57,7 +63,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Track locked apps from Room DB
     val lockedAppsFlow: Flow<List<LockedApp>>
 
-    // Combined stream of installed + search query + lock status
+    private val _filterMode = MutableStateFlow(AppFilterMode.ALL)
+    val filterMode: StateFlow<AppFilterMode> = _filterMode
+
+    // Combined stream of installed + search query + lock status + filter mode
     val appGridState: StateFlow<List<GridAppInfo>>
 
     init {
@@ -65,22 +74,29 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
         lockedAppsFlow = repository.allLockedAppsStateFlow
 
-        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery) { installed, lockedList, query ->
+        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode) { installed, lockedList, query, filter ->
             val lockedPackagesMap = lockedList.associateBy { it.packageName }
-            val filtered = if (query.isEmpty()) {
-                installed
-            } else {
-                installed.filter { it.second.contains(query, ignoreCase = true) }
-            }
-
-            filtered.map { (packageName, appName) ->
+            
+            val mapped = installed.map { (packageName, appName) ->
                 GridAppInfo(
                     packageName = packageName,
                     appName = appName,
                     isLocked = lockedPackagesMap.containsKey(packageName)
                 )
             }
-        }.stateIn(
+
+            val filteredBySearch = if (query.isEmpty()) {
+                mapped
+            } else {
+                mapped.filter { it.appName.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
+            }
+
+            when (filter) {
+                AppFilterMode.ALL -> filteredBySearch
+                AppFilterMode.LOCKED -> filteredBySearch.filter { it.isLocked }
+                AppFilterMode.UNLOCKED -> filteredBySearch.filter { !it.isLocked }
+            }
+        }.flowOn(Dispatchers.Default).stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
@@ -124,6 +140,36 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         _searchQuery.value = query
     }
 
+    fun setFilterMode(mode: AppFilterMode) {
+        _filterMode.value = mode
+    }
+
+    fun lockRecommendedApps() {
+        viewModelScope.launch {
+            val sensitiveKeywords = listOf(
+                "settings", "gallery", "photo", "photos", "whatsapp", "instagram",
+                "facebook", "messenger", "pay", "bank", "wallet", "mail", "gmail",
+                "contact", "contacts", "message", "messages", "drive", "chrome",
+                "browser", "file", "files", "camera"
+            )
+            _installedApps.value.forEach { (packageName, appName) ->
+                val lowerName = appName.lowercase()
+                val lowerPkg = packageName.lowercase()
+                if (sensitiveKeywords.any { lowerName.contains(it) || lowerPkg.contains(it) }) {
+                    repository.lockApp(packageName, appName)
+                }
+            }
+        }
+    }
+
+    fun unlockAllApps() {
+        viewModelScope.launch {
+            _installedApps.value.forEach { (packageName, _) ->
+                repository.unlockApp(packageName)
+            }
+        }
+    }
+
     fun toggleAppLock(packageName: String, appName: String, shouldLock: Boolean) {
         viewModelScope.launch {
             if (shouldLock) {
@@ -145,7 +191,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun selectLockType(type: String) {
-        prefs.lockType = type
         when (type) {
             "pattern" -> _setupState.value = SetupState.SetFirstPattern
             "pin" -> _setupState.value = SetupState.SetFirstPin

@@ -19,7 +19,7 @@ class LockPreferences(context: Context) {
     }
 
     var isIntruderDetectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, false)
+        get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_INTRUDER_DETECTION_ENABLED, value).apply()
 
     var lockType: String
@@ -64,6 +64,10 @@ class LockPreferences(context: Context) {
     var isDarkMode: Boolean
         get() = prefs.getBoolean("dark_mode_enabled", true)
         set(value) = prefs.edit().putBoolean("dark_mode_enabled", value).apply()
+
+    var isPremiumUser: Boolean
+        get() = prefs.getBoolean("is_premium_user", false)
+        set(value) = prefs.edit().putBoolean("is_premium_user", value).apply()
 
     fun hasPatternSet(): Boolean {
         return when (lockType) {

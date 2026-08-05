@@ -28,6 +28,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.IntruderAlert
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -79,10 +82,6 @@ object AppIconCache {
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
-        )
         enableEdgeToEdge()
 
         setContent {
@@ -121,9 +120,9 @@ fun LockerMainScreen(
     val prefs = remember { LockPreferences(context) }
     var isAppLockerUnlocked by remember { mutableStateOf(!prefs.hasPatternSet()) }
 
-    // If locked reset is triggered, lock app locker session again
+    // Keep app locker unlocked while navigating wizard or finishing setup
     LaunchedEffect(setupState) {
-        if (setupState is SetupState.SelectLockType || setupState is SetupState.WelcomePatternRequired) {
+        if (setupState !is SetupState.SetupFinished || !prefs.hasPatternSet()) {
             isAppLockerUnlocked = true
         }
     }
@@ -554,13 +553,24 @@ fun DashboardView(
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context as? FragmentActivity }
+    val prefs = remember { LockPreferences(context) }
     val appGridState by viewModel.appGridState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isLoadingApps by viewModel.isLoadingApps.collectAsStateWithLifecycle()
+    val filterMode by viewModel.filterMode.collectAsStateWithLifecycle()
 
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var isServiceActiveState by remember { mutableStateOf(viewModel.isServiceActive()) }
     var isBiometricEnabledState by remember { mutableStateOf(viewModel.isBiometricEnabled()) }
     var isIntruderDetectionEnabledState by remember { mutableStateOf(viewModel.isIntruderDetectionEnabled()) }
+    var isPremiumUser by remember { mutableStateOf(prefs.isPremiumUser) }
+    var showGoPremiumDialog by remember { mutableStateOf(false) }
+    var revealedPhotoAlertTimestamps by remember { mutableStateOf(setOf<Long>()) }
+    var alertTargetForRewardedAd by remember { mutableStateOf<IntruderAlert?>(null) }
+    var zoomPhotoAlert by remember { mutableStateOf<IntruderAlert?>(null) }
+    var showClearLogsInterstitial by remember { mutableStateOf(false) }
+    var showTransitionInterstitial by remember { mutableStateOf<String?>(null) }
+    var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -581,6 +591,7 @@ fun DashboardView(
         val activityIntent = (context as? android.app.Activity)?.intent
         val selection = activityIntent?.getStringExtra("SELECTION")
         if (selection == "intruder_records") {
+            selectedTabIndex = 2
             Toast.makeText(context, "Welcome to Security Intruder Logs", Toast.LENGTH_LONG).show()
             activityIntent.removeExtra("SELECTION")
         }
@@ -592,6 +603,7 @@ fun DashboardView(
 
     var appToVerifyForUnlock by remember { mutableStateOf<GridAppInfo?>(null) }
     var isVerifyingToReset by remember { mutableStateOf(false) }
+    var isVerifyingToUnlockAll by remember { mutableStateOf(false) }
 
     if (appToVerifyForUnlock != null) {
         val app = appToVerifyForUnlock!!
@@ -649,6 +661,196 @@ fun DashboardView(
         }
     }
 
+    if (showGoPremiumDialog) {
+        com.example.ui.components.GoPremiumDialog(
+            prefs = prefs,
+            onDismiss = { showGoPremiumDialog = false },
+            onPremiumPurchased = {
+                isPremiumUser = true
+                showGoPremiumDialog = false
+            }
+        )
+    }
+
+    if (alertTargetForRewardedAd != null) {
+        com.example.ui.components.RewardedAdDialog(
+            adTitle = "Reveal Intruder Snapshot",
+            onRewardGranted = {
+                val alert = alertTargetForRewardedAd
+                if (alert != null) {
+                    revealedPhotoAlertTimestamps = revealedPhotoAlertTimestamps + alert.timestamp
+                }
+                alertTargetForRewardedAd = null
+                Toast.makeText(context, "Intruder photo unlocked!", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { alertTargetForRewardedAd = null }
+        )
+    }
+
+    if (showClearLogsInterstitial) {
+        com.example.ui.components.InterstitialAdDialog(
+            actionTitle = "Security Logs Cleared",
+            onAdDismissed = {
+                viewModel.clearAllIntruderAlerts()
+                showClearLogsInterstitial = false
+                Toast.makeText(context, "All security logs cleared", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showTransitionInterstitial != null) {
+        com.example.ui.components.InterstitialAdDialog(
+            actionTitle = showTransitionInterstitial!!,
+            onAdDismissed = { showTransitionInterstitial = null }
+        )
+    }
+
+    if (showUnlockAllConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnlockAllConfirmDialog = false },
+            icon = { Icon(Icons.Default.LockOpen, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Unlock All Apps") },
+            text = { Text("Do you want to unlock all protected apps?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUnlockAllConfirmDialog = false
+                        isVerifyingToUnlockAll = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Unlock All")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showUnlockAllConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (isVerifyingToUnlockAll) {
+        Dialog(
+            onDismissRequest = { isVerifyingToUnlockAll = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                LockVerifyScreen(
+                    prefs = LockPreferences(context),
+                    onSuccess = {
+                        isVerifyingToUnlockAll = false
+                        viewModel.unlockAllApps()
+                        Toast.makeText(context, "All applications unlocked", Toast.LENGTH_SHORT).show()
+                    },
+                    onCancel = {
+                        isVerifyingToUnlockAll = false
+                    },
+                    title = "Unlock All Applications",
+                    subtitle = "Verify PIN, Pattern or Biometrics to unlock all apps"
+                )
+            }
+        }
+    }
+
+    // Fullscreen Intruder Photo Dialog
+    if (zoomPhotoAlert != null) {
+        val alert = zoomPhotoAlert!!
+        Dialog(
+            onDismissRequest = { zoomPhotoAlert = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.9f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Intruder Photo Detail",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { zoomPhotoAlert = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (alert.photoPath.isNotEmpty() && java.io.File(alert.photoPath).exists()) {
+                        coil.compose.AsyncImage(
+                            model = java.io.File(alert.photoPath),
+                            contentDescription = "Full Intruder Snapshot",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(360.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.DarkGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Snapshot image file not available", color = Color.LightGray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Target: ${alert.attemptedPackage ?: "App Locker"}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Timestamp: ${java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(alert.timestamp))}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.LightGray
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Auth method attempted: ${alert.lockType.uppercase(java.util.Locale.US)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Observe lifecycle events to verify permission when returning from System Android Settings
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -699,7 +901,7 @@ fun DashboardView(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -739,7 +941,7 @@ fun DashboardView(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (isServiceActiveState && hasUsagePermission && hasOverlayPermission) "Shield is active" else "Shield is sleeping",
+                            text = if (isServiceActiveState && hasUsagePermission && hasOverlayPermission) "Shield Active" else "Shield Sleeping",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (isServiceActiveState && hasUsagePermission && hasOverlayPermission)
                                 Color(0xFF2E7D32)
@@ -752,6 +954,34 @@ fun DashboardView(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (!isPremiumUser) {
+                        Surface(
+                            onClick = { showGoPremiumDialog = true },
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = CircleShape,
+                            modifier = Modifier.testTag("toolbar_go_premium_button")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.WorkspacePremium,
+                                    contentDescription = "Go Premium",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "PRO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+
                     FancyThemeToggle(
                         isDarkMode = isDarkMode,
                         onToggle = { onDarkModeChange(!isDarkMode) }
@@ -759,9 +989,7 @@ fun DashboardView(
 
                     // Reset Action Button
                     IconButton(
-                        onClick = {
-                            isVerifyingToReset = true
-                        }
+                        onClick = { isVerifyingToReset = true }
                     ) {
                         Icon(
                             imageVector = Icons.Default.SettingsBackupRestore,
@@ -772,607 +1000,834 @@ fun DashboardView(
             }
         }
 
-        // STICKY FILTER SEARCH BOX
-        Box(
+        // STATS OVERVIEW CARD
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Search system applications...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear research")
-                        }
-                    }
-                },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("search_app_text_field"),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                )
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${lockedApps.size}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Locked",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Box(modifier = Modifier.width(1.dp).height(28.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (isServiceActiveState && hasUsagePermission && hasOverlayPermission) "ACTIVE" else "OFF",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isServiceActiveState && hasUsagePermission && hasOverlayPermission) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    )
+                    Text(
+                        text = "Protection",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Box(modifier = Modifier.width(1.dp).height(28.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${intruderAlerts.size}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (intruderAlerts.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Intruders",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // MATERIAL 3 TAB ROW NAVIGATION
+        TabRow(
+            selectedTabIndex = selectedTabIndex,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Tab(
+                selected = selectedTabIndex == 0,
+                onClick = { selectedTabIndex = 0 },
+                text = { Text("Apps", fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Normal) },
+                icon = { Icon(Icons.Default.Apps, contentDescription = "Apps tab") },
+                modifier = Modifier.testTag("tab_apps")
+            )
+            Tab(
+                selected = selectedTabIndex == 1,
+                onClick = { selectedTabIndex = 1 },
+                text = { Text("Security", fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Normal) },
+                icon = { Icon(Icons.Default.Security, contentDescription = "Security tab") },
+                modifier = Modifier.testTag("tab_security")
+            )
+            Tab(
+                selected = selectedTabIndex == 2,
+                onClick = { selectedTabIndex = 2 },
+                text = {
+                    if (intruderAlerts.isNotEmpty()) {
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                    Text("${intruderAlerts.size}")
+                                }
+                            }
+                        ) {
+                            Text("Logs", fontWeight = if (selectedTabIndex == 2) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    } else {
+                        Text("Logs", fontWeight = if (selectedTabIndex == 2) FontWeight.Bold else FontWeight.Normal)
+                    }
+                },
+                icon = { Icon(Icons.Default.CameraAlt, contentDescription = "Intruder Logs tab") },
+                modifier = Modifier.testTag("tab_intruder_logs")
             )
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (searchQuery.isEmpty()) {
-                // STEP 1: PERMISSION SHIELD CARD
-                if (!hasUsagePermission) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+        // TAB CONTENT SECTIONS
+        when (selectedTabIndex) {
+            0 -> {
+                // TAB 0: APPS TAB
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Quick Action Row & Search
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Warning",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "System Access Required",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "App Locker requires 'Usage Access' permission to check which app is in the foreground and intercept it. Please grant it in system settings.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = {
-                                    val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                                    contentColor = MaterialTheme.colorScheme.errorContainer
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("grant_permission_button")
-                            ) {
-                                Text("Grant Usage Permission")
-                            }
-                        }
-                    }
-                }
-            }
-
-            // STEP 1.5: DISPLAY LOCK OVERLAY ACCESS CARD
-            if (hasUsagePermission && !hasOverlayPermission) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Warning",
-                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Overlay Permission Required",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "App Locker requires the 'Display over other apps' system permission to draw the lock screen on top of locked applications when they launch.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = {
-                                    try {
-                                        val intent = Intent(
-                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            Uri.parse("package:${context.packageName}")
-                                        ).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(intent)
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.tertiaryContainer
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("grant_overlay_permission_button")
-                            ) {
-                                Text("Grant Overlay Permission")
-                            }
-                        }
-                    }
-                }
-            }
-
-            // STEP 2: CONTROLS SETTINGS CARD
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Security Policies",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // ACTIVE SERVICE TOGGLE
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Background App Shield",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Auto-intercept launches of locked applications",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = isServiceActiveState,
-                                onCheckedChange = { active ->
-                                    isServiceActiveState = active
-                                    viewModel.setServiceActive(active)
-                                    val intent = Intent(context, AppLockService::class.java)
-                                    if (active) {
-                                        if (hasUsagePermission && hasOverlayPermission) {
-                                            try {
-                                                ContextCompat.startForegroundService(context, intent)
-                                                Toast.makeText(context, "Locker service started", Toast.LENGTH_SHORT).show()
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                                Toast.makeText(context, "Failed to start service: ${e.message}", Toast.LENGTH_LONG).show()
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "Grant usage and overlay permissions first!", Toast.LENGTH_LONG).show()
-                                        }
-                                    } else {
-                                        context.stopService(intent)
-                                        Toast.makeText(context, "Locker service stopped", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.testTag("service_active_switch")
-                            )
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Fingerprint Unlocking",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Allow unlocking applications using your fingerprint scanner",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = isBiometricEnabledState,
-                                onCheckedChange = { active ->
-                                    isBiometricEnabledState = active
-                                    viewModel.setBiometricEnabled(active)
-                                    Toast.makeText(context, if (active) "Fingerprint unlock active" else "Fingerprint unlock deactivated", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.testTag("biometric_active_switch")
-                            )
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Intruder Camera Detection",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Snap front-facing photo on 3 failed unlock attempts",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = isIntruderDetectionEnabledState,
-                                onCheckedChange = { active ->
-                                    if (active) {
-                                        val granted = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                        if (granted) {
-                                            isIntruderDetectionEnabledState = true
-                                            viewModel.setIntruderDetectionEnabled(true)
-                                            Toast.makeText(context, "Intruder Detection fully armed!", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                                        }
-                                    } else {
-                                        isIntruderDetectionEnabledState = false
-                                        viewModel.setIntruderDetectionEnabled(false)
-                                        Toast.makeText(context, "Intruder Detection disarmed", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.testTag("intruder_detection_active_switch")
-                            )
-                        }
-                    }
-                }
-            }
-
-            // STEP 3: PLAYGROUND SIMULATOR CARD
-            if (lockedApps.isNotEmpty()) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Play",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Locker Simulator Playground",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Instantly test your drawing pattern or fingerprint authenticator directly inside the streaming emulator by clicking launch simulate on listed applications.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Horizontal list of locked apps to test
+                        if (lockedApps.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                lockedApps.forEach { app ->
-                                    OutlinedButton(
+                                OutlinedButton(
+                                    onClick = { showUnlockAllConfirmDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Unlock All", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.updateSearchQuery(it) },
+                            placeholder = { Text("Search system applications...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("search_app_text_field"),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            )
+                        )
+
+                        // FILTER CHIPS ROW
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = filterMode == AppFilterMode.ALL,
+                                onClick = { viewModel.setFilterMode(AppFilterMode.ALL) },
+                                label = { Text("All Apps") }
+                            )
+                            FilterChip(
+                                selected = filterMode == AppFilterMode.LOCKED,
+                                onClick = { viewModel.setFilterMode(AppFilterMode.LOCKED) },
+                                label = { Text("Locked (${lockedApps.size})") },
+                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            )
+                            FilterChip(
+                                selected = filterMode == AppFilterMode.UNLOCKED,
+                                onClick = { viewModel.setFilterMode(AppFilterMode.UNLOCKED) },
+                                label = { Text("Unlocked") }
+                            )
+                        }
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (isLoadingApps) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                        } else if (appGridState.isEmpty()) {
+                            item {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 40.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SearchOff,
+                                        contentDescription = "Search empty",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "No Applications Found",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "Try adjusting your search query or filter.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        } else {
+                            itemsIndexed(appGridState, key = { _, item -> item.packageName }) { index, appInfo ->
+                                if (!isPremiumUser && index > 0 && index % 8 == 0) {
+                                    com.example.ui.components.AdMobNativeCard(
+                                        isPremium = isPremiumUser,
+                                        onGoPremiumClick = { showGoPremiumDialog = true },
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                                AppRowItem(
+                                    appInfo = appInfo,
+                                    onLockToggled = onLockToggledRemembered
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            1 -> {
+                // TAB 1: SECURITY & SETTINGS TAB
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // STEP 1: PERMISSION SHIELD CARD
+                    if (!hasUsagePermission) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = "Warning",
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "System Access Required",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "App Locker requires 'Usage Access' permission to check which app is in the foreground and intercept it. Please grant it in system settings.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
                                         onClick = {
-                                            // Reset active unlocking package to bypass duplicate checks in Service
-                                            AppLockSession.activeUnlockingPackage = null
-                                            AppLockSession.lockApp(app.packageName) // make sure locked
-                                            
-                                            val intent = Intent(context, UnlockActivity::class.java).apply {
-                                                putExtra("EXTRA_PACKAGE_NAME", app.packageName)
+                                            val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                             }
                                             context.startActivity(intent)
                                         },
-                                        shape = RoundedCornerShape(20.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                            contentColor = MaterialTheme.colorScheme.errorContainer
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("grant_permission_button")
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.Launch,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = app.appName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Grant Usage Permission")
                                     }
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            // STEP 3.5: INTRUDER ALERT LOGS CARD
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                    // STEP 1.5: DISPLAY LOCK OVERLAY ACCESS CARD
+                    if (hasUsagePermission && !hasOverlayPermission) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = "Warning",
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Overlay Permission Required",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "App Locker requires the 'Display over other apps' system permission to draw the lock screen on top of locked applications when they launch.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(
+                                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                    Uri.parse("package:${context.packageName}")
+                                                ).apply {
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                                context.startActivity(intent)
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.tertiaryContainer
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("grant_overlay_permission_button")
+                                    ) {
+                                        Text("Grant Overlay Permission")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // STEP 2: CONTROLS SETTINGS CARD
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Camera",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "Security Intruder Logs",
+                                    text = "Security Policies",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                            
-                            if (intruderAlerts.isNotEmpty()) {
-                                TextButton(
-                                    onClick = { viewModel.clearAllIntruderAlerts() }
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // ACTIVE SERVICE TOGGLE
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Clear All", color = MaterialTheme.colorScheme.error)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Background App Shield",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Auto-intercept launches of locked applications",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = isServiceActiveState,
+                                        onCheckedChange = { active ->
+                                            isServiceActiveState = active
+                                            viewModel.setServiceActive(active)
+                                            val intent = Intent(context, AppLockService::class.java)
+                                            if (active) {
+                                                if (hasUsagePermission && hasOverlayPermission) {
+                                                    try {
+                                                        ContextCompat.startForegroundService(context, intent)
+                                                        Toast.makeText(context, "Locker service started", Toast.LENGTH_SHORT).show()
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                        Toast.makeText(context, "Failed to start service: ${e.message}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                } else {
+                                                    Toast.makeText(context, "Grant usage and overlay permissions first!", Toast.LENGTH_LONG).show()
+                                                }
+                                            } else {
+                                                context.stopService(intent)
+                                                Toast.makeText(context, "Locker service stopped", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("service_active_switch")
+                                    )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Fingerprint Unlocking",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Allow unlocking applications using your fingerprint scanner",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = isBiometricEnabledState,
+                                        onCheckedChange = { active ->
+                                            isBiometricEnabledState = active
+                                            viewModel.setBiometricEnabled(active)
+                                            Toast.makeText(context, if (active) "Fingerprint unlock active" else "Fingerprint unlock deactivated", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.testTag("biometric_active_switch")
+                                    )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Intruder Camera Detection",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Snap front-facing photo on 3 failed unlock attempts",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = isIntruderDetectionEnabledState,
+                                        onCheckedChange = { active ->
+                                            if (active) {
+                                                val granted = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                                if (granted) {
+                                                    isIntruderDetectionEnabledState = true
+                                                    viewModel.setIntruderDetectionEnabled(true)
+                                                    Toast.makeText(context, "Intruder Detection fully armed!", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                                }
+                                            } else {
+                                                isIntruderDetectionEnabledState = false
+                                                viewModel.setIntruderDetectionEnabled(false)
+                                                Toast.makeText(context, "Intruder Detection disarmed", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("intruder_detection_active_switch")
+                                    )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Protect System Settings",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Prevent force-stopping or revoking app locker permissions",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    val isSettingsLocked = appGridState.any { it.packageName == "com.android.settings" && it.isLocked }
+                                    Switch(
+                                        checked = isSettingsLocked,
+                                        onCheckedChange = { active ->
+                                            val settingsApp = appGridState.firstOrNull { it.packageName == "com.android.settings" }
+                                            val appName = settingsApp?.appName ?: "Settings"
+                                            viewModel.toggleAppLock("com.android.settings", appName, active)
+                                            Toast.makeText(
+                                                context,
+                                                if (active) "System Settings Protected!" else "System Settings Protection Removed",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        modifier = Modifier.testTag("protect_settings_switch")
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (!isIntruderDetectionEnabledState) {
-                            Text(
-                                text = "Intruder photo capture is currently disabled. Toggle it in Security Policies to capture unauthorized access photos.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    // ADMOB BANNER
+                    if (!isPremiumUser) {
+                        item {
+                            com.example.ui.components.AdMobBanner(
+                                isPremium = isPremiumUser,
+                                onGoPremiumClick = { showGoPremiumDialog = true }
                             )
-                        } else if (intruderAlerts.isEmpty()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Shield SECURE",
-                                    tint = Color(0xFF2E7D32),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "No intrusion attempts captured yet",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = Color(0xFF2E7D32)
-                                )
-                            }
-                        } else {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                intruderAlerts.forEach { alert ->
-                                    var attemptedAppName by remember(alert.attemptedPackage) {
-                                        mutableStateOf(alert.attemptedPackage ?: "App Locker Settings")
+                        }
+                    }
+
+
+                }
+            }
+
+            2 -> {
+                // TAB 2: INTRUDER LOGS TAB
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CameraAlt,
+                                            contentDescription = "Camera",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Security Intruder Logs",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
                                     }
-                                    LaunchedEffect(alert.attemptedPackage) {
-                                        if (!alert.attemptedPackage.isNullOrEmpty()) {
-                                            val name = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                try {
-                                                    val pm = context.packageManager
-                                                    val info = pm.getApplicationInfo(alert.attemptedPackage, 0)
-                                                    pm.getApplicationLabel(info).toString()
-                                                } catch (e: Exception) {
-                                                    alert.attemptedPackage
+
+                                    if (intruderAlerts.isNotEmpty()) {
+                                        TextButton(
+                                            onClick = {
+                                                if (isPremiumUser) {
+                                                    viewModel.clearAllIntruderAlerts()
+                                                } else {
+                                                    showClearLogsInterstitial = true
                                                 }
                                             }
-                                            attemptedAppName = name
-                                        } else {
-                                            attemptedAppName = "App Locker Settings"
+                                        ) {
+                                            Text("Clear All", color = MaterialTheme.colorScheme.error)
                                         }
                                     }
+                                }
 
-                                    val dateStr = remember(alert.timestamp) {
-                                        java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault())
-                                            .format(java.util.Date(alert.timestamp))
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                if (!isIntruderDetectionEnabledState) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("intruder_detection_off_banner")
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = "Warning",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Intruder Detection is OFF",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Intruder photos will not be captured on failed unlock attempts.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    val granted = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                                    if (granted) {
+                                                        isIntruderDetectionEnabledState = true
+                                                        viewModel.setIntruderDetectionEnabled(true)
+                                                        Toast.makeText(context, "Intruder Detection Enabled", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                                modifier = Modifier.align(Alignment.End)
+                                            ) {
+                                                Text("Turn ON Intruder Detection", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
 
+                                if (intruderAlerts.isEmpty()) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(
-                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                                RoundedCornerShape(12.dp)
-                                            )
-                                            .padding(8.dp),
+                                            .padding(vertical = 16.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        horizontalArrangement = Arrangement.Center
                                     ) {
-                                        if (alert.photoPath.isNotEmpty()) {
-                                            coil.compose.AsyncImage(
-                                                model = java.io.File(alert.photoPath),
-                                                contentDescription = "Intruder snapshot",
-                                                modifier = Modifier
-                                                    .size(64.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
-                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(64.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Photo,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                )
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Shield SECURE",
+                                            tint = Color(0xFF2E7D32),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "No intrusion attempts captured yet",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = Color(0xFF2E7D32),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                } else {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        intruderAlerts.forEach { alert ->
+                                            var attemptedAppName by remember(alert.attemptedPackage) {
+                                                mutableStateOf(alert.attemptedPackage ?: "App Locker Settings")
                                             }
-                                        }
+                                            LaunchedEffect(alert.attemptedPackage) {
+                                                if (!alert.attemptedPackage.isNullOrEmpty()) {
+                                                    val name = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                        try {
+                                                            val pm = context.packageManager
+                                                            val info = pm.getApplicationInfo(alert.attemptedPackage, 0)
+                                                            pm.getApplicationLabel(info).toString()
+                                                        } catch (e: Exception) {
+                                                            alert.attemptedPackage
+                                                        }
+                                                    }
+                                                    attemptedAppName = name
+                                                } else {
+                                                    attemptedAppName = "App Locker Settings"
+                                                }
+                                            }
 
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "Target: $attemptedAppName",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                text = "Cred type: ${alert.lockType.uppercase(java.util.Locale.US)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = dateStr,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontWeight = FontWeight.Light
-                                            )
-                                        }
+                                            val dateStr = remember(alert.timestamp) {
+                                                java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault())
+                                                    .format(java.util.Date(alert.timestamp))
+                                            }
 
-                                        IconButton(
-                                            onClick = { viewModel.deleteIntruderAlert(alert) }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete record",
-                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                                            )
+                                            val isPhotoUnlocked = isPremiumUser || revealedPhotoAlertTimestamps.contains(alert.timestamp)
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                                        RoundedCornerShape(12.dp)
+                                                    )
+                                                    .padding(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                if (alert.photoPath.isNotEmpty()) {
+                                                    if (isPhotoUnlocked) {
+                                                        coil.compose.AsyncImage(
+                                                            model = java.io.File(alert.photoPath),
+                                                            contentDescription = "Intruder snapshot",
+                                                            modifier = Modifier
+                                                                .size(64.dp)
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                                                .clickable { zoomPhotoAlert = alert },
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                        )
+                                                    } else {
+                                                        Surface(
+                                                            onClick = { alertTargetForRewardedAd = alert },
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                                            modifier = Modifier.size(64.dp)
+                                                        ) {
+                                                            Column(
+                                                                modifier = Modifier.fillMaxSize().padding(2.dp),
+                                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                                verticalArrangement = Arrangement.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Lock,
+                                                                    contentDescription = "Locked photo",
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(20.dp)
+                                                                )
+                                                                Text(
+                                                                    text = "Watch Ad",
+                                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = MaterialTheme.colorScheme.primary
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(64.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Photo,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                        )
+                                                    }
+                                                }
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = "Target: $attemptedAppName",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = "Cred type: ${alert.lockType.uppercase(java.util.Locale.US)}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = dateStr,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontWeight = FontWeight.Light
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = { viewModel.deleteIntruderAlert(alert) }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Delete record",
+                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            }
-            }
-
-            // STEP 4: APPLICATIONS SELECTION SECTION
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (searchQuery.isEmpty()) "Protect Apps" else "Search Results",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ) {
-                        Text(
-                            text = "${lockedApps.size} Locked",
-                            modifier = Modifier.padding(4.dp),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-
-            // APPLICATIONS LIST
-            if (isLoadingApps) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (appGridState.isEmpty()) {
-                item {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SearchOff,
-                            contentDescription = "Search empty",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No Applications Found",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Try searching with a different term.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            } else {
-                items(appGridState, key = { it.packageName }) { appInfo ->
-                    AppRowItem(
-                        appInfo = appInfo,
-                        onLockToggled = onLockToggledRemembered
-                    )
                 }
             }
         }

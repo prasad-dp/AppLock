@@ -1323,7 +1323,23 @@ fun LockVerifyScreen(
             // Biometric trigger buttons removed
         }
 
+        var showPremiumDialogInUnlockScreen by remember { mutableStateOf(false) }
 
+        if (showPremiumDialogInUnlockScreen) {
+            com.example.ui.components.GoPremiumDialog(
+                prefs = prefs,
+                onDismiss = { showPremiumDialogInUnlockScreen = false },
+                onPremiumPurchased = { showPremiumDialogInUnlockScreen = false }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        com.example.ui.components.AdMobBanner(
+            isPremium = prefs.isPremiumUser,
+            onGoPremiumClick = { showPremiumDialogInUnlockScreen = true },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
     }
 }
 }

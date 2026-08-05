@@ -23,6 +23,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-4572028109031472~9939103146" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

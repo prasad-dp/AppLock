@@ -64,22 +64,28 @@ class AppLockService : Service() {
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
         registerReceiver(screenLockReceiver, filter)
 
-        // Start Foreground Service with notification
+        // Start Foreground Service with notification safely
         createNotificationChannel()
         val notification = createNotification()
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        var startedForeground = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
+                startedForeground = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start service as foreground with special use type", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start service as foreground", e)
-            stopSelf()
+        }
+        if (!startedForeground) {
+            try {
+                startForeground(NOTIFICATION_ID, notification)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start service as foreground fallback", e)
+            }
         }
 
         // Start background polling loop
