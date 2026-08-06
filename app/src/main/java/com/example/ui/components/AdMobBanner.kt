@@ -80,13 +80,13 @@ fun AdMobBanner(
 
                 Column {
                     Text(
-                        text = "Dashboard Adaptive Banner",
+                        text = "Sponsored Banner",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "ca-app-pub-4572028109031472/5616714759",
+                        text = "Tap to view options",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

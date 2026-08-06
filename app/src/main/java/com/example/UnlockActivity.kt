@@ -106,6 +106,26 @@ class UnlockActivity : FragmentActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        val pkg = targetPackageState.value
+        if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
+            if (AppLockSession.activeUnlockingPackage == pkg) {
+                AppLockSession.activeUnlockingPackage = null
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val pkg = targetPackageState.value
+        if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
+            if (AppLockSession.activeUnlockingPackage == pkg) {
+                AppLockSession.activeUnlockingPackage = null
+            }
+        }
+    }
+
     @android.annotation.SuppressLint("MissingSuperCall", "GestureBackNavigation")
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {

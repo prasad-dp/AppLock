@@ -126,7 +126,7 @@ fun RewardedAdDialog(
                 )
 
                 Text(
-                    text = "AdMob Rewarded Ad (ca-app-pub-4572028109031472/4238505740). Watching this video unlocks full clear snapshot resolution.",
+                    text = "Watching this short video unlocks full clear snapshot resolution.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -249,7 +249,7 @@ fun InterstitialAdDialog(
                     )
 
                     Text(
-                        text = "AdMob Interstitial Ad (ca-app-pub-4572028109031472/5036582092)\nThank you for keeping your device secure!",
+                        text = "Thank you for keeping your device secure!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center

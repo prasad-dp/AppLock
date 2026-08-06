@@ -880,6 +880,18 @@ fun DashboardView(
         }
     }
 
+    // Ensure Service starts when permissions are available and service is active
+    LaunchedEffect(hasUsagePermission, hasOverlayPermission, isServiceActiveState) {
+        if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+            val intent = Intent(context, AppLockService::class.java)
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // Observe lifecycle events to verify permission when returning from System Android Settings
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -906,7 +918,7 @@ fun DashboardView(
 
     val lockedApps = remember(appGridState) { appGridState.filter { it.isLocked } }
 
-    val onLockToggledRemembered = remember(viewModel) {
+    val onLockToggledRemembered = remember(viewModel, context, hasUsagePermission, hasOverlayPermission, isServiceActiveState) {
         { appInfo: GridAppInfo, locked: Boolean ->
             if (!locked) {
                 // Toggling off (Unprotecting) -> Requires credential validation!
@@ -914,6 +926,14 @@ fun DashboardView(
             } else {
                 // Toggling on (Protecting) does not require validation, lock right away!
                 viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
+                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                    val intent = Intent(context, AppLockService::class.java)
+                    try {
+                        ContextCompat.startForegroundService(context, intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
     }
@@ -1141,6 +1161,97 @@ fun DashboardView(
             0 -> {
                 // TAB 0: APPS TAB
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // System Permissions Banner on Apps Screen if permissions are missing
+                    if (!hasUsagePermission || !hasOverlayPermission) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Warning",
+                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "System Permission Required",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "App Locker needs system access to detect app launches and display the lock screen on protected apps.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (!hasUsagePermission) {
+                                        Button(
+                                            onClick = {
+                                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                                context.startActivity(intent)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                contentColor = MaterialTheme.colorScheme.errorContainer
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("grant_usage_permission_apps_tab_button")
+                                        ) {
+                                            Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Grant Usage Access Permission")
+                                        }
+                                    }
+                                    if (!hasOverlayPermission) {
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(
+                                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    ).apply {
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                    context.startActivity(intent)
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                contentColor = MaterialTheme.colorScheme.errorContainer
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("grant_overlay_permission_apps_tab_button")
+                                        ) {
+                                            Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Grant Display Overlay Permission")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Quick Action Row & Search
                     Column(
                         modifier = Modifier
@@ -1949,36 +2060,40 @@ fun DashboardView(
 }
 
 fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert) {
-        try {
-            val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(alert.timestamp))
-            val appName = alert.attemptedPackage ?: "App Locker"
-            val shareText = "Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
+    try {
+        val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(alert.timestamp))
+        val appName = alert.attemptedPackage ?: "App Locker"
+        val shareText = "🚨 Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
 
-            val photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
-            if (photoFile != null && photoFile.exists()) {
-                val contentUri = androidx.core.content.FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    photoFile
-                )
-                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "image/jpeg"
-                    putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
-                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot"))
-            } else {
-                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                }
-                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Alert"))
+        val photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
+        if (photoFile != null && photoFile.exists()) {
+            val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "image/jpeg"
+                putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
+                putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                clipData = android.content.ClipData.newRawUri("Intruder Photo", contentUri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Failed to share snapshot: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot").apply {
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(chooserIntent)
+        } else {
+            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+            }
+            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Alert"))
         }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Failed to share snapshot: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
     }
+}
 
 class DrawablePainter(private val drawable: android.graphics.drawable.Drawable) : androidx.compose.ui.graphics.painter.Painter() {
     override val intrinsicSize: androidx.compose.ui.geometry.Size

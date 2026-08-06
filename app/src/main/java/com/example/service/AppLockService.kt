@@ -138,6 +138,11 @@ class AppLockService : Service() {
                     }
 
                     if (currentApp != null && currentApp != packageName) {
+                        // Reset activeUnlockingPackage if user navigated to a different app
+                        if (AppLockSession.activeUnlockingPackage != null && currentApp != AppLockSession.activeUnlockingPackage) {
+                            AppLockSession.activeUnlockingPackage = null
+                        }
+
                         // Check if this package is locked (extremely fast in-memory check)
                         val isLocked = lockedPackages.contains(currentApp)
                         if (isLocked) {
@@ -145,16 +150,16 @@ class AppLockService : Service() {
                             val isUnlocked = AppLockSession.isUnlocked(currentApp)
                             val isUnlockingNow = AppLockSession.activeUnlockingPackage == currentApp
 
-                            // If we already tried launching the unlock overlay for this app but after 1.5s the foreground 
-                            // app is STILL the locked app (not our overlay), the launch was likely delayed or blocked by Android.
-                            // We trigger a re-launch overlay to prevent bypassing.
-                            val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 1500)
+                            // If overlay launch took longer than 800ms without covering the app, retry launch
+                            val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800)
 
                             if (!isUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
                                 Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
                                 launchUnlockScreen(currentApp)
                             }
                         }
+                    } else if (currentApp == packageName) {
+                        // Unlock screen or AppLocker is currently in foreground
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in checking loop", e)
@@ -166,15 +171,14 @@ class AppLockService : Service() {
 
     private fun getForegroundPackageName(usm: UsageStatsManager): String? {
         val endTime = System.currentTimeMillis()
-        
-        // Use a standard 15-second tracking window, which captures recent transitions flawlessly
         val startTime = endTime - 15000
+
         val usageEvents = try {
             usm.queryEvents(startTime, endTime)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to query usage events", e)
             null
-        } ?: return null
+        } ?: return lastKnownForegroundPackage
 
         val event = UsageEvents.Event()
         val packageStates = mutableMapOf<String, Int>()
@@ -184,15 +188,21 @@ class AppLockService : Service() {
             usageEvents.getNextEvent(event)
             val pkg = event.packageName ?: continue
             val type = event.eventType
-            if (type == UsageEvents.Event.ACTIVITY_RESUMED || type == UsageEvents.Event.ACTIVITY_PAUSED) {
-                packageStates[pkg] = type
-                packageLastTime[pkg] = event.timeStamp
+            if (type == UsageEvents.Event.ACTIVITY_RESUMED ||
+                type == UsageEvents.Event.ACTIVITY_PAUSED ||
+                type == UsageEvents.Event.ACTIVITY_STOPPED ||
+                type == 1 || type == 2) {
+
+                val prevTime = packageLastTime[pkg] ?: 0L
+                if (event.timeStamp >= prevTime) {
+                    packageLastTime[pkg] = event.timeStamp
+                    packageStates[pkg] = type
+                }
             }
         }
 
-        // Filter and find apps whose absolute latest event in the log is a RESUME.
-        // This is 100% correct, because any app that was paused cannot be in the foreground.
-        val resumedPackages = packageStates.filter { it.value == UsageEvents.Event.ACTIVITY_RESUMED }
+        // Find packages whose latest lifecycle state is RESUMED
+        val resumedPackages = packageStates.filter { it.value == UsageEvents.Event.ACTIVITY_RESUMED || it.value == 1 }
         if (resumedPackages.isNotEmpty()) {
             val topPkg = resumedPackages.keys.maxByOrNull { packageLastTime[it] ?: 0L }
             if (topPkg != null) {
@@ -201,22 +211,14 @@ class AppLockService : Service() {
             }
         }
 
-        // If there were events but none are currently in the RESUMED state, it means the foreground element 
-        // is likely the system launcher, an unlogged dialogue, or the lock screen.
-        if (packageStates.isNotEmpty()) {
-            lastKnownForegroundPackage = null
-            return null
-        }
-
-        // Fallback: If there was absolutely ZERO usage event in the last 15 seconds, query active stats,
-        // but only if the highest used app was touched in the last 8 seconds to prevent stale data recurrence.
+        // Fallback: Query UsageStats
         try {
-            val fallbackStart = endTime - 10000
+            val fallbackStart = endTime - 8000
             val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, fallbackStart, endTime)
             if (!stats.isNullOrEmpty()) {
                 val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
                 val top = sortedStats.firstOrNull()
-                if (top != null && (endTime - top.lastTimeUsed) < 8000) {
+                if (top != null && (endTime - top.lastTimeUsed) < 5000) {
                     lastKnownForegroundPackage = top.packageName
                     return top.packageName
                 }
@@ -225,7 +227,7 @@ class AppLockService : Service() {
             Log.e(TAG, "Failed fallback usage stats query", e)
         }
 
-        return null
+        return lastKnownForegroundPackage
     }
 
     @Suppress("DEPRECATION")
@@ -237,25 +239,32 @@ class AppLockService : Service() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-
-        // Pass background activity start authority mode on modern Android 14+ targets
-        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ActivityOptions.makeBasic().apply {
-                setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-            }.toBundle()
-        } else {
-            null
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
 
         try {
-            startActivity(intent, options)
+            startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed standard startActivity overlay", e)
+            Log.e(TAG, "Failed startActivity launch unlock screen", e)
             try {
-                startActivity(intent)
+                val pendingIntent = PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ActivityOptions.makeBasic().apply {
+                        setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                    }.toBundle()
+                } else null
+                if (options != null) {
+                    pendingIntent.send(this, 0, null, null, null, null, options)
+                } else {
+                    pendingIntent.send()
+                }
             } catch (ex: Exception) {
-                Log.e(TAG, "Failed fallback overlay launch", ex)
+                Log.e(TAG, "Failed fallback pending intent launch", ex)
             }
         }
     }

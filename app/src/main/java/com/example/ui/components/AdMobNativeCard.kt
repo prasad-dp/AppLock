@@ -72,7 +72,7 @@ fun AdMobNativeCard(
                     }
 
                     Text(
-                        text = "ca-app-pub-4572028109031472/8177750757",
+                        text = "AdMob Sponsored",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

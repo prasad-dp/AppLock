@@ -73,6 +73,7 @@ fun PinPadView(
     onCancelClick: (() -> Unit)? = null
 ) {
     var inputtedPin by remember(resetIdentifier) { mutableStateOf("") }
+    var lastClickTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(resetIdentifier) {
@@ -160,6 +161,12 @@ fun PinPadView(
                                         }
                                     )
                                     .clickable {
+                                        val now = System.currentTimeMillis()
+                                        if (now - lastClickTime < 180L) {
+                                            return@clickable
+                                        }
+                                        lastClickTime = now
+
                                         try {
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         } catch (_: Exception) {}
@@ -177,10 +184,11 @@ fun PinPadView(
                                             }
                                             else -> {
                                                 if (inputtedPin.length < pinLength) {
-                                                    inputtedPin += key
+                                                    val newPin = inputtedPin + key
+                                                    inputtedPin = newPin
                                                     // Handle auto-completion
-                                                    if (inputtedPin.length == pinLength) {
-                                                        onPinComplete(inputtedPin)
+                                                    if (newPin.length == pinLength) {
+                                                        onPinComplete(newPin)
                                                     }
                                                 }
                                             }
@@ -928,8 +936,27 @@ fun LockVerifyScreen(
         }
     }
 
+    val haptic = LocalHapticFeedback.current
+    val triggerErrorHaptic = {
+        try {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        } catch (_: Exception) {}
+        try {
+            val vibrator = androidx.core.content.ContextCompat.getSystemService(context, android.os.Vibrator::class.java)
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(300)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
     val handleWrongAttempt = {
         wrongAttemptsCount++
+        triggerErrorHaptic()
         
         // Take an intruder alert photo for ANY wrong attempts starting from 3
         if (wrongAttemptsCount >= 3) {
@@ -1024,6 +1051,7 @@ fun LockVerifyScreen(
 
                             override fun onAuthenticationFailed() {
                                 super.onAuthenticationFailed()
+                                triggerErrorHaptic()
                                 Toast.makeText(fa, "Fingerprint verification failed", Toast.LENGTH_SHORT).show()
                             }
                         }
@@ -1349,36 +1377,38 @@ fun LockVerifyScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Action Buttons Row
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onCancel != null) {
-                Button(
-                    onClick = onCancel,
-                    colors = ButtonDefaults.textButtonColors(),
-                    modifier = Modifier.testTag("cancel_unlock_button")
-                ) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.error)
+        if (onCancel != null || (prefs.isBiometricEnabled && prefs.lockType != "pin")) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (onCancel != null) {
+                    Button(
+                        onClick = onCancel,
+                        colors = ButtonDefaults.textButtonColors(),
+                        modifier = Modifier.testTag("cancel_unlock_button")
+                    ) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.error)
+                    }
                 }
-            }
 
-            if (prefs.isBiometricEnabled) {
-                OutlinedButton(
-                    onClick = {
-                        userDismissedBiometric = false
-                        triggerFingerprintScan()
-                    },
-                    modifier = Modifier.testTag("manual_biometric_trigger_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Fingerprint,
-                        contentDescription = "Use Fingerprint",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Fingerprint")
+                if (prefs.isBiometricEnabled && prefs.lockType != "pin") {
+                    OutlinedButton(
+                        onClick = {
+                            userDismissedBiometric = false
+                            triggerFingerprintScan()
+                        },
+                        modifier = Modifier.testTag("manual_biometric_trigger_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fingerprint,
+                            contentDescription = "Use Fingerprint",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Fingerprint")
+                    }
                 }
             }
         }
