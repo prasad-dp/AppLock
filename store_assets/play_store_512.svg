@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060913" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E1B4B" />
+    </linearGradient>
+
+    <!-- Ambient Glow -->
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Outer Shield Shadow/Aura -->
+    <linearGradient id="shieldAura" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0.1" />
+    </linearGradient>
+
+    <!-- Main Shield Gradient -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="60%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#1E40AF" />
+    </linearGradient>
+
+    <!-- Inner Bezel Gradient -->
+    <linearGradient id="bezelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+
+    <!-- Cyan Lock Inner Badge -->
+    <linearGradient id="cyanBadge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+  </defs>
+
+  <!-- 512x512 Background Canvas -->
+  <rect width="512" height="512" fill="url(#bgGrad)" />
+
+  <!-- Ambient Glow Circle -->
+  <circle cx="256" cy="256" r="190" fill="url(#glowGrad)" />
+
+  <!-- Outer Shield Aura -->
+  <path d="M256,76 L109,123 C109,270 171,374 256,417 C341,374 403,270 403,123 Z" fill="url(#shieldAura)" />
+
+  <!-- Main Shield -->
+  <path d="M256,95 L128,133 C128,261 180,356 256,394 C332,356 384,261 384,133 Z" fill="url(#shieldGrad)" />
+
+  <!-- Inner Bezel -->
+  <path d="M256,114 L147,147 C147,251 195,332 256,365 C317,332 365,251 365,147 Z" fill="url(#bezelGrad)" />
+
+  <!-- Padlock Shackle Outer (Pure White) -->
+  <path d="M204,218 V175 A52,52 0 0,1 308,175 V218 H280 V175 A24,24 0 0,0 232,175 V218 Z" fill="#FFFFFF" />
+
+  <!-- Padlock Body Base (Pure White) -->
+  <rect x="190" y="213" width="132" height="128" rx="19" fill="#FFFFFF" />
+
+  <!-- Cyan Lock Inner Core Badge -->
+  <rect x="200" y="223" width="112" height="108" rx="10" fill="url(#cyanBadge)" />
+
+  <!-- Keyhole (High-Contrast Cutout) -->
+  <path d="M256,246 A19,19 0 0,0 237,265 C237,273 242,280 249,283 L244,306 H268 L263,283 C270,280 275,273 275,265 A19,19 0 0,0 256,246 Z" fill="#0F172A" />
+
+</svg>

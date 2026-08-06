@@ -6,51 +6,81 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer glowing halo shield shadow effect -->
+    <!-- Outer glowing shield aura/shadow -->
     <path
-        android:fillColor="#153B82F6"
-        android:pathData="M54,12 L20,24 C20,56 34,81 54,96 C74,81 88,56 88,24 Z" />
-
-    <!-- Solid Shield Body -->
-    <path android:pathData="M54,16 L24,26 C24,53 36,75 54,88 C72,75 84,53 84,26 Z">
+        android:pathData="M54,16 L23,26 C23,57 36,79 54,88 C72,79 85,57 85,26 Z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="24"
+                android:startX="23"
                 android:startY="16"
-                android:endX="84"
+                android:endX="85"
                 android:endY="88"
                 android:type="linear">
-                <item
-                    android:color="#3B82F6"
-                    android:offset="0.0" />
-                <item
-                    android:color="#1D4ED8"
-                    android:offset="1.0" />
+                <item android:color="#5060A5FA" android:offset="0.0" />
+                <item android:color="#202563EB" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Inset Shield Detail / border highlight -->
-    <path android:pathData="M54,22 L30,30 C30,51 40,69 54,80 C68,69 78,51 78,30 Z">
+    <!-- Main Vibrant Shield Body -->
+    <path android:pathData="M54,20 L27,28 C27,55 38,75 54,83 C70,75 81,55 81,28 Z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="30"
-                android:startY="22"
-                android:endX="78"
-                android:endY="80"
+                android:startX="27"
+                android:startY="20"
+                android:endX="81"
+                android:endY="83"
                 android:type="linear">
-                <item
-                    android:color="#60A5FA"
-                    android:offset="0.0" />
-                <item
-                    android:color="#3B82F6"
-                    android:offset="1.0" />
+                <item android:color="#3B82F6" android:offset="0.0" />
+                <item android:color="#1D4ED8" android:offset="0.6" />
+                <item android:color="#1E40AF" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Stylized Modern Lock / Keyhole Inner Icon -->
+    <!-- Inner Shield Bezel Highlight -->
+    <path android:pathData="M54,24 L31,31 C31,53 41,70 54,77 C67,70 77,53 77,31 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="31"
+                android:startY="24"
+                android:endX="77"
+                android:endY="77"
+                android:type="linear">
+                <item android:color="#60A5FA" android:offset="0.0" />
+                <item android:color="#2563EB" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Padlock Shackle Outer (Solid Pure White) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,38 A7,7 0 1,0 54,52 A7,7 0 1,0 54,38 Z M50.5,49 L57.5,49 L59.5,67 L48.5,67 Z" />
+        android:pathData="M43,46 V37 A11,11 0 0,1 65,37 V46 H59 V37 A5,5 0 0,0 49,37 V46 Z" />
+
+    <!-- Padlock Body (Solid High-Contrast Pure White) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,45 H68 A4,4 0 0,1 72,49 V68 A4,4 0 0,1 68,72 H40 A4,4 0 0,1 36,68 V49 A4,4 0 0,1 40,45 Z" />
+
+    <!-- Vibrant Cyan Accent Badge inside Lock Body -->
+    <path android:pathData="M42,47 H66 A2,2 0 0,1 68,49 V66 A2,2 0 0,1 66,68 H42 A2,2 0 0,1 40,66 V49 A2,2 0 0,1 42,47 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="40"
+                android:startY="47"
+                android:endX="68"
+                android:endY="68"
+                android:type="linear">
+                <item android:color="#06B6D4" android:offset="0.0" />
+                <item android:color="#0284C7" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Keyhole (High Contrast Cutout) -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M54,52 A4,4 0 0,0 50,56 C50,57.7 51.1,59.2 52.6,59.7 L51.5,64.5 H56.5 L55.4,59.7 C56.9,59.2 58,57.7 58,56 A4,4 0 0,0 54,52 Z" />
+
 </vector>
