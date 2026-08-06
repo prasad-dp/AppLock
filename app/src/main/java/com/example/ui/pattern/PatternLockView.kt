@@ -70,8 +70,8 @@ fun PatternLockView(
         val spacing = (sizePx - 2f * margin) / 2f
         
         val density = LocalDensity.current
-        val dotRadiusPx = with(density) { 14.dp.toPx() } // Correctly scaled visual radius via density
-        val detectRadiusPx = with(density) { 48.dp.toPx() } // Larger touch target radius for responsive unlocking
+        val dotRadiusPx = remember(density) { with(density) { 14.dp.toPx() } } // Correctly scaled visual radius via density
+        val detectRadiusPx = remember(density) { with(density) { 48.dp.toPx() } } // Larger touch target radius for responsive unlocking
 
         val dots = remember(sizePx) {
             List(9) { i ->

@@ -1894,153 +1894,6 @@ fun DashboardView(
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
-                                } else {
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        intruderAlerts.forEach { alert ->
-                                            var attemptedAppName by remember(alert.attemptedPackage) {
-                                                mutableStateOf(alert.attemptedPackage ?: "App Locker Settings")
-                                            }
-                                            LaunchedEffect(alert.attemptedPackage) {
-                                                if (!alert.attemptedPackage.isNullOrEmpty()) {
-                                                    val name = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                        try {
-                                                            val pm = context.packageManager
-                                                            val info = pm.getApplicationInfo(alert.attemptedPackage, 0)
-                                                            pm.getApplicationLabel(info).toString()
-                                                        } catch (e: Exception) {
-                                                            alert.attemptedPackage
-                                                        }
-                                                    }
-                                                    attemptedAppName = name
-                                                } else {
-                                                    attemptedAppName = "App Locker Settings"
-                                                }
-                                            }
-
-                                            val dateStr = remember(alert.timestamp) {
-                                                java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault())
-                                                    .format(java.util.Date(alert.timestamp))
-                                            }
-
-                                            val isPhotoUnlocked = isPremiumUser || revealedPhotoAlertTimestamps.contains(alert.timestamp)
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                                        RoundedCornerShape(12.dp)
-                                                    )
-                                                    .padding(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                if (alert.photoPath.isNotEmpty()) {
-                                                    if (isPhotoUnlocked) {
-                                                        coil.compose.AsyncImage(
-                                                            model = java.io.File(alert.photoPath),
-                                                            contentDescription = "Intruder snapshot",
-                                                            modifier = Modifier
-                                                                .size(64.dp)
-                                                                .clip(RoundedCornerShape(8.dp))
-                                                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                                                                .clickable { zoomPhotoAlert = alert },
-                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                        )
-                                                    } else {
-                                                        Surface(
-                                                            onClick = { alertTargetForRewardedAd = alert },
-                                                            shape = RoundedCornerShape(8.dp),
-                                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                                            modifier = Modifier.size(64.dp)
-                                                        ) {
-                                                            Column(
-                                                                modifier = Modifier.fillMaxSize().padding(2.dp),
-                                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                                verticalArrangement = Arrangement.Center
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Default.Lock,
-                                                                    contentDescription = "Locked photo",
-                                                                    tint = MaterialTheme.colorScheme.primary,
-                                                                    modifier = Modifier.size(20.dp)
-                                                                )
-                                                                Text(
-                                                                    text = "Watch Ad",
-                                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    color = MaterialTheme.colorScheme.primary
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(64.dp)
-                                                            .clip(RoundedCornerShape(8.dp))
-                                                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Photo,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                        )
-                                                    }
-                                                }
-
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = "Target: $attemptedAppName",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Text(
-                                                        text = "Cred type: ${alert.lockType.uppercase(java.util.Locale.US)}",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                    Text(
-                                                        text = dateStr,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontWeight = FontWeight.Light
-                                                    )
-                                                }
-
-                                                IconButton(
-                                                    onClick = {
-                                                        if (isPremiumUser) {
-                                                            shareIntruderSnapshot(context, alert)
-                                                        } else {
-                                                            alertTargetForShareAd = alert
-                                                        }
-                                                    },
-                                                    modifier = Modifier.testTag("share_snapshot_button")
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Share,
-                                                        contentDescription = "Share snapshot",
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-
-                                                IconButton(
-                                                    onClick = { viewModel.deleteIntruderAlert(alert) },
-                                                    modifier = Modifier.testTag("delete_snapshot_button")
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete record",
-                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
 
                                 if (!isPremiumUser) {
@@ -2051,6 +1904,27 @@ fun DashboardView(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    if (intruderAlerts.isNotEmpty()) {
+                        items(intruderAlerts, key = { it.timestamp }) { alert ->
+                            val isPhotoUnlocked = isPremiumUser || revealedPhotoAlertTimestamps.contains(alert.timestamp)
+                            IntruderAlertItem(
+                                alert = alert,
+                                isPremiumUser = isPremiumUser,
+                                isPhotoUnlocked = isPhotoUnlocked,
+                                onZoomPhoto = { zoomPhotoAlert = it },
+                                onWatchAdForPhoto = { alertTargetForRewardedAd = it },
+                                onShare = {
+                                    if (isPremiumUser) {
+                                        shareIntruderSnapshot(context, alert)
+                                    } else {
+                                        alertTargetForShareAd = alert
+                                    }
+                                },
+                                onDelete = { viewModel.deleteIntruderAlert(it) }
+                            )
                         }
                     }
                 }
@@ -2231,4 +2105,149 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
         )
     }
     return mode == AppOpsManager.MODE_ALLOWED
+}
+
+@Composable
+fun IntruderAlertItem(
+    alert: IntruderAlert,
+    isPremiumUser: Boolean,
+    isPhotoUnlocked: Boolean,
+    onZoomPhoto: (IntruderAlert) -> Unit,
+    onWatchAdForPhoto: (IntruderAlert) -> Unit,
+    onShare: (IntruderAlert) -> Unit,
+    onDelete: (IntruderAlert) -> Unit
+) {
+    val context = LocalContext.current
+    var attemptedAppName by remember(alert.attemptedPackage) {
+        mutableStateOf(alert.attemptedPackage ?: "App Locker Settings")
+    }
+    LaunchedEffect(alert.attemptedPackage) {
+        if (!alert.attemptedPackage.isNullOrEmpty()) {
+            val name = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val pm = context.packageManager
+                    val info = pm.getApplicationInfo(alert.attemptedPackage, 0)
+                    pm.getApplicationLabel(info).toString()
+                } catch (e: Exception) {
+                    alert.attemptedPackage
+                }
+            }
+            attemptedAppName = name
+        } else {
+            attemptedAppName = "App Locker Settings"
+        }
+    }
+
+    val dateStr = remember(alert.timestamp) {
+        java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault())
+            .format(java.util.Date(alert.timestamp))
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (alert.photoPath.isNotEmpty()) {
+            if (isPhotoUnlocked) {
+                coil.compose.AsyncImage(
+                    model = java.io.File(alert.photoPath),
+                    contentDescription = "Intruder snapshot",
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                        .clickable { onZoomPhoto(alert) },
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            } else {
+                Surface(
+                    onClick = { onWatchAdForPhoto(alert) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked photo",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Watch Ad",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Photo,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Target: $attemptedAppName",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Cred type: ${alert.lockType.uppercase(java.util.Locale.US)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = dateStr,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Light
+            )
+        }
+
+        IconButton(
+            onClick = { onShare(alert) },
+            modifier = Modifier.testTag("share_snapshot_button")
+        ) {
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = "Share snapshot",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        IconButton(
+            onClick = { onDelete(alert) },
+            modifier = Modifier.testTag("delete_snapshot_button")
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete record",
+                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+            )
+        }
+    }
 }
