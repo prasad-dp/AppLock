@@ -18,10 +18,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.config.AdMobConfig
 
 /**
  * AdMob integration Banner / Native Ad container placeholder.
- * Displays test AdMob banner (Ad Unit ID: ca-app-pub-3940256099942544/6300978111)
+ * Uses test AdMob Banner (Ad Unit ID: AdMobConfig.BANNER_AD_UNIT_ID)
  * when user is not on a Premium subscription.
  */
 @Composable
@@ -86,8 +87,8 @@ fun AdMobBanner(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Tap to view options",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Ad Unit: ${AdMobConfig.BANNER_AD_UNIT_ID}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

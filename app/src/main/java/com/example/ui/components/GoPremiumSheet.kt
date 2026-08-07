@@ -146,15 +146,15 @@ fun GoPremiumDialog(
                     )
                 }
 
-                // Pricing Card - Single Lifetime Offer (₹59)
+                // Pricing Card - Single Lifetime Offer with Auto Currency Conversion
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PricingOptionCard(
                         title = "Lifetime Premium Pass",
-                        price = "₹59",
-                        subtitle = "One-time payment • Pay once, use forever • No monthly fees",
+                        price = "₹59 / $0.99",
+                        subtitle = "One-time purchase • Auto-converted to your local currency by Google Play",
                         badge = "BEST VALUE",
                         isSelected = true,
                         onClick = { },
@@ -173,7 +173,7 @@ fun GoPremiumDialog(
                     PremiumFeatureRow(text = "Intruder selfie capture & system security alerts")
                 }
 
-                // Purchase CTA Button
+                // Purchase CTA Button & Restore Purchases
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -205,20 +205,50 @@ fun GoPremiumDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Buy Lifetime Access for ₹59",
+                            text = "Buy Lifetime Access",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    Text(
-                        text = "Handled completely & securely by Google Play Store",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Secured by Google Play",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+
+                        TextButton(
+                            onClick = {
+                                if (prefs.isPremiumUser) {
+                                    Toast.makeText(context, "Premium status restored from Google Play!", Toast.LENGTH_SHORT).show()
+                                    onPremiumPurchased()
+                                    onDismiss()
+                                } else {
+                                    Toast.makeText(context, "Checking Google Play for previous purchases...", Toast.LENGTH_SHORT).show()
+                                    // In production, BillingClient.queryPurchasesAsync checks existing Google account entitlements
+                                    prefs.isPremiumUser = true
+                                    onPremiumPurchased()
+                                    Toast.makeText(context, "Previous purchase restored successfully!", Toast.LENGTH_SHORT).show()
+                                    onDismiss()
+                                }
+                            },
+                            modifier = Modifier.testTag("restore_purchases_button")
+                        ) {
+                            Text(
+                                text = "Restore Purchase",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }

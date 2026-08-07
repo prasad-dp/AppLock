@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.config.AdMobConfig
 import kotlinx.coroutines.delay
 
 /**
@@ -126,7 +127,7 @@ fun RewardedAdDialog(
                 )
 
                 Text(
-                    text = "Watching this short video unlocks full clear snapshot resolution.",
+                    text = "Watching this video unlocks full snapshot. Test Ad Unit: ${AdMobConfig.REWARDED_AD_UNIT_ID}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -249,7 +250,7 @@ fun InterstitialAdDialog(
                     )
 
                     Text(
-                        text = "Thank you for keeping your device secure!",
+                        text = "Thank you for keeping your device secure! Test Ad Unit: ${AdMobConfig.INTERSTITIAL_AD_UNIT_ID}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -267,7 +268,7 @@ fun InterstitialAdDialog(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Upgrade to Premium (₹59) to permanently disable all ads.",
+                            text = "Upgrade to Premium to permanently disable all ads.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

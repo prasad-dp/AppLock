@@ -18,10 +18,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.config.AdMobConfig
 
 /**
  * In-Feed Native Advanced Ad Card.
  * Placed within LazyColumn app list items to monetize high engagement scrolling.
+ * Uses Test Native Ad Unit ID: AdMobConfig.NATIVE_AD_UNIT_ID
  */
 @Composable
 fun AdMobNativeCard(
@@ -127,7 +129,7 @@ fun AdMobNativeCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Explore top rated mobile protection tools. AdMob Test Native Advanced Ad.",
+                        text = "Explore top rated mobile protection tools. Ad Unit: ${AdMobConfig.NATIVE_AD_UNIT_ID}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
