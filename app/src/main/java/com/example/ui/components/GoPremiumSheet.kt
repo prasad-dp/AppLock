@@ -147,14 +147,26 @@ fun GoPremiumDialog(
                 }
 
                 // Pricing Card - Single Lifetime Offer with Auto Currency Conversion
+                val currentLocale = remember { java.util.Locale.getDefault() }
+                val isIndiaRegion = remember(currentLocale) {
+                    currentLocale.country.equals("IN", ignoreCase = true) ||
+                    currentLocale.language.equals("hi", ignoreCase = true) ||
+                    currentLocale.displayName.contains("India", ignoreCase = true)
+                }
+                val dynamicPrice = if (isIndiaRegion) "₹83" else "$0.99"
+                val dynamicSubtitle = if (isIndiaRegion) 
+                    "One-time purchase • Standard $0.99 USD equivalent in INR" 
+                else 
+                    "One-time purchase • Localized currency handled by Google Play"
+
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PricingOptionCard(
                         title = "Lifetime Premium Pass",
-                        price = "₹59 / $0.99",
-                        subtitle = "One-time purchase • Auto-converted to your local currency by Google Play",
+                        price = dynamicPrice,
+                        subtitle = dynamicSubtitle,
                         badge = "BEST VALUE",
                         isSelected = true,
                         onClick = { },

@@ -606,11 +606,17 @@ fun DashboardView(
         } else {
             viewModel.setIntruderDetectionEnabled(false)
             isIntruderDetectionEnabledState = false
-            Toast.makeText(context, "Camera permission matches. Intruder detection disabled.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Camera permission required for Intruder Selfie", Toast.LENGTH_SHORT).show()
         }
     }
 
     LaunchedEffect(Unit) {
+        // Request Camera permission on app opening so required permissions are achieved upfront
+        val hasCameraPerm = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!hasCameraPerm) {
+            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+
         val activityIntent = (context as? android.app.Activity)?.intent
         val selection = activityIntent?.getStringExtra("SELECTION")
         if (selection == "intruder_records") {
