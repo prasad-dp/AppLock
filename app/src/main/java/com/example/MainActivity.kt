@@ -1,5 +1,7 @@
 package com.example
 
+import com.example.util.AlphanumericComparator
+
 import android.app.AppOpsManager
 import android.app.Application
 import android.content.Context
@@ -1045,7 +1047,15 @@ fun DashboardView(
         }
     }
 
-    val lockedApps = remember(appGridState) { appGridState.filter { it.isLocked } }
+    val lockedApps = remember(allLockedApps, searchQuery) {
+        val trimmedQuery = searchQuery.trim()
+        val filtered = if (trimmedQuery.isEmpty()) {
+            allLockedApps
+        } else {
+            allLockedApps.filter { it.appName.contains(trimmedQuery, ignoreCase = true) }
+        }
+        filtered.sortedWith(AlphanumericComparator.LOCKED_APP_COMPARATOR)
+    }
 
     val onLockToggledRemembered = remember(viewModel, context, hasUsagePermission, hasOverlayPermission, isServiceActiveState) {
         { appInfo: GridAppInfo, locked: Boolean ->
@@ -1733,6 +1743,9 @@ fun DashboardView(
                                         onCheckedChange = { active ->
                                             isBiometricEnabledState = active
                                             viewModel.setBiometricEnabled(active)
+                                            if (!isPremiumUser) {
+                                                showTransitionInterstitial = "Biometric Lock Updated"
+                                            }
                                             Toast.makeText(context, if (active) "Fingerprint unlock active" else "Fingerprint unlock deactivated", Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.testTag("biometric_active_switch")
@@ -1766,6 +1779,9 @@ fun DashboardView(
                                                 if (granted) {
                                                     isIntruderDetectionEnabledState = true
                                                     viewModel.setIntruderDetectionEnabled(true)
+                                                    if (!isPremiumUser) {
+                                                        showTransitionInterstitial = "Intruder Detection Armed"
+                                                    }
                                                     Toast.makeText(context, "Intruder Detection fully armed!", Toast.LENGTH_SHORT).show()
                                                 } else {
                                                     cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
@@ -1773,6 +1789,9 @@ fun DashboardView(
                                             } else {
                                                 isIntruderDetectionEnabledState = false
                                                 viewModel.setIntruderDetectionEnabled(false)
+                                                if (!isPremiumUser) {
+                                                    showTransitionInterstitial = "Intruder Detection Disarmed"
+                                                }
                                                 Toast.makeText(context, "Intruder Detection disarmed", Toast.LENGTH_SHORT).show()
                                             }
                                         },
@@ -1806,6 +1825,9 @@ fun DashboardView(
                                             val settingsApp = appGridState.firstOrNull { it.packageName == "com.android.settings" }
                                             val appName = settingsApp?.appName ?: "Settings"
                                             viewModel.toggleAppLock("com.android.settings", appName, active)
+                                            if (!isPremiumUser) {
+                                                showTransitionInterstitial = "System Settings Protection"
+                                            }
                                             Toast.makeText(
                                                 context,
                                                 if (active) "System Settings Protected!" else "System Settings Protection Removed",
@@ -2187,13 +2209,6 @@ fun AppRowItem(
                     text = appInfo.appName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = appInfo.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

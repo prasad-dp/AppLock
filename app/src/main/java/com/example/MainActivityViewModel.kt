@@ -11,6 +11,7 @@ import com.example.data.AppRepository
 import com.example.data.LockedApp
 import com.example.data.LockPreferences
 import com.example.data.IntruderAlert
+import com.example.util.AlphanumericComparator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -75,18 +76,26 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         lockedAppsFlow = repository.allLockedAppsStateFlow
 
         appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode) { installed, lockedList, query, filter ->
-            val lockedPackagesMap = lockedList.associateBy { it.packageName }
+            val lockedSet = HashSet<String>(lockedList.size).apply {
+                for (item in lockedList) add(item.packageName)
+            }
             
-            val mapped = installed.map { (packageName, appName) ->
-                GridAppInfo(
-                    packageName = packageName,
-                    appName = appName,
-                    isLocked = lockedPackagesMap.containsKey(packageName)
+            val mapped = ArrayList<GridAppInfo>(installed.size + lockedList.size)
+            val installedSet = HashSet<String>(installed.size)
+
+            for ((packageName, appName) in installed) {
+                installedSet.add(packageName)
+                mapped.add(
+                    GridAppInfo(
+                        packageName = packageName,
+                        appName = appName,
+                        isLocked = lockedSet.contains(packageName)
+                    )
                 )
-            }.toMutableList()
+            }
 
             for (lockedApp in lockedList) {
-                if (mapped.none { it.packageName == lockedApp.packageName }) {
+                if (!installedSet.contains(lockedApp.packageName)) {
                     mapped.add(
                         GridAppInfo(
                             packageName = lockedApp.packageName,
@@ -97,17 +106,19 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 }
             }
 
-            val filteredBySearch = if (query.isEmpty()) {
+            val trimmedQuery = query.trim()
+            val filteredBySearch = if (trimmedQuery.isEmpty()) {
                 mapped
             } else {
-                mapped.filter { it.appName.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
+                mapped.filter { it.appName.contains(trimmedQuery, ignoreCase = true) }
             }
 
-            when (filter) {
+            val filtered = when (filter) {
                 AppFilterMode.ALL -> filteredBySearch
                 AppFilterMode.LOCKED -> filteredBySearch.filter { it.isLocked }
                 AppFilterMode.UNLOCKED -> filteredBySearch.filter { !it.isLocked }
             }
+            filtered.sortedWith(AlphanumericComparator.GRID_APP_COMPARATOR)
         }.flowOn(Dispatchers.Default).stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -131,17 +142,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     if (packageName == context.packageName) return@mapNotNull null // Don't lock ourselves
                     try {
                         val appLabel = resolveInfo.loadLabel(pm).toString()
-                        try {
-                            val appIcon = resolveInfo.loadIcon(pm)
-                            AppIconCache.put(packageName, appIcon)
-                        } catch (e: Exception) {
-                            // Suppress icon failures and continue loading application names
-                        }
                         Pair(packageName, appLabel)
                     } catch (e: Exception) {
                         null
                     }
-                }.distinctBy { it.first }.sortedBy { it.second }
+                }.distinctBy { it.first }.sortedWith { a, b -> AlphanumericComparator.compareNames(a.second, b.second) }
             }
             _installedApps.value = appsList
             _isLoadingApps.value = false
