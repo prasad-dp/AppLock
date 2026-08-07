@@ -70,18 +70,38 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 object AppIconCache {
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, android.graphics.drawable.Drawable>()
+    private val maxMemoryKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSizeKb = (maxMemoryKb / 8).coerceAtLeast(2048) // allocate 1/8th of max heap in KB
 
-    fun get(packageName: String): android.graphics.drawable.Drawable? = cache[packageName]
+    private val cache = object : android.util.LruCache<String, android.graphics.drawable.Drawable>(cacheSizeKb) {
+        override fun sizeOf(key: String, value: android.graphics.drawable.Drawable): Int {
+            return if (value is android.graphics.drawable.BitmapDrawable && !value.bitmap.isRecycled) {
+                (value.bitmap.byteCount / 1024).coerceAtLeast(1)
+            } else {
+                64 // Default size estimate in KB for vector or custom drawables
+            }
+        }
+    }
 
+    @Synchronized
+    fun get(packageName: String): android.graphics.drawable.Drawable? = cache.get(packageName)
+
+    @Synchronized
     fun put(packageName: String, drawable: android.graphics.drawable.Drawable) {
-        cache[packageName] = drawable
+        cache.put(packageName, drawable)
+    }
+
+    @Synchronized
+    fun clear() {
+        cache.evictAll()
     }
 }
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        window.decorView.filterTouchesWhenObscured = true
         enableEdgeToEdge()
 
         setContent {
@@ -561,6 +581,7 @@ fun DashboardView(
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var isServiceActiveState by remember { mutableStateOf(viewModel.isServiceActive()) }
+    var showDisableShieldConfirmation by remember { mutableStateOf(false) }
     var isBiometricEnabledState by remember { mutableStateOf(viewModel.isBiometricEnabled()) }
     var isIntruderDetectionEnabledState by remember { mutableStateOf(viewModel.isIntruderDetectionEnabled()) }
     var isAutoCleanupEnabledState by remember { mutableStateOf(viewModel.isAutoCleanupEnabled()) }
@@ -732,6 +753,108 @@ fun DashboardView(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if (showDisableShieldConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDisableShieldConfirmation = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.ShieldMoon,
+                    contentDescription = "Shield Protection Warning",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Turn Off Background Shield?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Turning off Background Shield exposes your device to security risks:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "• Paused Protection: Real-time app interception will be temporarily stopped.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "• Privacy Warning: Anyone can open locked apps without PIN or Pattern.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "• Disabled Snapshots: Intruder selfie capture & break-in alerts will be disabled.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Keep active for continuous 24/7 protection.",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDisableShieldConfirmation = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Keep Shield Active", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDisableShieldConfirmation = false
+                        isServiceActiveState = false
+                        viewModel.setServiceActive(false)
+                        val intent = Intent(context, AppLockService::class.java)
+                        context.stopService(intent)
+                        Toast.makeText(context, "Locker service stopped", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text(
+                        text = "Turn Off Anyway",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.testTag("disable_shield_confirmation_dialog")
         )
     }
 
@@ -1556,10 +1679,10 @@ fun DashboardView(
                                     Switch(
                                         checked = isServiceActiveState,
                                         onCheckedChange = { active ->
-                                            isServiceActiveState = active
-                                            viewModel.setServiceActive(active)
-                                            val intent = Intent(context, AppLockService::class.java)
                                             if (active) {
+                                                isServiceActiveState = true
+                                                viewModel.setServiceActive(true)
+                                                val intent = Intent(context, AppLockService::class.java)
                                                 if (hasUsagePermission && hasOverlayPermission) {
                                                     try {
                                                         ContextCompat.startForegroundService(context, intent)
@@ -1572,8 +1695,8 @@ fun DashboardView(
                                                     Toast.makeText(context, "Grant usage and overlay permissions first!", Toast.LENGTH_LONG).show()
                                                 }
                                             } else {
-                                                context.stopService(intent)
-                                                Toast.makeText(context, "Locker service stopped", Toast.LENGTH_SHORT).show()
+                                                // Ask for confirmation before turning off Background App Shield
+                                                showDisableShieldConfirmation = true
                                             }
                                         },
                                         modifier = Modifier.testTag("service_active_switch")

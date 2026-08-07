@@ -72,6 +72,7 @@ fun PatternLockView(
         val density = LocalDensity.current
         val dotRadiusPx = remember(density) { with(density) { 14.dp.toPx() } } // Correctly scaled visual radius via density
         val detectRadiusPx = remember(density) { with(density) { 48.dp.toPx() } } // Larger touch target radius for responsive unlocking
+        val detectRadiusSq = detectRadiusPx * detectRadiusPx
 
         val dots = remember(sizePx) {
             List(9) { i ->
@@ -97,7 +98,7 @@ fun PatternLockView(
                         
                         // Check if initial touch is on any dot
                         dots.forEachIndexed { index, dot ->
-                            if (getDistance(offset, dot) < detectRadiusPx) {
+                            if (getDistanceSq(offset, dot) < detectRadiusSq) {
                                 connectedDots.add(index)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
@@ -125,7 +126,7 @@ fun PatternLockView(
                                 currentTouchPosition = currentOffset
 
                                 dots.forEachIndexed { index, dot ->
-                                    if (getDistance(currentOffset, dot) < detectRadiusPx) {
+                                    if (getDistanceSq(currentOffset, dot) < detectRadiusSq) {
                                         if (index !in connectedDots) {
                                             // Auto-add intermediate skips (e.g., going diagonal or jumping over dots)
                                             if (connectedDots.isNotEmpty()) {
@@ -215,8 +216,8 @@ fun PatternLockView(
     }
 }
 
-private fun getDistance(p1: Offset, p2: Offset): Float {
+private fun getDistanceSq(p1: Offset, p2: Offset): Float {
     val dx = p1.x - p2.x
     val dy = p1.y - p2.y
-    return sqrt(dx * dx + dy * dy)
+    return dx * dx + dy * dy
 }

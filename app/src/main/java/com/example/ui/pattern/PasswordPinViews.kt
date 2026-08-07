@@ -905,6 +905,10 @@ fun LockVerifyScreen(
     subtitle: String = "Authentication Required"
 ) {
     val context = LocalContext.current
+    val currentView = androidx.compose.ui.platform.LocalView.current
+    SideEffect {
+        currentView.filterTouchesWhenObscured = true
+    }
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val repository = remember(context) {
@@ -916,7 +920,7 @@ fun LockVerifyScreen(
     var appLabel by remember(packageName) { mutableStateOf("") }
     var appIcon by remember(packageName) { mutableStateOf<Drawable?>(null) }
 
-    var wrongAttemptsCount by remember(packageName) { mutableStateOf(0) }
+    var wrongAttemptsCount by remember(packageName) { mutableIntStateOf(prefs.getFailedAttempts(packageName)) }
     var lockoutSecondsLeft by remember(packageName) { mutableStateOf(0L) }
     val showFaceScan = false
 
@@ -929,6 +933,7 @@ fun LockVerifyScreen(
             } else {
                 if (lockoutSecondsLeft > 0) {
                     wrongAttemptsCount = 0 // Reset attempts count upon transition out of lockout cooldown
+                    prefs.setFailedAttempts(packageName, 0)
                 }
                 lockoutSecondsLeft = 0
             }
@@ -956,6 +961,7 @@ fun LockVerifyScreen(
 
     val handleWrongAttempt = {
         wrongAttemptsCount++
+        prefs.setFailedAttempts(packageName, wrongAttemptsCount)
         triggerErrorHaptic()
         
         // Take an intruder alert photo for ANY wrong attempts starting from 3
@@ -1043,6 +1049,8 @@ fun LockVerifyScreen(
                                 super.onAuthenticationSucceeded(result)
                                 patternState = PatternState.SUCCESS
                                 statusText = "Unlock successful!"
+                                wrongAttemptsCount = 0
+                                prefs.setFailedAttempts(packageName, 0)
                                 coroutineScope.launch {
                                     delay(300)
                                     onSuccess()
@@ -1292,6 +1300,8 @@ fun LockVerifyScreen(
                             if (com.example.util.SecurityUtils.verifySecret(currentPatternStr, savedPattern)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "Unlock successful!"
+                                wrongAttemptsCount = 0
+                                prefs.setFailedAttempts(packageName, 0)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1325,6 +1335,8 @@ fun LockVerifyScreen(
                             if (com.example.util.SecurityUtils.verifySecret(pin, savedPin)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "PIN verified!"
+                                wrongAttemptsCount = 0
+                                prefs.setFailedAttempts(packageName, 0)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1353,6 +1365,8 @@ fun LockVerifyScreen(
                             if (com.example.util.SecurityUtils.verifySecret(password, savedPassword)) {
                                 patternState = PatternState.SUCCESS
                                 statusText = "Password verified!"
+                                wrongAttemptsCount = 0
+                                prefs.setFailedAttempts(packageName, 0)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
