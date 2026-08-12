@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.example.data.IntruderAlert
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -1186,15 +1187,32 @@ fun DashboardView(
         }
     }
 
+    val scrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (kotlin.math.abs(available.y) > 1f) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                })
+                detectTapGestures(
+                    onPress = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                )
             }
     ) {
         // App Header Toolbar
@@ -1623,7 +1641,7 @@ fun DashboardView(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .imeNestedScroll()
+                            .nestedScroll(scrollConnection)
                             .imePadding(),
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -1709,6 +1727,7 @@ fun DashboardView(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .nestedScroll(scrollConnection)
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -2133,6 +2152,7 @@ fun DashboardView(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .nestedScroll(scrollConnection)
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
