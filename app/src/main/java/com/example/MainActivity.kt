@@ -6,6 +6,7 @@ import com.example.util.DoubleLockDetector
 import com.example.util.DoubleLockRecommendationEngine
 import com.example.ui.components.DoubleLockAdvisorDialog
 import com.example.ui.components.DoubleLockRecommendationCard
+import com.example.ui.components.DoubleUnlockTipBanner
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -609,6 +610,7 @@ fun DashboardView(
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
     var doubleLockAdvisorTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showDoubleLockAdvisorDialog by remember { mutableStateOf(false) }
+    var showDoubleLockTipCard by remember { mutableStateOf(true) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -1590,25 +1592,12 @@ fun DashboardView(
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        item {
-                            val doubleLockReport = remember(appGridState, isPremiumUser, reLockTimeoutState) {
-                                DoubleLockRecommendationEngine.analyzeDoubleLockRisks(appGridState, prefs)
+                        if (showDoubleLockTipCard) {
+                            item {
+                                DoubleUnlockTipBanner(
+                                    onDismiss = { showDoubleLockTipCard = false }
+                                )
                             }
-                            DoubleLockRecommendationCard(
-                                report = doubleLockReport,
-                                isPremiumUser = isPremiumUser,
-                                onGoPremiumClick = { showGoPremiumDialog = true },
-                                onFixAllDoubleLocks = {
-                                    doubleLockReport.highRiskApps.forEach { item ->
-                                        prefs.setPerAppRelockTimeout(item.appInfo.packageName, "15_sec")
-                                    }
-                                    Toast.makeText(context, "Set 15s grace window for ${doubleLockReport.totalConflictCount} app(s) to prevent unlock loops!", Toast.LENGTH_SHORT).show()
-                                },
-                                onFixSingleApp = { item ->
-                                    prefs.setPerAppRelockTimeout(item.appInfo.packageName, "15_sec")
-                                    Toast.makeText(context, "Set 15s delay for ${item.appInfo.appName}", Toast.LENGTH_SHORT).show()
-                                }
-                            )
                         }
 
                         if (isLoadingApps) {
