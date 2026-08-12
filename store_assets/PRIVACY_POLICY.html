@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - App Locker & Intruder Detector</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 24px; }
+        h1 { color: #1a73e8; border-bottom: 2px solid #e8eaed; padding-bottom: 12px; }
+        h2 { color: #202124; margin-top: 28px; }
+        p, li { color: #3c4043; }
+        ul { padding-left: 20px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e8eaed; font-size: 0.9em; color: #70757a; }
+    </style>
+</head>
+<body>
+
+    <h1>Privacy Policy</h1>
+    <p><strong>Effective Date:</strong> August 12, 2026</p>
+
+    <p>This Privacy Policy describes how <strong>App Locker & Intruder Detector</strong> ("we", "us", or "our") handles information and permissions when you use our Android application.</p>
+
+    <h2>1. Data Collection & Usage</h2>
+    <p>We prioritize your privacy. The app operates locally on your device for core app locking and intruder detection features:</p>
+    <ul>
+        <li><strong>Intruder Snapshots:</strong> When an unauthorized user attempts to unlock a protected app with an incorrect PIN, Pattern, or Password, the app uses your device's front camera to capture a photo of the intruder. All photos are stored <strong>locally on your device's private storage</strong> and are never uploaded to any remote server or external service.</li>
+        <li><strong>App Usage & Package Information:</strong> The app accesses installed package information solely to display installed apps in the locker dashboard and detect when a locked app is launched. This information stays strictly on your device.</li>
+        <li><strong>Biometric Credentials:</strong> Biometric authentication (Fingerprint / Face Unlock) utilizes standard Android system APIs. We do not access, store, or transmit your biometric data.</li>
+    </ul>
+
+    <h2>2. Third-Party Services & Advertising</h2>
+    <p>Our app integrates Google AdMob to display advertisements. AdMob may collect and use pseudonymous device identifier information (such as Advertising ID) to serve personalized or non-personalized ads, prevent fraud, and report analytics.</p>
+    <p>For more details on how Google handles data, please review:</p>
+    <ul>
+        <li><a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
+        <li><a href="https://support.google.com/admob/answer/6128543" target="_blank">Google AdMob Policies & Restrictions</a></li>
+    </ul>
+
+    <h2>3. Device Permissions Used</h2>
+    <ul>
+        <li><strong>Camera (android.permission.CAMERA):</strong> Required exclusively to take intruder snapshot photos upon failed unlock attempts.</li>
+        <li><strong>Usage Access (PACKAGE_USAGE_STATS):</strong> Required to monitor when locked apps are opened.</li>
+        <li><strong>Display Over System Apps (SYSTEM_ALERT_WINDOW):</strong> Required to display the lock screen overlay when a protected app is opened.</li>
+        <li><strong>Biometric Access (USE_BIOMETRIC):</strong> Optional, allows unlocking protected apps via fingerprint/face recognition.</li>
+    </ul>
+
+    <h2>4. Data Retention & Deletion</h2>
+    <p>All intruder logs and snapshots are saved locally on your device. You can clear intruder logs or snapshots at any time within the app settings, or delete them automatically by uninstalling the application.</p>
+
+    <h2>5. Security</h2>
+    <p>We take security seriously. All app lock state settings and passcode hash digests are stored in encrypted local storage using Android's security frameworks.</p>
+
+    <h2>6. Contact Us</h2>
+    <p>If you have any questions or concerns regarding this Privacy Policy, please contact us at:</p>
+    <p>Email: <a href="mailto:prasadkalepu315@gmail.com">prasadkalepu315@gmail.com</a></p>
+
+    <div class="footer">
+        <p>&copy; 2026 App Locker & Intruder Detector. All rights reserved.</p>
+    </div>
+
+</body>
+</html>
