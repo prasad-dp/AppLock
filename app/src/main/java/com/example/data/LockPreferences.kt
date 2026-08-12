@@ -130,6 +130,14 @@ class LockPreferences(context: Context) {
         get() = prefs.getBoolean("is_premium_user", false)
         set(value) = prefs.edit().putBoolean("is_premium_user", value).apply()
 
+    fun isDoubleLockWarningSuppressed(packageName: String): Boolean {
+        return prefs.getBoolean("suppress_double_lock_warning_$packageName", false)
+    }
+
+    fun suppressDoubleLockWarning(packageName: String, suppress: Boolean) {
+        prefs.edit().putBoolean("suppress_double_lock_warning_$packageName", suppress).apply()
+    }
+
     fun getPerAppRelockTimeout(packageName: String): String? {
         return prefs.getString("per_app_relock_timeout_$packageName", null)
     }

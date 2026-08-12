@@ -2,6 +2,10 @@ package com.example
 
 import com.example.util.AlphanumericComparator
 import com.example.util.findActivity
+import com.example.util.DoubleLockDetector
+import com.example.util.DoubleLockRecommendationEngine
+import com.example.ui.components.DoubleLockAdvisorDialog
+import com.example.ui.components.DoubleLockRecommendationCard
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -603,6 +607,8 @@ fun DashboardView(
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
     var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
+    var doubleLockAdvisorTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
+    var showDoubleLockAdvisorDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -734,6 +740,37 @@ fun DashboardView(
                     else -> "Global Default"
                 }
                 Toast.makeText(context, "${targetApp.appName} custom re-lock: $label", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showDoubleLockAdvisorDialog && doubleLockAdvisorTargetApp != null) {
+        val targetApp = doubleLockAdvisorTargetApp!!
+        DoubleLockAdvisorDialog(
+            appInfo = targetApp,
+            onDismiss = {
+                showDoubleLockAdvisorDialog = false
+                doubleLockAdvisorTargetApp = null
+            },
+            onApplyRecommendation = { timeoutChoice, dontShowAgain ->
+                if (dontShowAgain) {
+                    prefs.suppressDoubleLockWarning(targetApp.packageName, true)
+                }
+                if (timeoutChoice != "immediately") {
+                    prefs.setPerAppRelockTimeout(targetApp.packageName, timeoutChoice)
+                }
+                viewModel.toggleAppLock(targetApp.packageName, targetApp.appName, true)
+                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                    val intent = Intent(context, AppLockService::class.java)
+                    try {
+                        ContextCompat.startForegroundService(context, intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                showDoubleLockAdvisorDialog = false
+                doubleLockAdvisorTargetApp = null
+                Toast.makeText(context, "${targetApp.appName} locked with $timeoutChoice policy", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1101,14 +1138,22 @@ fun DashboardView(
                 // Toggling off (Unprotecting) -> Requires credential validation!
                 appToVerifyForUnlock = appInfo
             } else {
-                // Toggling on (Protecting) does not require validation, lock right away!
-                viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
-                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
-                    val intent = Intent(context, AppLockService::class.java)
-                    try {
-                        ContextCompat.startForegroundService(context, intent)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                val currentRelockPolicy = prefs.getPerAppRelockTimeout(appInfo.packageName) ?: prefs.reLockTimeout
+                val isProne = DoubleLockDetector.isDoubleLockProne(appInfo.packageName, appInfo.appName)
+                val isSuppressed = prefs.isDoubleLockWarningSuppressed(appInfo.packageName)
+
+                if (isProne && !isSuppressed && currentRelockPolicy == "immediately") {
+                    doubleLockAdvisorTargetApp = appInfo
+                    showDoubleLockAdvisorDialog = true
+                } else {
+                    viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
+                    if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                        val intent = Intent(context, AppLockService::class.java)
+                        try {
+                            ContextCompat.startForegroundService(context, intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
                 }
             }
@@ -1545,6 +1590,27 @@ fun DashboardView(
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        item {
+                            val doubleLockReport = remember(appGridState, isPremiumUser, reLockTimeoutState) {
+                                DoubleLockRecommendationEngine.analyzeDoubleLockRisks(appGridState, prefs)
+                            }
+                            DoubleLockRecommendationCard(
+                                report = doubleLockReport,
+                                isPremiumUser = isPremiumUser,
+                                onGoPremiumClick = { showGoPremiumDialog = true },
+                                onFixAllDoubleLocks = {
+                                    doubleLockReport.highRiskApps.forEach { item ->
+                                        prefs.setPerAppRelockTimeout(item.appInfo.packageName, "15_sec")
+                                    }
+                                    Toast.makeText(context, "Set 15s grace window for ${doubleLockReport.totalConflictCount} app(s) to prevent unlock loops!", Toast.LENGTH_SHORT).show()
+                                },
+                                onFixSingleApp = { item ->
+                                    prefs.setPerAppRelockTimeout(item.appInfo.packageName, "15_sec")
+                                    Toast.makeText(context, "Set 15s delay for ${item.appInfo.appName}", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
                         if (isLoadingApps) {
                             item {
                                 Box(
