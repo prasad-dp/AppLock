@@ -34,6 +34,10 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -574,6 +578,7 @@ fun PatternWizardView(
 }
 
 // 2. MASTER DASHBOARD VIEW
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardView(
     viewModel: MainActivityViewModel,
@@ -603,6 +608,7 @@ fun DashboardView(
     var revealedPhotoAlertTimestamps by remember { mutableStateOf(setOf<Long>()) }
     var alertTargetForRewardedAd by remember { mutableStateOf<IntruderAlert?>(null) }
     var alertTargetForShareAd by remember { mutableStateOf<IntruderAlert?>(null) }
+    var pendingRelockSetting by remember { mutableStateOf<Pair<String, String>?>(null) }
     var zoomPhotoAlert by remember { mutableStateOf<IntruderAlert?>(null) }
     var showTransitionInterstitial by remember { mutableStateOf<String?>(null) }
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
@@ -784,11 +790,28 @@ fun DashboardView(
                 val alert = alertTargetForRewardedAd
                 if (alert != null) {
                     revealedPhotoAlertTimestamps = revealedPhotoAlertTimestamps + alert.timestamp
+                    zoomPhotoAlert = alert
                 }
                 alertTargetForRewardedAd = null
                 Toast.makeText(context, "Intruder photo unlocked!", Toast.LENGTH_SHORT).show()
             },
             onDismiss = { alertTargetForRewardedAd = null }
+        )
+    }
+
+    if (pendingRelockSetting != null) {
+        com.example.ui.components.InterstitialAdDialog(
+            actionTitle = "Updating Re-Lock Timeout",
+            onAdDismissed = {
+                val setting = pendingRelockSetting
+                if (setting != null) {
+                    val (key, label) = setting
+                    reLockTimeoutState = key
+                    prefs.reLockTimeout = key
+                    Toast.makeText(context, "Re-Lock Timeout set to $label", Toast.LENGTH_SHORT).show()
+                }
+                pendingRelockSetting = null
+            }
         )
     }
 
@@ -1166,13 +1189,6 @@ fun DashboardView(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                })
-            }
-            .imePadding()
     ) {
         // App Header Toolbar
         Box(
@@ -1541,6 +1557,17 @@ fun DashboardView(
                                 .testTag("search_app_text_field"),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                },
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                }
+                            ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -1588,7 +1615,9 @@ fun DashboardView(
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .imeNestedScroll()
+                            .imePadding(),
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -1993,11 +2022,11 @@ fun DashboardView(
                                     val relockOptions = listOf(
                                         "immediately" to "Immediately",
                                         "15_sec" to "15 Seconds",
-                                        "30_sec" to "30 Seconds",
-                                        "1_min" to "1 Minute (Default)",
+                                        "30_sec" to "30 Seconds (Default)",
+                                        "1_min" to "1 Minute",
                                         "5_min" to "5 Minutes"
                                     )
-                                    val selectedOptionLabel = relockOptions.find { it.first == reLockTimeoutState }?.second ?: "1 Minute (Default)"
+                                    val selectedOptionLabel = relockOptions.find { it.first == reLockTimeoutState }?.second ?: "30 Seconds (Default)"
 
                                     Box(modifier = Modifier.fillMaxWidth()) {
                                         OutlinedCard(
@@ -2051,10 +2080,14 @@ fun DashboardView(
                                                         )
                                                     },
                                                     onClick = {
-                                                        reLockTimeoutState = key
-                                                        prefs.reLockTimeout = key
                                                         dropdownExpanded = false
-                                                        Toast.makeText(context, "Re-Lock Timeout: $label", Toast.LENGTH_SHORT).show()
+                                                        if (isPremiumUser) {
+                                                            reLockTimeoutState = key
+                                                            prefs.reLockTimeout = key
+                                                            Toast.makeText(context, "Re-Lock Timeout: $label", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            pendingRelockSetting = key to label
+                                                        }
                                                     },
                                                     leadingIcon = {
                                                         if (reLockTimeoutState == key) {
@@ -2300,16 +2333,7 @@ fun DashboardView(
                                 isPhotoUnlocked = isPhotoUnlocked,
                                 onZoomPhoto = { zoomPhotoAlert = it },
                                 onWatchAdForPhoto = { targetAlert ->
-                                    triggerVaultBiometricAuth(
-                                        context = context,
-                                        alert = targetAlert,
-                                        onSuccess = {
-                                            revealedPhotoAlertTimestamps = revealedPhotoAlertTimestamps + targetAlert.timestamp
-                                        },
-                                        onFallbackAd = {
-                                            alertTargetForRewardedAd = targetAlert
-                                        }
-                                    )
+                                    alertTargetForRewardedAd = targetAlert
                                 },
                                 onShare = {
                                     if (isPremiumUser) {
@@ -2397,7 +2421,13 @@ fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert
         val appName = alert.attemptedPackage ?: "App Locker"
         val shareText = "🚨 Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
 
-        val photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
+        var photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
+        if (photoFile != null && !photoFile.exists()) {
+            val altPath = if (alert.photoPath.endsWith(".enc")) alert.photoPath.removeSuffix(".enc") + ".jpg" else alert.photoPath.substringBeforeLast(".") + ".enc"
+            val altFile = java.io.File(altPath)
+            if (altFile.exists()) photoFile = altFile
+        }
+
         val shareFile = if (photoFile != null && photoFile.exists()) {
             com.example.security.EncryptedFileManager.getDecryptedTempFileForShare(context, photoFile)
         } else null
@@ -2414,17 +2444,23 @@ fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert
                 putExtra(android.content.Intent.EXTRA_TEXT, shareText)
                 clipData = android.content.ClipData.newRawUri("Intruder Photo", contentUri)
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot").apply {
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(chooserIntent)
         } else {
             val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Intruder Alert"))
+            val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Intruder Alert").apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooserIntent)
         }
     } catch (e: Exception) {
         Toast.makeText(context, "Failed to share snapshot: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
@@ -2460,7 +2496,7 @@ fun PerAppRelockDialog(
         "30_sec" -> "30 Seconds"
         "1_min" -> "1 Minute"
         "5_min" -> "5 Minutes"
-        else -> "1 Minute"
+        else -> "30 Seconds"
     }
 
     var selectedOption by remember { mutableStateOf(currentPerAppTimeout ?: "global") }
@@ -2469,8 +2505,8 @@ fun PerAppRelockDialog(
         "global" to "Use Global Setting ($globalLabel)",
         "immediately" to "Immediately",
         "15_sec" to "15 Seconds",
-        "30_sec" to "30 Seconds",
-        "1_min" to "1 Minute (Default)",
+        "30_sec" to "30 Seconds (Default)",
+        "1_min" to "1 Minute",
         "5_min" to "5 Minutes"
     )
 
@@ -2790,8 +2826,10 @@ fun IntruderAlertItem(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (alert.photoPath.isNotEmpty()) {
-            val decryptedBitmap = remember(alert.photoPath) {
-                com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath))
+            val decryptedBitmap = remember(alert.photoPath, isPhotoUnlocked) {
+                if (isPhotoUnlocked) {
+                    com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath))
+                } else null
             }
             if (isPhotoUnlocked && decryptedBitmap != null) {
                 coil.compose.AsyncImage(

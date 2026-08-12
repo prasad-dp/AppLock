@@ -88,7 +88,8 @@ fun DoubleLockAdvisorDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 val recommendationOptions = listOf(
-                    "15_sec" to "Set 15 Seconds Re-Lock (Recommended)",
+                    "15_sec" to "Set 15 Seconds Re-Lock",
+                    "30_sec" to "Set 30 Seconds Re-Lock (Default)",
                     "1_min" to "Set 1 Minute Re-Lock",
                     "immediately" to "Keep Immediate Re-Lock"
                 )

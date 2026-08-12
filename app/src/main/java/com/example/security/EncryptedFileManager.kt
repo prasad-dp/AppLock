@@ -92,29 +92,42 @@ object EncryptedFileManager {
      * Decrypted bytes never touch physical disk storage.
      */
     fun decryptFileToBitmap(file: File, maxDimension: Int = 1080): Bitmap? {
-        if (!file.exists()) return null
+        var activeFile = file
+        if (!activeFile.exists()) {
+            val altPath = if (file.name.endsWith(".enc")) {
+                file.absolutePath.removeSuffix(".enc") + ".jpg"
+            } else {
+                file.absolutePath.substringBeforeLast(".") + ".enc"
+            }
+            val altFile = File(altPath)
+            if (altFile.exists()) {
+                activeFile = altFile
+            } else {
+                return null
+            }
+        }
 
-        val cacheKey = "${file.absolutePath}_$maxDimension"
+        val cacheKey = "${activeFile.absolutePath}_$maxDimension"
         val cached = bitmapCache.get(cacheKey)
         if (cached != null && !cached.isRecycled) {
             return cached
         }
 
-        // If it's a legacy unencrypted .jpg file
-        if (!file.name.endsWith(".enc")) {
+        // If it's an unencrypted .jpg file
+        if (!activeFile.name.endsWith(".enc")) {
             val bmp = try {
                 if (maxDimension > 0) {
                     val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeFile(file.absolutePath, boundsOpts)
+                    BitmapFactory.decodeFile(activeFile.absolutePath, boundsOpts)
                     val maxSide = maxOf(boundsOpts.outWidth, boundsOpts.outHeight)
                     var sampleSize = 1
                     while (maxSide / sampleSize > maxDimension) {
                         sampleSize *= 2
                     }
                     val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-                    BitmapFactory.decodeFile(file.absolutePath, decodeOpts)
+                    BitmapFactory.decodeFile(activeFile.absolutePath, decodeOpts)
                 } else {
-                    BitmapFactory.decodeFile(file.absolutePath)
+                    BitmapFactory.decodeFile(activeFile.absolutePath)
                 }
             } catch (e: Exception) {
                 null
@@ -124,7 +137,7 @@ object EncryptedFileManager {
         }
 
         val decodedBmp = try {
-            val bytes = file.readBytes()
+            val bytes = activeFile.readBytes()
             if (bytes.isEmpty()) return null
 
             val ivSize = bytes[0].toInt()

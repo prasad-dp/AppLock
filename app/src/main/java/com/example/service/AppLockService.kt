@@ -22,6 +22,7 @@ class AppLockService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     
     private lateinit var repository: AppRepository
+    private val lockPrefs by lazy { com.example.data.LockPreferences(this) }
     private val lockedPackages = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val lastSeenForegroundTime = java.util.Collections.synchronizedMap(mutableMapOf<String, Long>())
     private var lastKnownForegroundPackage: String? = null
@@ -127,7 +128,6 @@ class AppLockService : Service() {
                     }
 
                     // Auto-relock any unlocked app that is no longer in the foreground
-                    val lockPrefs = com.example.data.LockPreferences(this@AppLockService)
                     val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
                     for (unlockedApp in currentUnlockedApps) {
                         if (unlockedApp != currentApp && !isTransient) {
@@ -139,10 +139,10 @@ class AppLockService : Service() {
                             val relockThresholdMs = when (relockPolicy) {
                                 "immediately" -> 1_500L // Re-lock immediately upon leaving app
                                 "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
-                                "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app
-                                "1_min" -> 60_000L // Re-lock 1 minute after leaving app (Default)
+                                "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
+                                "1_min" -> 60_000L // Re-lock 1 minute after leaving app
                                 "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
-                                else -> 60_000L
+                                else -> 30_000L
                             }
 
                             // Internal Lock Grace Window: capped at relockThresholdMs so immediate/15sec policies are respected

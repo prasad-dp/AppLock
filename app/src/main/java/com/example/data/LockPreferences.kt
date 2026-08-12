@@ -6,7 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 class LockPreferences(context: Context) {
-    private val prefs: SharedPreferences = createEncryptedPreferences(context)
+    private val prefs: SharedPreferences = getSharedPrefs(context)
 
     companion object {
         private const val KEY_PATTERN = "lock_pattern_passcode"
@@ -15,6 +15,16 @@ class LockPreferences(context: Context) {
         private const val KEY_BIOMETRIC_ENABLED = "biometric_auth_enabled"
         private const val KEY_SERVICE_ACTIVE = "locker_service_active"
         private const val KEY_INTRUDER_DETECTION_ENABLED = "intruder_detection"
+
+        @Volatile
+        private var sharedPrefsInstance: SharedPreferences? = null
+
+        private fun getSharedPrefs(context: Context): SharedPreferences {
+            val appCtx = context.applicationContext ?: context
+            return sharedPrefsInstance ?: synchronized(this) {
+                sharedPrefsInstance ?: createEncryptedPreferences(appCtx).also { sharedPrefsInstance = it }
+            }
+        }
 
         private fun createEncryptedPreferences(context: Context): SharedPreferences {
             val oldPrefs = context.getSharedPreferences("app_locker_preferences", Context.MODE_PRIVATE)
@@ -65,7 +75,7 @@ class LockPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean("auto_cleanup_logs_enabled", value).apply()
 
     var reLockTimeout: String
-        get() = prefs.getString("relock_timeout_policy", "1_min") ?: "1_min"
+        get() = prefs.getString("relock_timeout_policy", "30_sec") ?: "30_sec"
         set(value) = prefs.edit().putString("relock_timeout_policy", value).apply()
 
     var lockType: String
