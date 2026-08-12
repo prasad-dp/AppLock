@@ -818,6 +818,7 @@ fun DashboardView(
     if (alertTargetForShareAd != null) {
         com.example.ui.components.RewardedAdDialog(
             adTitle = "Share Intruder Snapshot",
+            buttonTitle = "Claim Reward & Share",
             onRewardGranted = {
                 val alert = alertTargetForShareAd
                 if (alert != null) {
@@ -1189,6 +1190,12 @@ fun DashboardView(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
+            }
     ) {
         // App Header Toolbar
         Box(
@@ -2449,6 +2456,11 @@ fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert
             val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot").apply {
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val resInfoList = context.packageManager.queryIntentActivities(shareIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            for (resolveInfo in resInfoList) {
+                val pkgName = resolveInfo.activityInfo.packageName
+                context.grantUriPermission(pkgName, contentUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(chooserIntent)
         } else {

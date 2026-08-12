@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun RewardedAdDialog(
     adTitle: String = "Reveal Intruder Snapshot",
+    buttonTitle: String = "Claim Reward & View Photo",
     onRewardGranted: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -150,7 +151,7 @@ fun RewardedAdDialog(
                     ) {
                         Icon(imageVector = Icons.Default.Star, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Claim Reward & View Photo", fontWeight = FontWeight.Bold)
+                        Text(buttonTitle, fontWeight = FontWeight.Bold)
                     }
                 }
             }
