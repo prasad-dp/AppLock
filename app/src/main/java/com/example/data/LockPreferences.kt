@@ -64,6 +64,10 @@ class LockPreferences(context: Context) {
         get() = prefs.getBoolean("auto_cleanup_logs_enabled", false)
         set(value) = prefs.edit().putBoolean("auto_cleanup_logs_enabled", value).apply()
 
+    var reLockTimeout: String
+        get() = prefs.getString("relock_timeout_policy", "1_min") ?: "1_min"
+        set(value) = prefs.edit().putString("relock_timeout_policy", value).apply()
+
     var lockType: String
         get() = prefs.getString(KEY_LOCK_TYPE, "pattern") ?: "pattern"
         set(value) = prefs.edit().putString(KEY_LOCK_TYPE, value).apply()
@@ -125,6 +129,18 @@ class LockPreferences(context: Context) {
     var isPremiumUser: Boolean
         get() = prefs.getBoolean("is_premium_user", false)
         set(value) = prefs.edit().putBoolean("is_premium_user", value).apply()
+
+    fun getPerAppRelockTimeout(packageName: String): String? {
+        return prefs.getString("per_app_relock_timeout_$packageName", null)
+    }
+
+    fun setPerAppRelockTimeout(packageName: String, value: String?) {
+        if (value.isNullOrEmpty() || value == "global") {
+            prefs.edit().remove("per_app_relock_timeout_$packageName").apply()
+        } else {
+            prefs.edit().putString("per_app_relock_timeout_$packageName", value).apply()
+        }
+    }
 
     fun hasPatternSet(): Boolean {
         return when (lockType) {

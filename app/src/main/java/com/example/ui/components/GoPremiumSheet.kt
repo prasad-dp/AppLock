@@ -180,6 +180,7 @@ fun GoPremiumDialog(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     PremiumFeatureRow(text = "100% Ad-Free experience across all screens")
+                    PremiumFeatureRow(text = "Per-App Custom Re-Lock Timeouts (0s, 15s, 30s, 1m, 5m)")
                     PremiumFeatureRow(text = "Lifetime access with zero recurring subscriptions")
                     PremiumFeatureRow(text = "Handled & secured entirely by Google Play Store")
                     PremiumFeatureRow(text = "Intruder selfie capture & system security alerts")

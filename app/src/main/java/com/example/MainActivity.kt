@@ -50,6 +50,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.example.data.IntruderAlert
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -575,8 +577,11 @@ fun DashboardView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val activity = remember(context) { context as? FragmentActivity }
     val prefs = remember { LockPreferences(context) }
+    var reLockTimeoutState by remember { mutableStateOf(prefs.reLockTimeout) }
     val appGridState by viewModel.appGridState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isLoadingApps by viewModel.isLoadingApps.collectAsStateWithLifecycle()
@@ -596,6 +601,8 @@ fun DashboardView(
     var zoomPhotoAlert by remember { mutableStateOf<IntruderAlert?>(null) }
     var showTransitionInterstitial by remember { mutableStateOf<String?>(null) }
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
+    var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
+    var showPerAppRelockDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -700,6 +707,33 @@ fun DashboardView(
             onPremiumPurchased = {
                 isPremiumUser = true
                 showGoPremiumDialog = false
+            }
+        )
+    }
+
+    if (showPerAppRelockDialog && perAppRelockTargetApp != null) {
+        val targetApp = perAppRelockTargetApp!!
+        PerAppRelockDialog(
+            appInfo = targetApp,
+            globalTimeout = reLockTimeoutState,
+            currentPerAppTimeout = prefs.getPerAppRelockTimeout(targetApp.packageName),
+            onDismiss = {
+                showPerAppRelockDialog = false
+                perAppRelockTargetApp = null
+            },
+            onSave = { selectedTimeout ->
+                prefs.setPerAppRelockTimeout(targetApp.packageName, selectedTimeout)
+                showPerAppRelockDialog = false
+                perAppRelockTargetApp = null
+                val label = when (selectedTimeout) {
+                    "immediately" -> "Immediately"
+                    "15_sec" -> "15 Seconds"
+                    "30_sec" -> "30 Seconds"
+                    "1_min" -> "1 Minute"
+                    "5_min" -> "5 Minutes"
+                    else -> "Global Default"
+                }
+                Toast.makeText(context, "${targetApp.appName} custom re-lock: $label", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1085,6 +1119,12 @@ fun DashboardView(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
+            }
             .imePadding()
     ) {
         // App Header Toolbar
@@ -1264,21 +1304,33 @@ fun DashboardView(
         ) {
             Tab(
                 selected = selectedTabIndex == 0,
-                onClick = { selectedTabIndex = 0 },
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    selectedTabIndex = 0
+                },
                 text = { Text("Apps", fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Normal) },
                 icon = { Icon(Icons.Default.Apps, contentDescription = "Apps tab") },
                 modifier = Modifier.testTag("tab_apps")
             )
             Tab(
                 selected = selectedTabIndex == 1,
-                onClick = { selectedTabIndex = 1 },
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    selectedTabIndex = 1
+                },
                 text = { Text("Security", fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Normal) },
                 icon = { Icon(Icons.Default.Security, contentDescription = "Security tab") },
                 modifier = Modifier.testTag("tab_security")
             )
             Tab(
                 selected = selectedTabIndex == 2,
-                onClick = { selectedTabIndex = 2 },
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    selectedTabIndex = 2
+                },
                 text = {
                     if (intruderAlerts.isNotEmpty()) {
                         BadgedBox(
@@ -1428,7 +1480,11 @@ fun DashboardView(
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                    IconButton(onClick = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.updateSearchQuery("")
+                                    }) {
                                         Icon(Icons.Default.Clear, contentDescription = "Clear search")
                                     }
                                 }
@@ -1453,18 +1509,30 @@ fun DashboardView(
                         ) {
                             FilterChip(
                                 selected = filterMode == AppFilterMode.ALL,
-                                onClick = { viewModel.setFilterMode(AppFilterMode.ALL) },
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.setFilterMode(AppFilterMode.ALL)
+                                },
                                 label = { Text("All Apps") }
                             )
                             FilterChip(
                                 selected = filterMode == AppFilterMode.LOCKED,
-                                onClick = { viewModel.setFilterMode(AppFilterMode.LOCKED) },
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.setFilterMode(AppFilterMode.LOCKED)
+                                },
                                 label = { Text("Locked (${lockedApps.size})") },
                                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) }
                             )
                             FilterChip(
                                 selected = filterMode == AppFilterMode.UNLOCKED,
-                                onClick = { viewModel.setFilterMode(AppFilterMode.UNLOCKED) },
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.setFilterMode(AppFilterMode.UNLOCKED)
+                                },
                                 label = { Text("Unlocked") }
                             )
                         }
@@ -1528,7 +1596,16 @@ fun DashboardView(
                                 }
                                 AppRowItem(
                                     appInfo = appInfo,
-                                    onLockToggled = onLockToggledRemembered
+                                    isPremiumUser = isPremiumUser,
+                                    onLockToggled = onLockToggledRemembered,
+                                    onPerAppRelockClick = { targetApp ->
+                                        if (!isPremiumUser) {
+                                            showGoPremiumDialog = true
+                                        } else {
+                                            perAppRelockTargetApp = targetApp
+                                            showPerAppRelockDialog = true
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -1840,6 +1917,103 @@ fun DashboardView(
                                         },
                                         modifier = Modifier.testTag("protect_settings_switch")
                                     )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = "Global Re-Lock Timeout",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "Determines when unlocked apps lock again after going to the background. Applies globally to all apps.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    var dropdownExpanded by remember { mutableStateOf(false) }
+                                    val relockOptions = listOf(
+                                        "immediately" to "Immediately",
+                                        "15_sec" to "15 Seconds",
+                                        "30_sec" to "30 Seconds",
+                                        "1_min" to "1 Minute (Default)",
+                                        "5_min" to "5 Minutes"
+                                    )
+                                    val selectedOptionLabel = relockOptions.find { it.first == reLockTimeoutState }?.second ?: "1 Minute (Default)"
+
+                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                        OutlinedCard(
+                                            onClick = { dropdownExpanded = true },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("relock_timeout_dropdown")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column {
+                                                    Text(
+                                                        text = "Re-Lock Policy",
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = selectedOptionLabel,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDropDown,
+                                                    contentDescription = "Select timeout dropdown",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+
+                                        DropdownMenu(
+                                            expanded = dropdownExpanded,
+                                            onDismissRequest = { dropdownExpanded = false },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.85f)
+                                                .background(MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            relockOptions.forEach { (key, label) ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = label,
+                                                            fontWeight = if (reLockTimeoutState == key) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (reLockTimeoutState == key) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        reLockTimeoutState = key
+                                                        prefs.reLockTimeout = key
+                                                        dropdownExpanded = false
+                                                        Toast.makeText(context, "Re-Lock Timeout: $label", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    leadingIcon = {
+                                                        if (reLockTimeoutState == key) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Check,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        } else null
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2218,16 +2392,135 @@ class DrawablePainter(private val drawable: android.graphics.drawable.Drawable) 
 }
 
 @Composable
+fun PerAppRelockDialog(
+    appInfo: GridAppInfo,
+    globalTimeout: String,
+    currentPerAppTimeout: String?,
+    onDismiss: () -> Unit,
+    onSave: (String?) -> Unit
+) {
+    val globalLabel = when (globalTimeout) {
+        "immediately" -> "Immediately"
+        "15_sec" -> "15 Seconds"
+        "30_sec" -> "30 Seconds"
+        "1_min" -> "1 Minute"
+        "5_min" -> "5 Minutes"
+        else -> "1 Minute"
+    }
+
+    var selectedOption by remember { mutableStateOf(currentPerAppTimeout ?: "global") }
+
+    val options = listOf(
+        "global" to "Use Global Setting ($globalLabel)",
+        "immediately" to "Immediately",
+        "15_sec" to "15 Seconds",
+        "30_sec" to "30 Seconds",
+        "1_min" to "1 Minute (Default)",
+        "5_min" to "5 Minutes"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Timer,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "PRO",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                    Text(text = "Custom Re-Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = appInfo.appName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Select custom re-lock timeout when leaving ${appInfo.appName}:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                options.forEach { (key, label) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedOption = key }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        RadioButton(
+                            selected = (selectedOption == key),
+                            onClick = { selectedOption = key }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selectedOption == key) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedOption == key) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(if (selectedOption == "global") null else selectedOption)
+                },
+                modifier = Modifier.testTag("save_per_app_relock_button")
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 fun AppRowItem(
     appInfo: GridAppInfo,
-    onLockToggled: (GridAppInfo, Boolean) -> Unit
+    isPremiumUser: Boolean,
+    onLockToggled: (GridAppInfo, Boolean) -> Unit,
+    onPerAppRelockClick: (GridAppInfo) -> Unit
 ) {
     val context = LocalContext.current
+    val prefs = remember { LockPreferences(context) }
+    var perAppTimeout by remember(appInfo.packageName, isPremiumUser) {
+        mutableStateOf(if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null)
+    }
     var appIcon by remember(appInfo.packageName) { 
         mutableStateOf<android.graphics.drawable.Drawable?>(AppIconCache.get(appInfo.packageName)) 
     }
 
-    LaunchedEffect(appInfo.packageName) {
+    LaunchedEffect(appInfo.packageName, isPremiumUser) {
+        perAppTimeout = if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null
         if (appIcon != null) return@LaunchedEffect
         
         val pm = context.packageManager
@@ -2294,6 +2587,67 @@ fun AppRowItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (appInfo.isLocked) {
+                    val badgeLabel = when (perAppTimeout) {
+                        "immediately" -> "Immediately"
+                        "15_sec" -> "15s custom"
+                        "30_sec" -> "30s custom"
+                        "1_min" -> "1m custom"
+                        "5_min" -> "5m custom"
+                        else -> "Global timeout"
+                    }
+                    Text(
+                        text = badgeLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            if (appInfo.isLocked) {
+                Surface(
+                    onClick = { onPerAppRelockClick(appInfo) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (perAppTimeout != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .testTag("per_app_relock_button_${appInfo.packageName}")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = "Custom Relock Timer",
+                            tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        if (!isPremiumUser) {
+                            Icon(
+                                imageVector = Icons.Default.WorkspacePremium,
+                                contentDescription = "PRO Feature",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        } else {
+                            Text(
+                                text = when (perAppTimeout) {
+                                    "immediately" -> "0s"
+                                    "15_sec" -> "15s"
+                                    "30_sec" -> "30s"
+                                    "1_min" -> "1m"
+                                    "5_min" -> "5m"
+                                    else -> "Global"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
 
             IconButton(
