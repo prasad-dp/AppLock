@@ -30,6 +30,7 @@ enum class PatternState {
 fun PatternLockView(
     modifier: Modifier = Modifier,
     state: PatternState = PatternState.DRAWING,
+    resetIdentifier: Any? = null,
     onPatternComplete: (List<Int>) -> Unit
 ) {
     val connectedDots = remember { mutableStateListOf<Int>() }
@@ -54,12 +55,10 @@ fun PatternLockView(
         label = "lineColorAnimation"
     )
 
-    // Reset pattern if the state changes back to drawing externally
-    LaunchedEffect(state) {
-        if (state == PatternState.DRAWING) {
-            connectedDots.clear()
-            currentTouchPosition = null
-        }
+    // Reset pattern if the state changes back to drawing externally or resetIdentifier triggers
+    LaunchedEffect(state, resetIdentifier) {
+        connectedDots.clear()
+        currentTouchPosition = null
     }
 
     BoxWithConstraints(modifier = modifier) {

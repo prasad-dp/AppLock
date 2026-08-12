@@ -220,7 +220,8 @@ fun LockerMainScreen(
                             isAppLockerUnlocked = true
                             viewModel.completeWizard() 
                         },
-                        onStart = { viewModel.startWizard() }
+                        onStart = { viewModel.startWizard() },
+                        onRestartCurrentType = { viewModel.restartCurrentTypeSetup() }
                     )
                 }
                 is SetupState.SetupFinished -> {
@@ -355,13 +356,13 @@ fun PatternWizardView(
     onPasswordEntered: (String) -> Unit,
     onSelectLockType: (String) -> Unit,
     onFinish: () -> Unit,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onRestartCurrentType: () -> Unit = {}
 ) {
     var feedbackState by remember { mutableStateOf(PatternState.DRAWING) }
     var instructionText by remember { mutableStateOf("") }
 
     LaunchedEffect(state) {
-        feedbackState = PatternState.DRAWING
         when (state) {
             SetupState.WelcomePatternRequired -> {
                 instructionText = "Protect your system! Choose Swipe Pattern, PIN or Password to lock access."
@@ -370,22 +371,29 @@ fun PatternWizardView(
                 instructionText = "Select your preferred credential protection type"
             }
             SetupState.SetFirstPattern -> {
+                feedbackState = PatternState.DRAWING
                 instructionText = "Draw a pattern lock sequence (connect at least 4 dots)"
             }
             is SetupState.ConfirmPattern -> {
-                instructionText = "Draw pattern again to confirm sequence"
+                if (state.errorMessage != null) {
+                    feedbackState = PatternState.ERROR
+                    instructionText = state.errorMessage
+                } else {
+                    feedbackState = PatternState.DRAWING
+                    instructionText = "Draw pattern again to confirm sequence"
+                }
             }
             SetupState.SetFirstPin -> {
                 instructionText = "Create a 4-digit PIN"
             }
             is SetupState.ConfirmPin -> {
-                instructionText = "Enter PIN again to confirm"
+                instructionText = state.errorMessage ?: "Enter PIN again to confirm"
             }
             SetupState.SetFirstPassword -> {
-                instructionText = "Create a security password"
+                instructionText = "Create a security password (at least 8 characters)"
             }
             is SetupState.ConfirmPassword -> {
-                instructionText = "Type password again to confirm"
+                instructionText = state.errorMessage ?: "Type password again to confirm"
             }
             SetupState.SetupSuccess -> {
                 feedbackState = PatternState.SUCCESS
@@ -406,6 +414,8 @@ fun PatternWizardView(
                     )
                 )
             )
+            .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -464,10 +474,16 @@ fun PatternWizardView(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val isErrorText = (state is SetupState.ConfirmPattern && state.errorMessage != null) ||
+                    (state is SetupState.ConfirmPin && state.errorMessage != null) ||
+                    (state is SetupState.ConfirmPassword && state.errorMessage != null) ||
+                    feedbackState == PatternState.ERROR
+
             Text(
                 text = instructionText,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (isErrorText) FontWeight.Bold else FontWeight.Normal,
+                color = if (isErrorText) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -523,6 +539,7 @@ fun PatternWizardView(
                         PatternLockView(
                             modifier = Modifier.fillMaxSize(),
                             state = feedbackState,
+                            resetIdentifier = state,
                             onPatternComplete = { list ->
                                 if (list.size < 4) {
                                     instructionText = "Too short! Connect at least 4 dots."
@@ -545,7 +562,9 @@ fun PatternWizardView(
                 SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> {
                     PasswordUnlockView(
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = if (state is SetupState.SetFirstPassword) "Create your password" else "Confirm your password",
+                        placeholder = if (state is SetupState.SetFirstPassword) "Create password (min 8 chars)" else "Confirm password",
+                        buttonText = if (state is SetupState.SetFirstPassword) "Next" else "Confirm Password",
+                        requireValidation = (state is SetupState.SetFirstPassword),
                         onPasswordComplete = onPasswordEntered,
                         resetIdentifier = state
                     )
@@ -565,10 +584,10 @@ fun PatternWizardView(
 
         if (state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
             TextButton(
-                onClick = onStart,
+                onClick = onRestartCurrentType,
                 modifier = Modifier.testTag("reset_wizard")
             ) {
-                Text("Start Over")
+                Text("Start Over (Redraw / Re-enter)")
             }
         } else {
             Spacer(modifier = Modifier.height(32.dp))

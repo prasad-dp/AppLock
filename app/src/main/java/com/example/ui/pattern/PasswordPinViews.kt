@@ -236,7 +236,9 @@ fun PinPadView(
 @Composable
 fun PasswordUnlockView(
     modifier: Modifier = Modifier,
-    placeholder: String = "Enter alphanumeric password",
+    placeholder: String = "Enter password",
+    buttonText: String = "Confirm Password",
+    requireValidation: Boolean = false,
     onPasswordComplete: (String) -> Unit,
     resetIdentifier: Any? = null
 ) {
@@ -246,6 +248,9 @@ fun PasswordUnlockView(
     LaunchedEffect(resetIdentifier) {
         passwordInput = ""
     }
+
+    val isLengthValid = !requireValidation || passwordInput.length >= 8
+    val showLengthError = requireValidation && passwordInput.isNotEmpty() && passwordInput.length < 8
 
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -260,6 +265,7 @@ fun PasswordUnlockView(
                 .testTag("password_input_field"),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             placeholder = { Text(placeholder) },
+            isError = showLengthError,
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             keyboardOptions = KeyboardOptions(
@@ -268,7 +274,7 @@ fun PasswordUnlockView(
             ),
             keyboardActions = KeyboardActions(
                 onDone = {
-                    if (passwordInput.isNotBlank()) {
+                    if (passwordInput.isNotBlank() && isLengthValid) {
                         onPasswordComplete(passwordInput)
                     }
                 }
@@ -283,23 +289,38 @@ fun PasswordUnlockView(
             }
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        if (showLengthError) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Password must be at least 8 characters long",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
-                if (passwordInput.isNotBlank()) {
+                if (passwordInput.isNotBlank() && isLengthValid) {
                     onPasswordComplete(passwordInput)
                 }
             },
+            enabled = passwordInput.isNotBlank() && isLengthValid,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(48.dp)
                 .testTag("submit_password_button"),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Confirm Password")
+            Text(
+                text = buttonText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -1351,6 +1372,8 @@ fun LockVerifyScreen(
                     PasswordUnlockView(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = "Enter your password",
+                        buttonText = "Unlock",
+                        requireValidation = false,
                         resetIdentifier = pinAndPasswordAttemptId,
                         onPasswordComplete = { password ->
                             val savedPassword = prefs.savedPasscode

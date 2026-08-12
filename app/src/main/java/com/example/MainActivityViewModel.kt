@@ -35,11 +35,23 @@ sealed interface SetupState {
     object WelcomePatternRequired : SetupState
     object SelectLockType : SetupState
     object SetFirstPattern : SetupState
-    data class ConfirmPattern(val firstAttempt: List<Int>) : SetupState
+    data class ConfirmPattern(
+        val firstAttempt: List<Int>,
+        val errorMessage: String? = null,
+        val attemptId: Int = 0
+    ) : SetupState
     object SetFirstPin : SetupState
-    data class ConfirmPin(val firstAttempt: String) : SetupState
+    data class ConfirmPin(
+        val firstAttempt: String,
+        val errorMessage: String? = null,
+        val attemptId: Int = 0
+    ) : SetupState
     object SetFirstPassword : SetupState
-    data class ConfirmPassword(val firstAttempt: String) : SetupState
+    data class ConfirmPassword(
+        val firstAttempt: String,
+        val errorMessage: String? = null,
+        val attemptId: Int = 0
+    ) : SetupState
     object SetupSuccess : SetupState
     object SetupFinished : SetupState
 }
@@ -239,8 +251,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pattern"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Mismatch, reset back to first drawing attempt
-                    _setupState.value = SetupState.SetFirstPattern
+                    // Mismatch - stay in ConfirmPattern and show clear error message
+                    _setupState.value = current.copy(
+                        errorMessage = "Patterns do not match. Please re-draw to confirm.",
+                        attemptId = current.attemptId + 1
+                    )
                 }
             }
             else -> {}
@@ -259,7 +274,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pin"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    _setupState.value = SetupState.SetFirstPin
+                    // Mismatch - stay in ConfirmPin and show clear error message
+                    _setupState.value = current.copy(
+                        errorMessage = "PINs do not match. Please re-enter to confirm.",
+                        attemptId = current.attemptId + 1
+                    )
                 }
             }
             else -> {}
@@ -270,7 +289,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         val current = _setupState.value
         when (current) {
             is SetupState.SetFirstPassword -> {
-                _setupState.value = SetupState.ConfirmPassword(password)
+                if (password.length >= 8) {
+                    _setupState.value = SetupState.ConfirmPassword(password)
+                }
             }
             is SetupState.ConfirmPassword -> {
                 if (current.firstAttempt == password) {
@@ -278,9 +299,22 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "password"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    _setupState.value = SetupState.SetFirstPassword
+                    // Mismatch - stay in ConfirmPassword and show clear error message
+                    _setupState.value = current.copy(
+                        errorMessage = "Passwords do not match. Please re-enter to confirm.",
+                        attemptId = current.attemptId + 1
+                    )
                 }
             }
+            else -> {}
+        }
+    }
+
+    fun restartCurrentTypeSetup() {
+        when (_setupState.value) {
+            is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> _setupState.value = SetupState.SetFirstPattern
+            is SetupState.SetFirstPin, is SetupState.ConfirmPin -> _setupState.value = SetupState.SetFirstPin
+            is SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> _setupState.value = SetupState.SetFirstPassword
             else -> {}
         }
     }
