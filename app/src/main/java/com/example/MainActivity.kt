@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.util.AlphanumericComparator
+import com.example.util.findActivity
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -931,9 +932,12 @@ fun DashboardView(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (alert.photoPath.isNotEmpty() && java.io.File(alert.photoPath).exists()) {
+                    val photoBitmap = remember(alert.photoPath) {
+                        if (alert.photoPath.isNotEmpty()) com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath)) else null
+                    }
+                    if (photoBitmap != null) {
                         coil.compose.AsyncImage(
-                            model = java.io.File(alert.photoPath),
+                            model = photoBitmap,
                             contentDescription = "Full Intruder Snapshot",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2060,13 +2064,24 @@ fun DashboardView(
 
                     if (intruderAlerts.isNotEmpty()) {
                         items(intruderAlerts, key = { it.timestamp }) { alert ->
-                            val isPhotoUnlocked = isPremiumUser || revealedPhotoAlertTimestamps.contains(alert.timestamp)
+                            val isPhotoUnlocked = revealedPhotoAlertTimestamps.contains(alert.timestamp)
                             IntruderAlertItem(
                                 alert = alert,
                                 isPremiumUser = isPremiumUser,
                                 isPhotoUnlocked = isPhotoUnlocked,
                                 onZoomPhoto = { zoomPhotoAlert = it },
-                                onWatchAdForPhoto = { alertTargetForRewardedAd = it },
+                                onWatchAdForPhoto = { targetAlert ->
+                                    triggerVaultBiometricAuth(
+                                        context = context,
+                                        alert = targetAlert,
+                                        onSuccess = {
+                                            revealedPhotoAlertTimestamps = revealedPhotoAlertTimestamps + targetAlert.timestamp
+                                        },
+                                        onFallbackAd = {
+                                            alertTargetForRewardedAd = targetAlert
+                                        }
+                                    )
+                                },
                                 onShare = {
                                     if (isPremiumUser) {
                                         shareIntruderSnapshot(context, alert)
@@ -2078,9 +2093,72 @@ fun DashboardView(
                             )
                         }
                     }
+
                 }
             }
         }
+    }
+}
+
+fun triggerVaultBiometricAuth(
+    context: android.content.Context,
+    alert: IntruderAlert,
+    onSuccess: () -> Unit,
+    onFallbackAd: () -> Unit
+) {
+    val fa = context.findActivity() ?: (context as? androidx.fragment.app.FragmentActivity)
+    if (fa != null) {
+        val biometricManager = androidx.biometric.BiometricManager.from(fa)
+        val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+        if (biometricManager.canAuthenticate(authenticators) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+            val executor = androidx.core.content.ContextCompat.getMainExecutor(fa)
+            val biometricPrompt = androidx.biometric.BiometricPrompt(
+                fa,
+                executor,
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        Toast.makeText(fa, "Vault Unlocked 🔓", Toast.LENGTH_SHORT).show()
+                        onSuccess()
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        if (errorCode == androidx.biometric.BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                            errorCode == androidx.biometric.BiometricPrompt.ERROR_USER_CANCELED
+                        ) {
+                            onFallbackAd()
+                        } else if (errorCode != androidx.biometric.BiometricPrompt.ERROR_CANCELED) {
+                            Toast.makeText(fa, "Biometric error: $errString", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        Toast.makeText(fa, "Biometric verification failed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+
+            val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Intruder Vault Lock 🔒")
+                .setSubtitle("Confirm Fingerprint, Face, or PIN to unblur photo")
+                .setAllowedAuthenticators(authenticators)
+                .build()
+
+            try {
+                biometricPrompt.authenticate(promptInfo)
+            } catch (e: Exception) {
+                onFallbackAd()
+            }
+        } else {
+            onFallbackAd()
+        }
+    } else {
+        onFallbackAd()
     }
 }
 
@@ -2091,11 +2169,15 @@ fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert
         val shareText = "🚨 Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
 
         val photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
-        if (photoFile != null && photoFile.exists()) {
+        val shareFile = if (photoFile != null && photoFile.exists()) {
+            com.example.security.EncryptedFileManager.getDecryptedTempFileForShare(context, photoFile)
+        } else null
+
+        if (shareFile != null && shareFile.exists()) {
             val contentUri = androidx.core.content.FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
-                photoFile
+                shareFile
             )
             val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "image/jpeg"
@@ -2299,9 +2381,12 @@ fun IntruderAlertItem(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (alert.photoPath.isNotEmpty()) {
-            if (isPhotoUnlocked) {
+            val decryptedBitmap = remember(alert.photoPath) {
+                com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath))
+            }
+            if (isPhotoUnlocked && decryptedBitmap != null) {
                 coil.compose.AsyncImage(
-                    model = java.io.File(alert.photoPath),
+                    model = decryptedBitmap,
                     contentDescription = "Intruder snapshot",
                     modifier = Modifier
                         .size(64.dp)

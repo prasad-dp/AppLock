@@ -104,6 +104,7 @@ class AppLockService : Service() {
             }
 
             while (isActive) {
+                var currentApp: String? = null
                 try {
                     // Battery Saver Optimization: Avoid active polling of usage statistics or locks when screen is off
                     if (powerManager != null && !powerManager.isInteractive) {
@@ -111,7 +112,7 @@ class AppLockService : Service() {
                         continue
                     }
 
-                    val currentApp = getForegroundPackageName(usm)
+                    currentApp = getForegroundPackageName(usm)
                     if (currentApp != null) {
                         lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
                     }
@@ -164,7 +165,17 @@ class AppLockService : Service() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in checking loop", e)
                 }
-                delay(50) // Poll every 50ms - ultra-responsive to prevent any target application screen leak
+                
+                // Adaptive Polling: 50ms when app switching occurs or when on locked apps; 180ms when sitting stably in an unlocked app
+                val nextDelay = if (lastKnownForegroundPackage != currentApp) {
+                    lastKnownForegroundPackage = currentApp
+                    50L
+                } else if (currentApp != null && lockedPackages.contains(currentApp)) {
+                    50L
+                } else {
+                    180L
+                }
+                delay(nextDelay)
             }
         }
     }

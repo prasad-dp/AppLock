@@ -48,6 +48,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.example.util.findActivity
 import android.widget.Toast
 import com.example.data.LockPreferences
 import kotlinx.coroutines.delay
@@ -883,16 +884,7 @@ fun FaceScanningBottomSheet(
 
 
 
-private fun android.content.Context.findActivity(): androidx.fragment.app.FragmentActivity? {
-    var cur = this
-    while (cur is android.content.ContextWrapper) {
-        if (cur is androidx.fragment.app.FragmentActivity) {
-            return cur
-        }
-        cur = cur.baseContext
-    }
-    return null
-}
+
 
 @Composable
 fun LockVerifyScreen(

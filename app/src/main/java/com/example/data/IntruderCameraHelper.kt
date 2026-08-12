@@ -77,7 +77,8 @@ object IntruderCameraHelper {
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                                 Log.d(TAG, "Photo captured successfully: ${photoFile.absolutePath}")
-                                onPhotoCaptured(photoFile)
+                                val encFile = com.example.security.EncryptedFileManager.encryptAndShredSource(photoFile)
+                                onPhotoCaptured(encFile)
                                 try {
                                     cameraProvider.unbindAll()
                                 } catch (e: Exception) {

@@ -8,6 +8,9 @@ interface IntruderAlertDao {
     @Query("SELECT * FROM intruder_alerts ORDER BY timestamp DESC")
     fun getAllAlertsFlow(): Flow<List<IntruderAlert>>
 
+    @Query("SELECT * FROM intruder_alerts")
+    suspend fun getAllAlerts(): List<IntruderAlert>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAlert(alert: IntruderAlert)
 

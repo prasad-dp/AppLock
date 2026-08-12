@@ -1,5 +1,9 @@
 package com.example.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 
 class AppRepository(
@@ -30,10 +34,21 @@ class AppRepository(
     }
 
     suspend fun deleteIntruderAlert(alert: IntruderAlert) {
+        if (alert.photoPath.isNotEmpty()) {
+            com.example.security.EncryptedFileManager.shredAndDeleteFile(java.io.File(alert.photoPath))
+        }
         intruderAlertDao.deleteAlert(alert)
     }
 
-    suspend fun deleteAllIntruderAlerts() {
+    suspend fun deleteAllIntruderAlerts() = coroutineScope {
+        val allAlerts = intruderAlertDao.getAllAlerts()
+        allAlerts.map { alert ->
+            async(Dispatchers.IO) {
+                if (alert.photoPath.isNotEmpty()) {
+                    com.example.security.EncryptedFileManager.shredAndDeleteFile(java.io.File(alert.photoPath))
+                }
+            }
+        }.awaitAll()
         intruderAlertDao.deleteAllAlerts()
     }
 }

@@ -12,6 +12,7 @@ import com.example.data.LockedApp
 import com.example.data.LockPreferences
 import com.example.data.IntruderAlert
 import com.example.util.AlphanumericComparator
+import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -23,6 +24,7 @@ enum class AppFilterMode {
     UNLOCKED
 }
 
+@Immutable
 data class GridAppInfo(
     val packageName: String,
     val appName: String,

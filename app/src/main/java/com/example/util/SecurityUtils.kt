@@ -1,5 +1,8 @@
 package com.example.util
 
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.fragment.app.FragmentActivity
 import java.security.MessageDigest
 
 object SecurityUtils {
@@ -21,4 +24,15 @@ object SecurityUtils {
         if (input == saved) return true
         return hashSecret(input) == saved
     }
+}
+
+fun Context.findActivity(): FragmentActivity? {
+    var cur = this
+    while (cur is ContextWrapper) {
+        if (cur is FragmentActivity) {
+            return cur
+        }
+        cur = cur.baseContext
+    }
+    return null
 }
