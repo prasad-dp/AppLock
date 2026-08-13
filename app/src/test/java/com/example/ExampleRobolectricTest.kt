@@ -39,10 +39,57 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `read string from context`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val appName = context.getString(R.string.app_name)
-        assertEquals("App Locker", appName)
+    fun `test initial setup pin mismatch stays on confirm pin screen`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val viewModel = MainActivityViewModel(app)
+        viewModel.startWizard()
+        viewModel.selectLockType("pin")
+
+        assertTrue(viewModel.setupState.value is SetupState.SetFirstPin)
+
+        // Enter initial PIN
+        viewModel.handlePinEntered("1234")
+        val stateAfterFirst = viewModel.setupState.value
+        assertTrue(stateAfterFirst is SetupState.ConfirmPin)
+        assertEquals("1234", (stateAfterFirst as SetupState.ConfirmPin).firstAttempt)
+
+        // Enter wrong confirmation PIN
+        viewModel.handlePinEntered("5678")
+        val stateAfterMismatch = viewModel.setupState.value
+        assertTrue(stateAfterMismatch is SetupState.ConfirmPin)
+        val confirmState = stateAfterMismatch as SetupState.ConfirmPin
+        assertEquals("1234", confirmState.firstAttempt)
+        assertEquals("PINs do not match! Enter PIN again to confirm.", confirmState.errorMessage)
+
+        // Enter correct confirmation PIN
+        viewModel.handlePinEntered("1234")
+        assertTrue(viewModel.setupState.value is SetupState.SetupSuccess)
+    }
+
+    @Test
+    fun `test restart current type setup redirects to welcome screen`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val viewModel = MainActivityViewModel(app)
+        viewModel.startWizard()
+        viewModel.selectLockType("pattern")
+
+        assertTrue(viewModel.setupState.value is SetupState.SetFirstPattern)
+
+        viewModel.restartCurrentTypeSetup()
+        assertTrue(viewModel.setupState.value is SetupState.WelcomePatternRequired)
+    }
+
+    @Test
+    fun `test triggerAdMobInterstitial shows interstitial dialog`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val viewModel = MainActivityViewModel(app)
+        assertFalse(viewModel.showAdMobInterstitialDialog.value)
+
+        viewModel.triggerAdMobInterstitial()
+        assertTrue(viewModel.showAdMobInterstitialDialog.value)
+
+        viewModel.dismissAdMobInterstitialDialog()
+        assertFalse(viewModel.showAdMobInterstitialDialog.value)
     }
 
     @Test

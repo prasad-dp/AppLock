@@ -585,12 +585,13 @@ fun PatternWizardView(
             }
         }
 
-        if (state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
+        if (state is SetupState.SetFirstPattern || state is SetupState.SetFirstPin || state is SetupState.SetFirstPassword ||
+            state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
             val actionButtonText = when (state) {
-                is SetupState.ConfirmPattern -> "Redraw Pattern"
-                is SetupState.ConfirmPin -> "Re-enter PIN"
-                is SetupState.ConfirmPassword -> "Re-enter Password"
-                else -> "Start Over"
+                is SetupState.ConfirmPattern, is SetupState.SetFirstPattern -> "Redraw Pattern"
+                is SetupState.ConfirmPin, is SetupState.SetFirstPin -> "Re-enter PIN"
+                is SetupState.ConfirmPassword, is SetupState.SetFirstPassword -> "Re-enter Password"
+                else -> "Re-enter"
             }
             TextButton(
                 onClick = onRestartCurrentType,
@@ -629,6 +630,7 @@ fun DashboardView(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var isServiceActiveState by remember { mutableStateOf(viewModel.isServiceActive()) }
     var showDisableShieldConfirmation by remember { mutableStateOf(false) }
+    var showTurnOffIntruderConfirmDialog by remember { mutableStateOf(false) }
     var isBiometricEnabledState by remember { mutableStateOf(viewModel.isBiometricEnabled()) }
     var isIntruderDetectionEnabledState by remember { mutableStateOf(viewModel.isIntruderDetectionEnabled()) }
     var isAutoCleanupEnabledState by remember { mutableStateOf(viewModel.isAutoCleanupEnabled()) }
@@ -648,6 +650,7 @@ fun DashboardView(
     var showDoubleLockTipCard by remember { mutableStateOf(true) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val showAdMobInterstitialDialogState by viewModel.showAdMobInterstitialDialog.collectAsStateWithLifecycle()
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -866,6 +869,13 @@ fun DashboardView(
         )
     }
 
+    if (showAdMobInterstitialDialogState) {
+        com.example.ui.components.InterstitialAdDialog(
+            actionTitle = "Security Ad",
+            onAdDismissed = { viewModel.dismissAdMobInterstitialDialog() }
+        )
+    }
+
     if (showUnlockAllConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showUnlockAllConfirmDialog = false },
@@ -990,6 +1000,86 @@ fun DashboardView(
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier.testTag("disable_shield_confirmation_dialog")
+        )
+    }
+
+    if (showTurnOffIntruderConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showTurnOffIntruderConfirmDialog = false
+                viewModel.triggerAdMobInterstitial()
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Turn Off Intruder Warning",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Turn Off Intruder Detection?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "By turning off Intruder Selfie, intruder detection won't work and photos will no longer be captured on unauthorized unlock attempts.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Keep active to ensure unauthorized attempts are logged.",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showTurnOffIntruderConfirmDialog = false
+                        viewModel.triggerAdMobInterstitial()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Keep On", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showTurnOffIntruderConfirmDialog = false
+                        isIntruderDetectionEnabledState = false
+                        viewModel.setIntruderDetectionEnabled(false)
+                        Toast.makeText(context, "Intruder Detection disarmed", Toast.LENGTH_SHORT).show()
+                        viewModel.triggerAdMobInterstitial()
+                    }
+                ) {
+                    Text(
+                        text = "Turn Off",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.testTag("turn_off_intruder_confirm_dialog")
         )
     }
 
@@ -1234,14 +1324,6 @@ fun DashboardView(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                    }
-                )
-            }
     ) {
         // App Header Toolbar
         Box(
@@ -1472,97 +1554,6 @@ fun DashboardView(
             0 -> {
                 // TAB 0: APPS TAB
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // System Permissions Banner on Apps Screen if permissions are missing
-                    if (!hasUsagePermission || !hasOverlayPermission) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Warning,
-                                        contentDescription = "Warning",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(
-                                        text = "System Permission Required",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "App Locker needs system access to detect app launches and display the lock screen on protected apps.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (!hasUsagePermission) {
-                                        Button(
-                                            onClick = {
-                                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                }
-                                                context.startActivity(intent)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                                                contentColor = MaterialTheme.colorScheme.errorContainer
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("grant_usage_permission_apps_tab_button")
-                                        ) {
-                                            Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Grant Usage Access Permission")
-                                        }
-                                    }
-                                    if (!hasOverlayPermission) {
-                                        Button(
-                                            onClick = {
-                                                try {
-                                                    val intent = Intent(
-                                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                        Uri.parse("package:${context.packageName}")
-                                                    ).apply {
-                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                    }
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                    }
-                                                    context.startActivity(intent)
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                                                contentColor = MaterialTheme.colorScheme.errorContainer
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("grant_overlay_permission_apps_tab_button")
-                                        ) {
-                                            Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Grant Display Overlay Permission")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     // Quick Action Row & Search
                     Column(
                         modifier = Modifier
@@ -1674,6 +1665,96 @@ fun DashboardView(
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        // System Permissions Banner on Apps Screen if permissions are missing
+                        if (!hasUsagePermission || !hasOverlayPermission) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer
+                                    ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = "Warning",
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "System Permission Required",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "App Locker needs system access to detect app launches and display the lock screen on protected apps.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            if (!hasUsagePermission) {
+                                                Button(
+                                                    onClick = {
+                                                        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        }
+                                                        context.startActivity(intent)
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                        contentColor = MaterialTheme.colorScheme.errorContainer
+                                                    ),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .testTag("grant_usage_permission_apps_tab_button")
+                                                ) {
+                                                    Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("Grant Usage Access Permission")
+                                                }
+                                            }
+                                            if (!hasOverlayPermission) {
+                                                Button(
+                                                    onClick = {
+                                                        try {
+                                                            val intent = Intent(
+                                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                                Uri.parse("package:${context.packageName}")
+                                                            ).apply {
+                                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                            }
+                                                            context.startActivity(intent)
+                                                        } catch (e: Exception) {
+                                                            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                            }
+                                                            context.startActivity(intent)
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                        contentColor = MaterialTheme.colorScheme.errorContainer
+                                                    ),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .testTag("grant_overlay_permission_apps_tab_button")
+                                                ) {
+                                                    Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("Grant Display Overlay Permission")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if (showDoubleLockTipCard) {
                             item {
                                 DoubleUnlockTipBanner(
@@ -2006,12 +2087,7 @@ fun DashboardView(
                                                     cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                                                 }
                                             } else {
-                                                isIntruderDetectionEnabledState = false
-                                                viewModel.setIntruderDetectionEnabled(false)
-                                                if (!isPremiumUser) {
-                                                    showTransitionInterstitial = "Intruder Detection Disarmed"
-                                                }
-                                                Toast.makeText(context, "Intruder Detection disarmed", Toast.LENGTH_SHORT).show()
+                                                showTurnOffIntruderConfirmDialog = true
                                             }
                                         },
                                         modifier = Modifier.testTag("intruder_detection_active_switch")

@@ -219,7 +219,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Pattern / PIN / Password wizard control
     fun resetSetupWizard() {
         prefs.clearPattern()
-        _setupState.value = SetupState.SelectLockType
+        _setupState.value = SetupState.WelcomePatternRequired
     }
 
     fun startWizard() {
@@ -256,9 +256,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pattern"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Redirect to initial lock setup screen with error prompt when confirmation fails
-                    _setupState.value = SetupState.SetFirstPattern(
-                        errorMessage = "Patterns do not match! Draw initial pattern again."
+                    // Stay on confirmation screen with error prompt so user can retry confirmation
+                    _setupState.value = SetupState.ConfirmPattern(
+                        firstAttempt = current.firstAttempt,
+                        errorMessage = "Patterns do not match! Draw pattern again to confirm.",
+                        attemptId = current.attemptId + 1
                     )
                 }
             }
@@ -278,9 +280,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pin"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Redirect to initial lock setup screen with error prompt when confirmation fails
-                    _setupState.value = SetupState.SetFirstPin(
-                        errorMessage = "PINs do not match! Enter initial PIN again."
+                    // Stay on confirmation screen with error prompt so user can retry confirmation
+                    _setupState.value = SetupState.ConfirmPin(
+                        firstAttempt = current.firstAttempt,
+                        errorMessage = "PINs do not match! Enter PIN again to confirm.",
+                        attemptId = current.attemptId + 1
                     )
                 }
             }
@@ -302,9 +306,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "password"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Redirect to initial lock setup screen with error prompt when confirmation fails
-                    _setupState.value = SetupState.SetFirstPassword(
-                        errorMessage = "Passwords do not match! Enter initial password again."
+                    // Stay on confirmation screen with error prompt so user can retry confirmation
+                    _setupState.value = SetupState.ConfirmPassword(
+                        firstAttempt = current.firstAttempt,
+                        errorMessage = "Passwords do not match! Type password again to confirm.",
+                        attemptId = current.attemptId + 1
                     )
                 }
             }
@@ -313,12 +319,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun restartCurrentTypeSetup() {
-        when (_setupState.value) {
-            is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> _setupState.value = SetupState.SetFirstPattern()
-            is SetupState.SetFirstPin, is SetupState.ConfirmPin -> _setupState.value = SetupState.SetFirstPin()
-            is SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> _setupState.value = SetupState.SetFirstPassword()
-            else -> {}
-        }
+        _setupState.value = SetupState.WelcomePatternRequired
     }
 
     fun completeWizard() {
@@ -370,6 +371,20 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    private val _showAdMobInterstitialDialog = MutableStateFlow(false)
+    val showAdMobInterstitialDialog: StateFlow<Boolean> = _showAdMobInterstitialDialog.asStateFlow()
+
+    private var intruderDeletionCount = 0
+
+    fun triggerAdMobInterstitial() {
+        if (prefs.isPremiumUser) return
+        _showAdMobInterstitialDialog.value = true
+    }
+
+    fun dismissAdMobInterstitialDialog() {
+        _showAdMobInterstitialDialog.value = false
+    }
+
     val intruderAlertsFlow: StateFlow<List<IntruderAlert>> = repository.allIntruderAlertsFlow
         .stateIn(
             scope = viewModelScope,
@@ -380,12 +395,21 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun deleteIntruderAlert(alert: IntruderAlert) {
         viewModelScope.launch {
             repository.deleteIntruderAlert(alert)
+            intruderDeletionCount++
+            if (intruderDeletionCount % 3 == 0) {
+                triggerAdMobInterstitial()
+            }
+        }
+    }
+
+    fun deleteAllIntruderAlerts() {
+        viewModelScope.launch {
+            repository.deleteAllIntruderAlerts()
+            intruderDeletionCount = 0
         }
     }
 
     fun clearAllIntruderAlerts() {
-        viewModelScope.launch {
-            repository.deleteAllIntruderAlerts()
-        }
+        deleteAllIntruderAlerts()
     }
 }
