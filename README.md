@@ -229,4 +229,10 @@ The application integrates Google Mobile Ads SDK (AdMob) with strict Play Store 
 ---
 
 ## 📄 License & Release Notes
+
+### Latest Release Updates
+- **Confirmation Wizard Redirection**: Added automatic reset redirection to initial lock creation screens when pattern/PIN/password confirmations do not match, complete with dynamic button labels (*"Redraw Pattern"*, *"Re-enter PIN"*, *"Re-enter Password"*).
+- **Unblockable Pattern Gesture Input**: Optimized touch gesture handling in `PatternLockView` to allow continuous drawing without touch state lockouts.
+- **Performance & Memory Tuning**: Optimized `AppLockService` background polling loops, state flow memory allocations, and zero-allocation in-place alphanumeric app sorting.
+
 All release artifacts (including `app-release.aab` and `PRIVACY_POLICY.html`) are located in the `store_assets/` folder ready for Google Play Console submission.

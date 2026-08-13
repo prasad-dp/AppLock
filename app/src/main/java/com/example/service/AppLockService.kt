@@ -26,6 +26,11 @@ class AppLockService : Service() {
     private val lockedPackages = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val lastSeenForegroundTime = java.util.Collections.synchronizedMap(mutableMapOf<String, Long>())
     private var lastKnownForegroundPackage: String? = null
+
+    // Reusable objects for zero-allocation background polling
+    private val reusableEvent = UsageEvents.Event()
+    private val reusablePackageStates = mutableMapOf<String, Int>()
+    private val reusablePackageLastTime = mutableMapOf<String, Long>()
     
     private val screenLockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -223,7 +228,7 @@ class AppLockService : Service() {
 
     private fun getForegroundPackageName(usm: UsageStatsManager): String? {
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - 15000
+        val startTime = endTime - 4000L
 
         val usageEvents = try {
             usm.queryEvents(startTime, endTime)
@@ -232,47 +237,58 @@ class AppLockService : Service() {
             null
         } ?: return lastKnownForegroundPackage
 
-        val event = UsageEvents.Event()
-        val packageStates = mutableMapOf<String, Int>()
-        val packageLastTime = mutableMapOf<String, Long>()
+        reusablePackageStates.clear()
+        reusablePackageLastTime.clear()
 
         while (usageEvents.hasNextEvent()) {
-            usageEvents.getNextEvent(event)
-            val pkg = event.packageName ?: continue
-            val type = event.eventType
+            usageEvents.getNextEvent(reusableEvent)
+            val pkg = reusableEvent.packageName ?: continue
+            val type = reusableEvent.eventType
             if (type == UsageEvents.Event.ACTIVITY_RESUMED ||
                 type == UsageEvents.Event.ACTIVITY_PAUSED ||
                 type == UsageEvents.Event.ACTIVITY_STOPPED ||
                 type == 1 || type == 2) {
 
-                val prevTime = packageLastTime[pkg] ?: 0L
-                if (event.timeStamp >= prevTime) {
-                    packageLastTime[pkg] = event.timeStamp
-                    packageStates[pkg] = type
+                val prevTime = reusablePackageLastTime[pkg] ?: 0L
+                if (reusableEvent.timeStamp >= prevTime) {
+                    reusablePackageLastTime[pkg] = reusableEvent.timeStamp
+                    reusablePackageStates[pkg] = type
                 }
             }
         }
 
-        // Find packages whose latest lifecycle state is RESUMED
-        val resumedPackages = packageStates.filter { it.value == UsageEvents.Event.ACTIVITY_RESUMED || it.value == 1 }
-        if (resumedPackages.isNotEmpty()) {
-            val topPkg = resumedPackages.keys.maxByOrNull { packageLastTime[it] ?: 0L }
-            if (topPkg != null) {
-                lastKnownForegroundPackage = topPkg
-                return topPkg
+        // Find package whose latest lifecycle state is RESUMED via single-pass scan
+        var topPkg: String? = null
+        var maxTime = 0L
+        for ((pkg, type) in reusablePackageStates) {
+            if (type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) {
+                val time = reusablePackageLastTime[pkg] ?: 0L
+                if (time >= maxTime) {
+                    maxTime = time
+                    topPkg = pkg
+                }
             }
         }
 
-        // Fallback: Query UsageStats
+        if (topPkg != null) {
+            lastKnownForegroundPackage = topPkg
+            return topPkg
+        }
+
+        // Fallback: Query UsageStats with single-pass max evaluation
         try {
-            val fallbackStart = endTime - 8000
+            val fallbackStart = endTime - 5000L
             val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, fallbackStart, endTime)
             if (!stats.isNullOrEmpty()) {
-                val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
-                val top = sortedStats.firstOrNull()
-                if (top != null && (endTime - top.lastTimeUsed) < 5000) {
-                    lastKnownForegroundPackage = top.packageName
-                    return top.packageName
+                var topStat: android.app.usage.UsageStats? = null
+                for (stat in stats) {
+                    if (topStat == null || stat.lastTimeUsed > topStat.lastTimeUsed) {
+                        topStat = stat
+                    }
+                }
+                if (topStat != null && (endTime - topStat.lastTimeUsed) < 5000) {
+                    lastKnownForegroundPackage = topStat.packageName
+                    return topStat.packageName
                 }
             }
         } catch (e: Exception) {

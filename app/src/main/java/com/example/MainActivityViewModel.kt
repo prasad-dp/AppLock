@@ -34,19 +34,19 @@ data class GridAppInfo(
 sealed interface SetupState {
     object WelcomePatternRequired : SetupState
     object SelectLockType : SetupState
-    object SetFirstPattern : SetupState
+    data class SetFirstPattern(val errorMessage: String? = null) : SetupState
     data class ConfirmPattern(
         val firstAttempt: List<Int>,
         val errorMessage: String? = null,
         val attemptId: Int = 0
     ) : SetupState
-    object SetFirstPin : SetupState
+    data class SetFirstPin(val errorMessage: String? = null) : SetupState
     data class ConfirmPin(
         val firstAttempt: String,
         val errorMessage: String? = null,
         val attemptId: Int = 0
     ) : SetupState
-    object SetFirstPassword : SetupState
+    data class SetFirstPassword(val errorMessage: String? = null) : SetupState
     data class ConfirmPassword(
         val firstAttempt: String,
         val errorMessage: String? = null,
@@ -121,16 +121,21 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
 
             val trimmedQuery = query.trim()
-            val filteredBySearch = if (trimmedQuery.isEmpty()) {
-                mapped
-            } else {
-                mapped.filter { it.appName.contains(trimmedQuery, ignoreCase = true) }
-            }
+            val hasQuery = trimmedQuery.isNotEmpty()
 
-            val filtered = when (filter) {
-                AppFilterMode.ALL -> filteredBySearch
-                AppFilterMode.LOCKED -> filteredBySearch.filter { it.isLocked }
-                AppFilterMode.UNLOCKED -> filteredBySearch.filter { !it.isLocked }
+            val filtered = ArrayList<GridAppInfo>(mapped.size)
+            for (item in mapped) {
+                if (hasQuery && !item.appName.contains(trimmedQuery, ignoreCase = true)) {
+                    continue
+                }
+                val matchesFilter = when (filter) {
+                    AppFilterMode.ALL -> true
+                    AppFilterMode.LOCKED -> item.isLocked
+                    AppFilterMode.UNLOCKED -> !item.isLocked
+                }
+                if (matchesFilter) {
+                    filtered.add(item)
+                }
             }
             filtered.sortedWith(AlphanumericComparator.GRID_APP_COMPARATOR)
         }.flowOn(Dispatchers.Default).stateIn(
@@ -223,9 +228,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun selectLockType(type: String) {
         when (type) {
-            "pattern" -> _setupState.value = SetupState.SetFirstPattern
-            "pin" -> _setupState.value = SetupState.SetFirstPin
-            "password" -> _setupState.value = SetupState.SetFirstPassword
+            "pattern" -> _setupState.value = SetupState.SetFirstPattern()
+            "pin" -> _setupState.value = SetupState.SetFirstPin()
+            "password" -> _setupState.value = SetupState.SetFirstPassword()
         }
     }
 
@@ -251,10 +256,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pattern"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Mismatch - stay in ConfirmPattern and show clear error message
-                    _setupState.value = current.copy(
-                        errorMessage = "Patterns do not match. Please re-draw to confirm.",
-                        attemptId = current.attemptId + 1
+                    // Redirect to initial lock setup screen with error prompt when confirmation fails
+                    _setupState.value = SetupState.SetFirstPattern(
+                        errorMessage = "Patterns do not match! Draw initial pattern again."
                     )
                 }
             }
@@ -274,10 +278,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "pin"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Mismatch - stay in ConfirmPin and show clear error message
-                    _setupState.value = current.copy(
-                        errorMessage = "PINs do not match. Please re-enter to confirm.",
-                        attemptId = current.attemptId + 1
+                    // Redirect to initial lock setup screen with error prompt when confirmation fails
+                    _setupState.value = SetupState.SetFirstPin(
+                        errorMessage = "PINs do not match! Enter initial PIN again."
                     )
                 }
             }
@@ -299,10 +302,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     prefs.lockType = "password"
                     _setupState.value = SetupState.SetupSuccess
                 } else {
-                    // Mismatch - stay in ConfirmPassword and show clear error message
-                    _setupState.value = current.copy(
-                        errorMessage = "Passwords do not match. Please re-enter to confirm.",
-                        attemptId = current.attemptId + 1
+                    // Redirect to initial lock setup screen with error prompt when confirmation fails
+                    _setupState.value = SetupState.SetFirstPassword(
+                        errorMessage = "Passwords do not match! Enter initial password again."
                     )
                 }
             }
@@ -312,9 +314,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun restartCurrentTypeSetup() {
         when (_setupState.value) {
-            is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> _setupState.value = SetupState.SetFirstPattern
-            is SetupState.SetFirstPin, is SetupState.ConfirmPin -> _setupState.value = SetupState.SetFirstPin
-            is SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> _setupState.value = SetupState.SetFirstPassword
+            is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> _setupState.value = SetupState.SetFirstPattern()
+            is SetupState.SetFirstPin, is SetupState.ConfirmPin -> _setupState.value = SetupState.SetFirstPin()
+            is SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> _setupState.value = SetupState.SetFirstPassword()
             else -> {}
         }
     }

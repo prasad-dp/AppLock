@@ -370,9 +370,9 @@ fun PatternWizardView(
             SetupState.SelectLockType -> {
                 instructionText = "Select your preferred credential protection type"
             }
-            SetupState.SetFirstPattern -> {
-                feedbackState = PatternState.DRAWING
-                instructionText = "Draw a pattern lock sequence (connect at least 4 dots)"
+            is SetupState.SetFirstPattern -> {
+                feedbackState = if (state.errorMessage != null) PatternState.ERROR else PatternState.DRAWING
+                instructionText = state.errorMessage ?: "Draw a pattern lock sequence (connect at least 4 dots)"
             }
             is SetupState.ConfirmPattern -> {
                 if (state.errorMessage != null) {
@@ -383,14 +383,14 @@ fun PatternWizardView(
                     instructionText = "Draw pattern again to confirm sequence"
                 }
             }
-            SetupState.SetFirstPin -> {
-                instructionText = "Create a 4-digit PIN"
+            is SetupState.SetFirstPin -> {
+                instructionText = state.errorMessage ?: "Create a 4-digit PIN"
             }
             is SetupState.ConfirmPin -> {
                 instructionText = state.errorMessage ?: "Enter PIN again to confirm"
             }
-            SetupState.SetFirstPassword -> {
-                instructionText = "Create a security password (at least 8 characters)"
+            is SetupState.SetFirstPassword -> {
+                instructionText = state.errorMessage ?: "Create a security password (at least 8 characters)"
             }
             is SetupState.ConfirmPassword -> {
                 instructionText = state.errorMessage ?: "Type password again to confirm"
@@ -457,11 +457,11 @@ fun PatternWizardView(
                 text = when (state) {
                     SetupState.WelcomePatternRequired -> "Welcome to App Locker"
                     SetupState.SelectLockType -> "Choose Lock Mode"
-                    SetupState.SetFirstPattern -> "Create Unlock Pattern"
+                    is SetupState.SetFirstPattern -> "Create Unlock Pattern"
                     is SetupState.ConfirmPattern -> "Confirm Unlock Pattern"
-                    SetupState.SetFirstPin -> "Create Numeric PIN"
+                    is SetupState.SetFirstPin -> "Create Numeric PIN"
                     is SetupState.ConfirmPin -> "Confirm Numeric PIN"
-                    SetupState.SetFirstPassword -> "Create Password"
+                    is SetupState.SetFirstPassword -> "Create Password"
                     is SetupState.ConfirmPassword -> "Confirm Password"
                     SetupState.SetupSuccess -> "Setup Successful"
                     else -> ""
@@ -474,8 +474,11 @@ fun PatternWizardView(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val isErrorText = (state is SetupState.ConfirmPattern && state.errorMessage != null) ||
+            val isErrorText = (state is SetupState.SetFirstPattern && state.errorMessage != null) ||
+                    (state is SetupState.ConfirmPattern && state.errorMessage != null) ||
+                    (state is SetupState.SetFirstPin && state.errorMessage != null) ||
                     (state is SetupState.ConfirmPin && state.errorMessage != null) ||
+                    (state is SetupState.SetFirstPassword && state.errorMessage != null) ||
                     (state is SetupState.ConfirmPassword && state.errorMessage != null) ||
                     feedbackState == PatternState.ERROR
 
@@ -534,7 +537,7 @@ fun PatternWizardView(
                         )
                     }
                 }
-                SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> {
+                is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> {
                     Box(modifier = Modifier.size(320.dp), contentAlignment = Alignment.Center) {
                         PatternLockView(
                             modifier = Modifier.fillMaxSize(),
@@ -551,7 +554,7 @@ fun PatternWizardView(
                         )
                     }
                 }
-                SetupState.SetFirstPin, is SetupState.ConfirmPin -> {
+                is SetupState.SetFirstPin, is SetupState.ConfirmPin -> {
                     PinPadView(
                         modifier = Modifier.fillMaxWidth(),
                         pinLength = 4,
@@ -559,7 +562,7 @@ fun PatternWizardView(
                         resetIdentifier = state
                     )
                 }
-                SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> {
+                is SetupState.SetFirstPassword, is SetupState.ConfirmPassword -> {
                     PasswordUnlockView(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = if (state is SetupState.SetFirstPassword) "Create password (min 8 chars)" else "Confirm password",
@@ -583,11 +586,17 @@ fun PatternWizardView(
         }
 
         if (state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
+            val actionButtonText = when (state) {
+                is SetupState.ConfirmPattern -> "Redraw Pattern"
+                is SetupState.ConfirmPin -> "Re-enter PIN"
+                is SetupState.ConfirmPassword -> "Re-enter Password"
+                else -> "Start Over"
+            }
             TextButton(
                 onClick = onRestartCurrentType,
                 modifier = Modifier.testTag("reset_wizard")
             ) {
-                Text("Start Over (Redraw / Re-enter)")
+                Text(actionButtonText)
             }
         } else {
             Spacer(modifier = Modifier.height(32.dp))

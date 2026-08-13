@@ -22,22 +22,28 @@ object AlphanumericComparator {
             val isDigit2 = c2.isDigit()
 
             if (isDigit1 && isDigit2) {
-                val numStart1 = i1
+                var numStart1 = i1
                 while (i1 < len1 && s1[i1].isDigit()) i1++
-                val numStr1 = s1.substring(numStart1, i1)
+                val numEnd1 = i1
+                while (numStart1 < numEnd1 - 1 && s1[numStart1] == '0') numStart1++
 
-                val numStart2 = i2
+                var numStart2 = i2
                 while (i2 < len2 && s2[i2].isDigit()) i2++
-                val numStr2 = s2.substring(numStart2, i2)
+                val numEnd2 = i2
+                while (numStart2 < numEnd2 - 1 && s2[numStart2] == '0') numStart2++
 
-                val num1 = numStr1.trimStart('0').ifEmpty { "0" }
-                val num2 = numStr2.trimStart('0').ifEmpty { "0" }
+                val numLen1 = numEnd1 - numStart1
+                val numLen2 = numEnd2 - numStart2
 
-                if (num1.length != num2.length) {
-                    return num1.length.compareTo(num2.length)
+                if (numLen1 != numLen2) {
+                    return numLen1.compareTo(numLen2)
                 }
-                val numComp = num1.compareTo(num2)
-                if (numComp != 0) return numComp
+
+                for (k in 0 until numLen1) {
+                    val nc1 = s1[numStart1 + k]
+                    val nc2 = s2[numStart2 + k]
+                    if (nc1 != nc2) return nc1.compareTo(nc2)
+                }
             } else if (isDigit1 != isDigit2) {
                 // Digits sort before letters/symbols
                 return if (isDigit1) -1 else 1

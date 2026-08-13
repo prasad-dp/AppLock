@@ -87,9 +87,7 @@ fun PatternLockView(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(state) {
-                    if (state != PatternState.DRAWING) return@pointerInput
-
+                .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         connectedDots.clear()

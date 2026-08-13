@@ -58,6 +58,7 @@ object AppLockSession {
 
     fun getUnlockedAppsCopy(): List<String> {
         synchronized(unlockedApps) {
+            if (unlockedApps.isEmpty()) return emptyList()
             return unlockedApps.toList()
         }
     }
