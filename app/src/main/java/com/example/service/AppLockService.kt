@@ -136,8 +136,8 @@ class AppLockService : Service() {
                     val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
                     for (unlockedApp in currentUnlockedApps) {
                         if (unlockedApp != currentApp && !isTransient) {
-                            val unlockTime = AppLockSession.getUnlockTime(unlockedApp)
-                            val timeSinceUnlock = System.currentTimeMillis() - unlockTime
+                            val lastSeen = lastSeenForegroundTime[unlockedApp] ?: System.currentTimeMillis()
+                            val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
 
                             val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                             val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
@@ -150,18 +150,9 @@ class AppLockService : Service() {
                                 else -> 30_000L
                             }
 
-                            // Internal Lock Grace Window: capped at relockThresholdMs so immediate/15sec policies are respected
-                            val maxGraceWindowMs = minOf(30_000L, relockThresholdMs)
-                            if (timeSinceUnlock < maxGraceWindowMs) {
-                                lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
-                                continue
-                            }
-
-                            val lastSeen = lastSeenForegroundTime[unlockedApp] ?: System.currentTimeMillis()
-                            val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
-
-                            if (outOfForegroundDuration > relockThresholdMs) {
+                            if (outOfForegroundDuration >= relockThresholdMs) {
                                 AppLockSession.lockApp(unlockedApp)
+                                lastSeenForegroundTime.remove(unlockedApp)
                                 Log.d(TAG, "Auto-relocked app: $unlockedApp after $outOfForegroundDuration ms out of foreground (Policy: $relockPolicy)")
                             }
                         }
@@ -195,14 +186,19 @@ class AppLockService : Service() {
                     Log.e(TAG, "Error in checking loop", e)
                 }
                 
-                // Adaptive Polling: 50ms when app switching occurs or when on locked apps; 180ms when sitting stably in an unlocked app
-                val nextDelay = if (lastKnownForegroundPackage != currentApp) {
+                // Adaptive Battery Optimization:
+                // - If no apps are locked: sleep 800ms to conserve battery
+                // - When active app switching occurs or on locked apps: 50ms for instant reaction
+                // - When sitting stably in a normal app: 200ms
+                val nextDelay = if (lockedPackages.isEmpty()) {
+                    800L
+                } else if (lastKnownForegroundPackage != currentApp) {
                     lastKnownForegroundPackage = currentApp
                     50L
                 } else if (currentApp != null && lockedPackages.contains(currentApp)) {
                     50L
                 } else {
-                    180L
+                    200L
                 }
                 delay(nextDelay)
             }
@@ -222,8 +218,7 @@ class AppLockService : Service() {
                 lower.contains("keyboard") ||
                 lower.contains("fingerprint") ||
                 lower.contains("keyguard") ||
-                lower.contains("systemui") ||
-                lower.contains("launcher")
+                lower.contains("systemui")
     }
 
     private fun getForegroundPackageName(usm: UsageStatsManager): String? {

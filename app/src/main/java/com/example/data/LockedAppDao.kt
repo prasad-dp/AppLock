@@ -17,9 +17,18 @@ interface LockedAppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLockedApp(lockedApp: LockedApp)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLockedApps(lockedApps: List<LockedApp>)
+
     @Delete
     suspend fun deleteLockedApp(lockedApp: LockedApp)
 
     @Query("DELETE FROM locked_apps WHERE packageName = :packageName")
     suspend fun deleteLockedAppByPackage(packageName: String)
+
+    @Query("DELETE FROM locked_apps WHERE packageName IN (:packageNames)")
+    suspend fun deleteLockedAppsByPackage(packageNames: List<String>)
+
+    @Query("DELETE FROM locked_apps")
+    suspend fun deleteAllLockedApps()
 }

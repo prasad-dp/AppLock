@@ -25,8 +25,20 @@ class AppRepository(
         lockedAppDao.insertLockedApp(LockedApp(packageName = packageName, appName = appName, isLocked = true))
     }
 
+    suspend fun lockApps(apps: List<Pair<String, String>>) {
+        if (apps.isEmpty()) return
+        val lockedList = apps.map { (pkg, name) ->
+            LockedApp(packageName = pkg, appName = name, isLocked = true)
+        }
+        lockedAppDao.insertLockedApps(lockedList)
+    }
+
     suspend fun unlockApp(packageName: String) {
         lockedAppDao.deleteLockedAppByPackage(packageName)
+    }
+
+    suspend fun unlockAllApps() {
+        lockedAppDao.deleteAllLockedApps()
     }
 
     suspend fun insertIntruderAlert(alert: IntruderAlert) {

@@ -2,6 +2,7 @@ package com.example.ui.pattern
 
 import android.graphics.drawable.Drawable
 import android.widget.ImageView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -121,10 +122,10 @@ fun PinPadView(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Large Premium Keyboard Layout: strictly 3-column layout to align perfectly on all screens
-        val lastRow = if (isBiometricEnabled) {
-            listOf("FP", "0", "⌫")
-        } else if (onCancelClick != null) {
+        val lastRow = if (onCancelClick != null) {
             listOf("X", "0", "⌫")
+        } else if (isBiometricEnabled) {
+            listOf("FP", "0", "⌫")
         } else {
             listOf("", "0", "⌫")
         }
@@ -1405,24 +1406,37 @@ fun LockVerifyScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Action Buttons Row
-        if (onCancel != null || (prefs.isBiometricEnabled && prefs.lockType != "pin")) {
+        // Action Buttons Row: Cancel button placed on the left side of Fingerprint button
+        if (onCancel != null || prefs.isBiometricEnabled) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (onCancel != null) {
-                    Button(
+                    OutlinedButton(
                         onClick = onCancel,
-                        colors = ButtonDefaults.textButtonColors(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                         modifier = Modifier.testTag("cancel_unlock_button")
                     ) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.error)
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cancel",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Cancel", fontWeight = FontWeight.SemiBold)
                     }
                 }
 
-                if (prefs.isBiometricEnabled && prefs.lockType != "pin") {
+                if (onCancel != null && prefs.isBiometricEnabled) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+
+                if (prefs.isBiometricEnabled) {
                     OutlinedButton(
                         onClick = {
                             userDismissedBiometric = false
@@ -1436,7 +1450,7 @@ fun LockVerifyScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Fingerprint")
+                        Text("Fingerprint", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

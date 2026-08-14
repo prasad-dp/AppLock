@@ -94,50 +94,56 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 for (item in lockedList) add(item.packageName)
             }
             
-            val mapped = ArrayList<GridAppInfo>(installed.size + lockedList.size)
+            val trimmedQuery = query.trim()
+            val hasQuery = trimmedQuery.isNotEmpty()
+
+            val filtered = ArrayList<GridAppInfo>(installed.size)
             val installedSet = HashSet<String>(installed.size)
 
             for ((packageName, appName) in installed) {
                 installedSet.add(packageName)
-                mapped.add(
-                    GridAppInfo(
-                        packageName = packageName,
-                        appName = appName,
-                        isLocked = lockedSet.contains(packageName)
-                    )
-                )
-            }
-
-            for (lockedApp in lockedList) {
-                if (!installedSet.contains(lockedApp.packageName)) {
-                    mapped.add(
+                if (hasQuery && !appName.contains(trimmedQuery, ignoreCase = true)) {
+                    continue
+                }
+                val isLocked = lockedSet.contains(packageName)
+                val matchesFilter = when (filter) {
+                    AppFilterMode.ALL -> true
+                    AppFilterMode.LOCKED -> isLocked
+                    AppFilterMode.UNLOCKED -> !isLocked
+                }
+                if (matchesFilter) {
+                    filtered.add(
                         GridAppInfo(
-                            packageName = lockedApp.packageName,
-                            appName = lockedApp.appName,
-                            isLocked = true
+                            packageName = packageName,
+                            appName = appName,
+                            isLocked = isLocked
                         )
                     )
                 }
             }
 
-            val trimmedQuery = query.trim()
-            val hasQuery = trimmedQuery.isNotEmpty()
-
-            val filtered = ArrayList<GridAppInfo>(mapped.size)
-            for (item in mapped) {
-                if (hasQuery && !item.appName.contains(trimmedQuery, ignoreCase = true)) {
-                    continue
-                }
-                val matchesFilter = when (filter) {
-                    AppFilterMode.ALL -> true
-                    AppFilterMode.LOCKED -> item.isLocked
-                    AppFilterMode.UNLOCKED -> !item.isLocked
-                }
-                if (matchesFilter) {
-                    filtered.add(item)
+            for (lockedApp in lockedList) {
+                if (!installedSet.contains(lockedApp.packageName)) {
+                    if (hasQuery && !lockedApp.appName.contains(trimmedQuery, ignoreCase = true)) {
+                        continue
+                    }
+                    val matchesFilter = when (filter) {
+                        AppFilterMode.ALL -> true
+                        AppFilterMode.LOCKED -> true
+                        AppFilterMode.UNLOCKED -> false
+                    }
+                    if (matchesFilter) {
+                        filtered.add(
+                            GridAppInfo(
+                                packageName = lockedApp.packageName,
+                                appName = lockedApp.appName,
+                                isLocked = true
+                            )
+                        )
+                    }
                 }
             }
-            filtered.sortedWith(AlphanumericComparator.GRID_APP_COMPARATOR)
+            filtered
         }.flowOn(Dispatchers.Default).stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -188,21 +194,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 "contact", "contacts", "message", "messages", "drive", "chrome",
                 "browser", "file", "files", "camera"
             )
-            _installedApps.value.forEach { (packageName, appName) ->
+            val toLock = _installedApps.value.filter { (packageName, appName) ->
                 val lowerName = appName.lowercase()
                 val lowerPkg = packageName.lowercase()
-                if (sensitiveKeywords.any { lowerName.contains(it) || lowerPkg.contains(it) }) {
-                    repository.lockApp(packageName, appName)
-                }
+                sensitiveKeywords.any { lowerName.contains(it) || lowerPkg.contains(it) }
             }
+            repository.lockApps(toLock)
         }
     }
 
     fun unlockAllApps() {
         viewModelScope.launch {
-            _installedApps.value.forEach { (packageName, _) ->
-                repository.unlockApp(packageName)
-            }
+            repository.unlockAllApps()
         }
     }
 

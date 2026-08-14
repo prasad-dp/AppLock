@@ -17,12 +17,17 @@ object SecurityUtils {
 
     /**
      * Verifies the user input against the stored secret in SharedPreferences.
+     * Uses constant-time byte comparison (MessageDigest.isEqual) to prevent timing attacks.
      * Supports both SHA-256 hashes and backward-compatible direct match.
      */
     fun verifySecret(input: String, saved: String?): Boolean {
-        if (saved.isNullOrEmpty()) return false
-        if (input == saved) return true
-        return hashSecret(input) == saved
+        if (saved.isNullOrEmpty() || input.isEmpty()) return false
+        val inputBytes = input.toByteArray(Charsets.UTF_8)
+        val savedBytes = saved.toByteArray(Charsets.UTF_8)
+        if (MessageDigest.isEqual(inputBytes, savedBytes)) return true
+
+        val hashedInput = hashSecret(input).toByteArray(Charsets.UTF_8)
+        return MessageDigest.isEqual(hashedInput, savedBytes)
     }
 }
 
