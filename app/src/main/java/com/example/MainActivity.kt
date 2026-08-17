@@ -596,184 +596,64 @@ fun PatternWizardView(
                     )
                 }
                 SetupState.SetupSuccess -> {
-                    val context = LocalContext.current
-                    var showAccessibilityDisclosureInWizard by remember { mutableStateOf(false) }
-                    var wizardAccessibilityGranted by remember { mutableStateOf(isAccessibilityEnabled(context)) }
-                    var wizardUsageGranted by remember { mutableStateOf(hasUsageStatsPermission(context)) }
-                    var wizardOverlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-
-                    val wizardLifecycleOwner = LocalLifecycleOwner.current
-                    DisposableEffect(wizardLifecycleOwner) {
-                        val observer = LifecycleEventObserver { _, event ->
-                            if (event == Lifecycle.Event.ON_RESUME) {
-                                wizardAccessibilityGranted = isAccessibilityEnabled(context)
-                                wizardUsageGranted = hasUsageStatsPermission(context)
-                                wizardOverlayGranted = Settings.canDrawOverlays(context)
-                            }
-                        }
-                        wizardLifecycleOwner.lifecycle.addObserver(observer)
-                        onDispose {
-                            wizardLifecycleOwner.lifecycle.removeObserver(observer)
-                        }
-                    }
-
-                    if (showAccessibilityDisclosureInWizard) {
-                        AccessibilityDisclosureDialog(
-                            onDismiss = { showAccessibilityDisclosureInWizard = false },
-                            onConfirm = {
-                                showAccessibilityDisclosureInWizard = false
-                                try {
-                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                    Toast.makeText(context, "Turn on 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        )
-                    }
-
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 0ms Instant Lock Card
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = if (wizardAccessibilityGranted) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                             ),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Bolt,
-                                            contentDescription = null,
-                                            tint = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "0ms Instant Lock",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                    Surface(
-                                        color = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(
-                                            text = if (wizardAccessibilityGranted) "ACTIVE ✓" else "RECOMMENDED",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = "Interceps app launch instantly to prevent home screen flickers and delays.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "🔒 Privacy: We never read or store your personal chats, screen contents, or keystrokes.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                )
-
-                                if (!wizardAccessibilityGranted) {
-                                    Button(
-                                        onClick = { showAccessibilityDisclosureInWizard = true },
-                                        modifier = Modifier.fillMaxWidth().testTag("wizard_enable_0ms_button")
-                                    ) {
-                                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Enable 0ms Instant Lock")
-                                    }
-                                }
-                            }
-                        }
-
-                        // Background & Overlay Backup Card if needed
-                        if (!wizardUsageGranted || !wizardOverlayGranted) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                ),
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "Backup Protection Access",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE8F5E9)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Setup Success",
+                                        tint = Color(0xFF2E7D32),
+                                        modifier = Modifier.size(36.dp)
                                     )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        if (!wizardUsageGranted) {
-                                            OutlinedButton(
-                                                onClick = {
-                                                    val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                    }
-                                                    context.startActivity(intent)
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("Usage Access", style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                        if (!wizardOverlayGranted) {
-                                            OutlinedButton(
-                                                onClick = {
-                                                    try {
-                                                        val intent = Intent(
-                                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                            Uri.parse("package:${context.packageName}")
-                                                        ).apply {
-                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                        }
-                                                        context.startActivity(intent)
-                                                    } catch (e: Exception) {
-                                                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                        }
-                                                        context.startActivity(intent)
-                                                    }
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("Overlay Access", style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
                                 }
+
+                                Text(
+                                    text = "Protection Initialized!",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Text(
+                                    text = "Your master credential is confirmed and ready. You can now select applications to protect.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Finished Confirm Button
                         Button(
                             onClick = onFinish,
-                            modifier = Modifier.fillMaxWidth().testTag("finish_wizard_button")
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("finish_wizard_button"),
+                            shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("Go to Dashboard")
+                            Text("Go to Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1098,12 +978,6 @@ fun DashboardView(
         // Query and sync Google Play purchases on app start to immediately restore Pro for enrolled testers / users
         viewModel.refreshPurchases()
 
-        // Request Camera permission on app opening so required permissions are achieved upfront
-        val hasCameraPerm = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (!hasCameraPerm) {
-            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-        }
-
         val activityIntent = (context as? android.app.Activity)?.intent
         val selection = activityIntent?.getStringExtra("SELECTION")
         if (selection == "intruder_records") {
@@ -1118,6 +992,9 @@ fun DashboardView(
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var hasAccessibilityPermission by remember { mutableStateOf(isAccessibilityEnabled(context)) }
     var showAccessibilityDisclosureInDashboard by remember { mutableStateOf(false) }
+    var showMissingPermissionOnLockDialog by remember { mutableStateOf(false) }
+    var showTurnOff0msConfirmDialog by remember { mutableStateOf(false) }
+    var lockedTargetAppName by remember { mutableStateOf("") }
 
     if (showAccessibilityDisclosureInDashboard) {
         AccessibilityDisclosureDialog(
@@ -1296,6 +1173,101 @@ fun DashboardView(
         )
     }
 
+    if (showMissingPermissionOnLockDialog) {
+        AlertDialog(
+            onDismissRequest = { showMissingPermissionOnLockDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = "Permission Required",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (lockedTargetAppName.isNotEmpty()) "Enable Real-Time Shield for $lockedTargetAppName" else "Permission Required",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "To automatically detect when this app opens and display your security lock screen, Android requires Usage Access and Overlay permissions.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (!hasUsagePermission) {
+                                Text(
+                                    text = "• Usage Access: Detects app launch",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            if (!hasOverlayPermission) {
+                                Text(
+                                    text = "• Display over other apps: Shows the PIN/Pattern screen",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showMissingPermissionOnLockDialog = false
+                        if (!hasUsagePermission) {
+                            val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        } else if (!hasOverlayPermission) {
+                            try {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:${context.packageName}")
+                                ).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            }
+                        }
+                    }
+                ) {
+                    Text("Grant Permission")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showMissingPermissionOnLockDialog = false }) {
+                    Text("I'll do it later")
+                }
+            }
+        )
+    }
+
     if (showUnlockAllConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showUnlockAllConfirmDialog = false },
@@ -1420,6 +1392,111 @@ fun DashboardView(
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier.testTag("disable_shield_confirmation_dialog")
+        )
+    }
+
+    if (showTurnOff0msConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showTurnOff0msConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = "Instant Lock Engine Warning",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Turn Off 0ms Instant Lock?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "0ms Instant Lock delivers instant screen protection with zero delay or flicker:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "• Zero-Delay Interception: Intercepts app launch instantly at window creation before any app content can be glimpsed.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "• Eliminates Flickers: Without this, Android falls back to background polling which may cause a momentary 100-300ms screen delay.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "• 100% Privacy-Safe: Never reads personal messages, screen content, or keystrokes.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "To disable, turn off 'App Locker' in Android Accessibility Settings.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showTurnOff0msConfirmDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Keep 0ms Active", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showTurnOff0msConfirmDialog = false
+                        try {
+                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                            Toast.makeText(context, "Turn off 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "Open Settings to Turn Off",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.testTag("turn_off_0ms_confirm_dialog")
         )
     }
 
@@ -1705,7 +1782,10 @@ fun DashboardView(
                 appToVerifyForUnlock = appInfo
             } else {
                 viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
-                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                if (!hasUsagePermission || !hasOverlayPermission) {
+                    lockedTargetAppName = appInfo.appName
+                    showMissingPermissionOnLockDialog = true
+                } else if (isServiceActiveState) {
                     val intent = Intent(context, AppLockService::class.java)
                     try {
                         ContextCompat.startForegroundService(context, intent)
@@ -2278,14 +2358,7 @@ fun DashboardView(
                                             if (!hasAccessibilityPermission) {
                                                 showAccessibilityDisclosureInDashboard = true
                                             } else {
-                                                try {
-                                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                    }
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
-                                                }
+                                                showTurnOff0msConfirmDialog = true
                                             }
                                         },
                                         modifier = Modifier.testTag("instant_engine_switch")
