@@ -9,6 +9,7 @@ object AppLockSession {
     private val unlockTimes = mutableMapOf<String, Long>()
     
     // Track the package we are actively unlocking so we do not launch multiple overlay activities
+    @Volatile
     var activeUnlockingPackage: String? = null
 
     // Track state of locker service

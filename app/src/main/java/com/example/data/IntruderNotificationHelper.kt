@@ -56,6 +56,12 @@ object IntruderNotificationHelper {
             .setContentIntent(pendingIntent)
             .build()
 
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        try {
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        } catch (e: SecurityException) {
+            android.util.Log.e("IntruderNotification", "POST_NOTIFICATIONS not granted: ${e.message}")
+        } catch (e: Exception) {
+            android.util.Log.e("IntruderNotification", "Error posting intruder notification", e)
+        }
     }
 }

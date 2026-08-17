@@ -34,17 +34,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.billing.BillingManager
 import com.example.data.LockPreferences
-
-fun Context.findActivity(): Activity? {
-    var currentContext = this
-    while (currentContext is ContextWrapper) {
-        if (currentContext is Activity) {
-            return currentContext
-        }
-        currentContext = currentContext.baseContext
-    }
-    return null
-}
+import com.example.util.findActivity
 
 @Composable
 fun GoPremiumDialog(

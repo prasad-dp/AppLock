@@ -67,7 +67,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `test restart current type setup redirects to welcome screen`() {
+    fun `test restart current type setup redirects to fresh first pattern screen`() {
         val app = ApplicationProvider.getApplicationContext<android.app.Application>()
         val viewModel = MainActivityViewModel(app)
         viewModel.startWizard()
@@ -76,7 +76,7 @@ class ExampleRobolectricTest {
         assertTrue(viewModel.setupState.value is SetupState.SetFirstPattern)
 
         viewModel.restartCurrentTypeSetup()
-        assertTrue(viewModel.setupState.value is SetupState.WelcomePatternRequired)
+        assertTrue(viewModel.setupState.value is SetupState.SetFirstPattern)
     }
 
     @Test

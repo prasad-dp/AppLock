@@ -2,6 +2,7 @@ package com.example
 
 import com.example.util.AlphanumericComparator
 import com.example.util.findActivity
+import com.example.util.PermissionUtils
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -3166,33 +3167,9 @@ fun AppRowItem(
 }
 
 // System Checker programmatic permission validator
-@Suppress("DEPRECATION")
-private fun hasUsageStatsPermission(context: Context): Boolean {
-    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        appOps.unsafeCheckOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            context.packageName
-        )
-    } else {
-        @Suppress("DEPRECATION")
-        appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            context.packageName
-        )
-    }
-    return mode == AppOpsManager.MODE_ALLOWED
-}
+private fun hasUsageStatsPermission(context: Context): Boolean = PermissionUtils.hasUsageStatsPermission(context)
 
-private fun isAccessibilityEnabled(context: Context): Boolean {
-    val enabledServices = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-    return enabledServices.contains(context.packageName)
-}
+private fun isAccessibilityEnabled(context: Context): Boolean = PermissionUtils.isAccessibilityEnabled(context)
 
 @Composable
 fun IntruderAlertItem(
