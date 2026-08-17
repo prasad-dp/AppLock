@@ -2,11 +2,6 @@ package com.example
 
 import com.example.util.AlphanumericComparator
 import com.example.util.findActivity
-import com.example.util.DoubleLockDetector
-import com.example.util.DoubleLockRecommendationEngine
-import com.example.ui.components.DoubleLockAdvisorDialog
-import com.example.ui.components.DoubleLockRecommendationCard
-import com.example.ui.components.DoubleUnlockTipBanner
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -74,6 +69,7 @@ import com.example.data.LockPreferences
 import com.example.service.AppLockService
 import com.example.service.AppLockSession
 import androidx.compose.material.icons.automirrored.filled.Launch
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.example.ui.pattern.PatternLockView
 import com.example.ui.pattern.PatternState
 import com.example.ui.pattern.PinPadView
@@ -115,7 +111,6 @@ object AppIconCache {
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         window.decorView.filterTouchesWhenObscured = true
         enableEdgeToEdge()
 
@@ -224,7 +219,8 @@ fun LockerMainScreen(
                             viewModel.completeWizard() 
                         },
                         onStart = { viewModel.startWizard() },
-                        onRestartCurrentType = { viewModel.restartCurrentTypeSetup() }
+                        onRestartCurrentType = { viewModel.restartCurrentTypeSetup() },
+                        onChangeLockType = { viewModel.goToSelectLockType() }
                     )
                 }
                 is SetupState.SetupFinished -> {
@@ -360,7 +356,8 @@ fun PatternWizardView(
     onSelectLockType: (String) -> Unit,
     onFinish: () -> Unit,
     onStart: () -> Unit,
-    onRestartCurrentType: () -> Unit = {}
+    onRestartCurrentType: () -> Unit = {},
+    onChangeLockType: () -> Unit = {}
 ) {
     var feedbackState by remember { mutableStateOf(PatternState.DRAWING) }
     var instructionText by remember { mutableStateOf("") }
@@ -427,9 +424,31 @@ fun PatternWizardView(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val showBackButton = state != SetupState.WelcomePatternRequired && state != SetupState.SetupSuccess
+            if (showBackButton) {
+                IconButton(
+                    onClick = {
+                        if (state == SetupState.SelectLockType) {
+                            onRestartCurrentType()
+                        } else {
+                            onChangeLockType()
+                        }
+                    },
+                    modifier = Modifier.testTag("wizard_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.size(48.dp))
+            }
+
             FancyThemeToggle(
                 isDarkMode = isDarkMode,
                 onToggle = { onDarkModeChange(!isDarkMode) }
@@ -576,12 +595,185 @@ fun PatternWizardView(
                     )
                 }
                 SetupState.SetupSuccess -> {
-                    // Finished Confirm Button
-                    Button(
-                        onClick = onFinish,
-                        modifier = Modifier.testTag("finish_wizard_button")
+                    val context = LocalContext.current
+                    var showAccessibilityDisclosureInWizard by remember { mutableStateOf(false) }
+                    var wizardAccessibilityGranted by remember { mutableStateOf(isAccessibilityEnabled(context)) }
+                    var wizardUsageGranted by remember { mutableStateOf(hasUsageStatsPermission(context)) }
+                    var wizardOverlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+
+                    val wizardLifecycleOwner = LocalLifecycleOwner.current
+                    DisposableEffect(wizardLifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_RESUME) {
+                                wizardAccessibilityGranted = isAccessibilityEnabled(context)
+                                wizardUsageGranted = hasUsageStatsPermission(context)
+                                wizardOverlayGranted = Settings.canDrawOverlays(context)
+                            }
+                        }
+                        wizardLifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose {
+                            wizardLifecycleOwner.lifecycle.removeObserver(observer)
+                        }
+                    }
+
+                    if (showAccessibilityDisclosureInWizard) {
+                        AccessibilityDisclosureDialog(
+                            onDismiss = { showAccessibilityDisclosureInWizard = false },
+                            onConfirm = {
+                                showAccessibilityDisclosureInWizard = false
+                                try {
+                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                    Toast.makeText(context, "Turn on 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Secure My Device")
+                        // 0ms Instant Lock Card
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (wizardAccessibilityGranted) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bolt,
+                                            contentDescription = null,
+                                            tint = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "0ms Instant Lock",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    Surface(
+                                        color = if (wizardAccessibilityGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = if (wizardAccessibilityGranted) "ACTIVE ✓" else "RECOMMENDED",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Interceps app launch instantly to prevent home screen flickers and delays.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "🔒 Privacy: We never read or store your personal chats, screen contents, or keystrokes.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+
+                                if (!wizardAccessibilityGranted) {
+                                    Button(
+                                        onClick = { showAccessibilityDisclosureInWizard = true },
+                                        modifier = Modifier.fillMaxWidth().testTag("wizard_enable_0ms_button")
+                                    ) {
+                                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Enable 0ms Instant Lock")
+                                    }
+                                }
+                            }
+                        }
+
+                        // Background & Overlay Backup Card if needed
+                        if (!wizardUsageGranted || !wizardOverlayGranted) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Backup Protection Access",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        if (!wizardUsageGranted) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                    context.startActivity(intent)
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text("Usage Access", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                        if (!wizardOverlayGranted) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    try {
+                                                        val intent = Intent(
+                                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                            Uri.parse("package:${context.packageName}")
+                                                        ).apply {
+                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        }
+                                                        context.startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        }
+                                                        context.startActivity(intent)
+                                                    }
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text("Overlay Access", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Finished Confirm Button
+                        Button(
+                            onClick = onFinish,
+                            modifier = Modifier.fillMaxWidth().testTag("finish_wizard_button")
+                        ) {
+                            Text("Go to Dashboard")
+                        }
                     }
                 }
                 else -> {}
@@ -591,16 +783,46 @@ fun PatternWizardView(
         if (state is SetupState.SetFirstPattern || state is SetupState.SetFirstPin || state is SetupState.SetFirstPassword ||
             state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
             val actionButtonText = when (state) {
-                is SetupState.ConfirmPattern, is SetupState.SetFirstPattern -> "Redraw Pattern"
-                is SetupState.ConfirmPin, is SetupState.SetFirstPin -> "Re-enter PIN"
-                is SetupState.ConfirmPassword, is SetupState.SetFirstPassword -> "Re-enter Password"
+                is SetupState.ConfirmPattern -> "Redraw from start"
+                is SetupState.SetFirstPattern -> "Redraw Pattern"
+                is SetupState.ConfirmPin -> "Re-enter from start"
+                is SetupState.SetFirstPin -> "Clear / Re-enter PIN"
+                is SetupState.ConfirmPassword -> "Re-enter from start"
+                is SetupState.SetFirstPassword -> "Clear / Re-enter Password"
                 else -> "Re-enter"
             }
-            TextButton(
-                onClick = onRestartCurrentType,
-                modifier = Modifier.testTag("reset_wizard")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(actionButtonText)
+                TextButton(
+                    onClick = onRestartCurrentType,
+                    modifier = Modifier.testTag("reset_wizard")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(actionButtonText)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                TextButton(
+                    onClick = onChangeLockType,
+                    modifier = Modifier.testTag("change_lock_type_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LockReset,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Change Mode")
+                }
             }
         } else {
             Spacer(modifier = Modifier.height(32.dp))
@@ -611,16 +833,99 @@ fun PatternWizardView(
 }
 
 @Composable
+fun AccessibilityDisclosureDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = "Instant Lock",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Instant 0ms Lock Protection",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "App Locker uses the Accessibility Service API to detect when protected apps are opened and display the security lock screen immediately (0ms delay), completely eliminating screen flicker.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "🔒 Privacy Commitment:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "• We do NOT collect or read screen contents or messages.\n• We do NOT record keystrokes or sensitive credentials.\n• Used strictly for window detection on your locked apps.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.testTag("dialog_enable_accessibility_button")
+            ) {
+                Text("Open Settings")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Not Now")
+            }
+        }
+    )
+}
+
+@Composable
 fun SystemPermissionBannerCard(
     hasUsagePermission: Boolean,
     hasOverlayPermission: Boolean,
+    hasAccessibilityPermission: Boolean = true,
+    onShowAccessibilityDisclosure: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    if (!hasUsagePermission || !hasOverlayPermission) {
+    val needsPermissions = !hasUsagePermission || !hasOverlayPermission || !hasAccessibilityPermission
+
+    if (needsPermissions) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
+                containerColor = if (!hasUsagePermission || !hasOverlayPermission)
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
             ),
             shape = RoundedCornerShape(16.dp),
             modifier = modifier.fillMaxWidth()
@@ -628,26 +933,52 @@ fun SystemPermissionBannerCard(
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Warning",
-                        tint = MaterialTheme.colorScheme.onErrorContainer
+                        imageVector = if (!hasUsagePermission || !hasOverlayPermission) Icons.Default.Warning else Icons.Default.Bolt,
+                        contentDescription = "Status",
+                        tint = if (!hasUsagePermission || !hasOverlayPermission)
+                            MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "System Permission Required",
+                        text = if (!hasUsagePermission || !hasOverlayPermission)
+                            "System Permission Required"
+                        else "Boost to 0ms Instant Lock",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onErrorContainer
+                        color = if (!hasUsagePermission || !hasOverlayPermission)
+                            MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "App Locker needs system access to detect app launches and display the lock screen on protected apps.",
+                    text = if (!hasUsagePermission || !hasOverlayPermission)
+                        "App Locker needs system access to detect app launches and display the lock screen on protected apps."
+                    else "Enable 0ms instant window interception to eliminate screen flicker when opening locked apps.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                    color = if (!hasUsagePermission || !hasOverlayPermission)
+                        MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                    else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!hasAccessibilityPermission) {
+                        Button(
+                            onClick = onShowAccessibilityDisclosure,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("grant_accessibility_banner_button")
+                        ) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Enable 0ms Instant Lock")
+                        }
+                    }
                     if (!hasUsagePermission) {
                         Button(
                             onClick = {
@@ -733,7 +1064,7 @@ fun DashboardView(
     var isBiometricEnabledState by remember { mutableStateOf(viewModel.isBiometricEnabled()) }
     var isIntruderDetectionEnabledState by remember { mutableStateOf(viewModel.isIntruderDetectionEnabled()) }
     var isAutoCleanupEnabledState by remember { mutableStateOf(viewModel.isAutoCleanupEnabled()) }
-    var isPremiumUser by remember { mutableStateOf(prefs.isPremiumUser) }
+    val isPremiumUser by viewModel.isPremiumFlow.collectAsStateWithLifecycle(initialValue = prefs.isPremiumUser)
     var showGoPremiumDialog by remember { mutableStateOf(false) }
     var revealedPhotoAlertTimestamps by remember { mutableStateOf(setOf<Long>()) }
     var alertTargetForRewardedAd by remember { mutableStateOf<IntruderAlert?>(null) }
@@ -744,9 +1075,6 @@ fun DashboardView(
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
     var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
-    var doubleLockAdvisorTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
-    var showDoubleLockAdvisorDialog by remember { mutableStateOf(false) }
-    var showDoubleLockTipCard by remember { mutableStateOf(true) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val showAdMobInterstitialDialogState by viewModel.showAdMobInterstitialDialog.collectAsStateWithLifecycle()
@@ -766,6 +1094,9 @@ fun DashboardView(
     }
 
     LaunchedEffect(Unit) {
+        // Query and sync Google Play purchases on app start to immediately restore Pro for enrolled testers / users
+        viewModel.refreshPurchases()
+
         // Request Camera permission on app opening so required permissions are achieved upfront
         val hasCameraPerm = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!hasCameraPerm) {
@@ -781,9 +1112,29 @@ fun DashboardView(
         }
     }
 
-    // Dynamic state of System Usage Stats Permission
+    // Dynamic state of System Permissions
     var hasUsagePermission by remember { mutableStateOf(hasUsageStatsPermission(context)) }
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var hasAccessibilityPermission by remember { mutableStateOf(isAccessibilityEnabled(context)) }
+    var showAccessibilityDisclosureInDashboard by remember { mutableStateOf(false) }
+
+    if (showAccessibilityDisclosureInDashboard) {
+        AccessibilityDisclosureDialog(
+            onDismiss = { showAccessibilityDisclosureInDashboard = false },
+            onConfirm = {
+                showAccessibilityDisclosureInDashboard = false
+                try {
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                    Toast.makeText(context, "Turn on 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
+                }
+            }
+        )
+    }
 
     var appToVerifyForUnlock by remember { mutableStateOf<GridAppInfo?>(null) }
     var isVerifyingToReset by remember { mutableStateOf(false) }
@@ -848,9 +1199,9 @@ fun DashboardView(
     if (showGoPremiumDialog) {
         com.example.ui.components.GoPremiumDialog(
             prefs = prefs,
+            billingManager = viewModel.billingManager,
             onDismiss = { showGoPremiumDialog = false },
             onPremiumPurchased = {
-                isPremiumUser = true
                 showGoPremiumDialog = false
             }
         )
@@ -879,37 +1230,6 @@ fun DashboardView(
                     else -> "Global Default"
                 }
                 Toast.makeText(context, "${targetApp.appName} custom re-lock: $label", Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
-
-    if (showDoubleLockAdvisorDialog && doubleLockAdvisorTargetApp != null) {
-        val targetApp = doubleLockAdvisorTargetApp!!
-        DoubleLockAdvisorDialog(
-            appInfo = targetApp,
-            onDismiss = {
-                showDoubleLockAdvisorDialog = false
-                doubleLockAdvisorTargetApp = null
-            },
-            onApplyRecommendation = { timeoutChoice, dontShowAgain ->
-                if (dontShowAgain) {
-                    prefs.suppressDoubleLockWarning(targetApp.packageName, true)
-                }
-                if (timeoutChoice != "immediately") {
-                    prefs.setPerAppRelockTimeout(targetApp.packageName, timeoutChoice)
-                }
-                viewModel.toggleAppLock(targetApp.packageName, targetApp.appName, true)
-                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
-                    val intent = Intent(context, AppLockService::class.java)
-                    try {
-                        ContextCompat.startForegroundService(context, intent)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-                showDoubleLockAdvisorDialog = false
-                doubleLockAdvisorTargetApp = null
-                Toast.makeText(context, "${targetApp.appName} locked with $timeoutChoice policy", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1349,6 +1669,7 @@ fun DashboardView(
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasUsagePermission = hasUsageStatsPermission(context)
                 hasOverlayPermission = Settings.canDrawOverlays(context)
+                hasAccessibilityPermission = isAccessibilityEnabled(context)
                 // Check if Service should be restarted if permission is now granted
                 if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
                     val intent = Intent(context, AppLockService::class.java)
@@ -1382,22 +1703,13 @@ fun DashboardView(
                 // Toggling off (Unprotecting) -> Requires credential validation!
                 appToVerifyForUnlock = appInfo
             } else {
-                val currentRelockPolicy = prefs.getPerAppRelockTimeout(appInfo.packageName) ?: prefs.reLockTimeout
-                val isProne = DoubleLockDetector.isDoubleLockProne(appInfo.packageName, appInfo.appName)
-                val isSuppressed = prefs.isDoubleLockWarningSuppressed(appInfo.packageName)
-
-                if (isProne && !isSuppressed && currentRelockPolicy == "immediately") {
-                    doubleLockAdvisorTargetApp = appInfo
-                    showDoubleLockAdvisorDialog = true
-                } else {
-                    viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
-                    if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
-                        val intent = Intent(context, AppLockService::class.java)
-                        try {
-                            ContextCompat.startForegroundService(context, intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
+                viewModel.toggleAppLock(appInfo.packageName, appInfo.appName, true)
+                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                    val intent = Intent(context, AppLockService::class.java)
+                    try {
+                        ContextCompat.startForegroundService(context, intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
             }
@@ -1764,19 +2076,14 @@ fun DashboardView(
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // System Permissions Banner on Apps Screen if permissions are missing
-                        if (!hasUsagePermission || !hasOverlayPermission) {
+                        // System Permissions Banner on Apps Screen if permissions are missing or instant lock is available
+                        if (!hasUsagePermission || !hasOverlayPermission || !hasAccessibilityPermission) {
                             item {
                                 SystemPermissionBannerCard(
                                     hasUsagePermission = hasUsagePermission,
-                                    hasOverlayPermission = hasOverlayPermission
-                                )
-                            }
-                        }
-                        if (showDoubleLockTipCard) {
-                            item {
-                                DoubleUnlockTipBanner(
-                                    onDismiss = { showDoubleLockTipCard = false }
+                                    hasOverlayPermission = hasOverlayPermission,
+                                    hasAccessibilityPermission = hasAccessibilityPermission,
+                                    onShowAccessibilityDisclosure = { showAccessibilityDisclosureInDashboard = true }
                                 )
                             }
                         }
@@ -1938,6 +2245,60 @@ fun DashboardView(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "Instant 0ms App Lock",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Surface(
+                                                color = if (hasAccessibilityPermission) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (hasAccessibilityPermission) "ACTIVE" else "0ms TURBO",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = "Eliminates screen flicker and locks apps with zero delay",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = hasAccessibilityPermission,
+                                        onCheckedChange = {
+                                            if (!hasAccessibilityPermission) {
+                                                showAccessibilityDisclosureInDashboard = true
+                                            } else {
+                                                try {
+                                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("instant_engine_switch")
+                                    )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "Fingerprint Unlocking",
                                             style = MaterialTheme.typography.bodyLarge,
@@ -2061,13 +2422,13 @@ fun DashboardView(
 
                                     var dropdownExpanded by remember { mutableStateOf(false) }
                                     val relockOptions = listOf(
-                                        "immediately" to "Immediately",
+                                        "immediately" to "Immediately (Default)",
                                         "15_sec" to "15 Seconds",
-                                        "30_sec" to "30 Seconds (Default)",
+                                        "30_sec" to "30 Seconds",
                                         "1_min" to "1 Minute",
                                         "5_min" to "5 Minutes"
                                     )
-                                    val selectedOptionLabel = relockOptions.find { it.first == reLockTimeoutState }?.second ?: "30 Seconds (Default)"
+                                    val selectedOptionLabel = relockOptions.find { it.first == reLockTimeoutState }?.second ?: "Immediately (Default)"
 
                                     Box(modifier = Modifier.fillMaxWidth()) {
                                         OutlinedCard(
@@ -2552,7 +2913,7 @@ fun PerAppRelockDialog(
         "global" to "Use Global Setting ($globalLabel)",
         "immediately" to "Immediately",
         "15_sec" to "15 Seconds",
-        "30_sec" to "30 Seconds (Default)",
+        "30_sec" to "30 Seconds",
         "1_min" to "1 Minute",
         "5_min" to "5 Minutes"
     )
@@ -2823,6 +3184,14 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
         )
     }
     return mode == AppOpsManager.MODE_ALLOWED
+}
+
+private fun isAccessibilityEnabled(context: Context): Boolean {
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabledServices.contains(context.packageName)
 }
 
 @Composable

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.billing.BillingManager
 import com.example.data.AppDatabase
 import com.example.data.AppRepository
 import com.example.data.LockedApp
@@ -34,19 +35,19 @@ data class GridAppInfo(
 sealed interface SetupState {
     object WelcomePatternRequired : SetupState
     object SelectLockType : SetupState
-    data class SetFirstPattern(val errorMessage: String? = null) : SetupState
+    data class SetFirstPattern(val errorMessage: String? = null, val resetKey: Int = 0) : SetupState
     data class ConfirmPattern(
         val firstAttempt: List<Int>,
         val errorMessage: String? = null,
         val attemptId: Int = 0
     ) : SetupState
-    data class SetFirstPin(val errorMessage: String? = null) : SetupState
+    data class SetFirstPin(val errorMessage: String? = null, val resetKey: Int = 0) : SetupState
     data class ConfirmPin(
         val firstAttempt: String,
         val errorMessage: String? = null,
         val attemptId: Int = 0
     ) : SetupState
-    data class SetFirstPassword(val errorMessage: String? = null) : SetupState
+    data class SetFirstPassword(val errorMessage: String? = null, val resetKey: Int = 0) : SetupState
     data class ConfirmPassword(
         val firstAttempt: String,
         val errorMessage: String? = null,
@@ -60,6 +61,13 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     private val context = application.applicationContext
     private val repository: AppRepository
     private val prefs = LockPreferences(context)
+
+    val billingManager: BillingManager = (application as? AppLockApp)?.billingManager ?: BillingManager(application, prefs)
+    val isPremiumFlow: StateFlow<Boolean> = billingManager.isPremium
+
+    fun refreshPurchases() {
+        billingManager.queryPurchases()
+    }
 
     // State flows
     private val _installedApps = MutableStateFlow<List<Pair<String, String>>>(emptyList())
@@ -199,6 +207,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 val lowerPkg = packageName.lowercase()
                 sensitiveKeywords.any { lowerName.contains(it) || lowerPkg.contains(it) }
             }
+            toLock.forEach { (pkg, _) ->
+                com.example.service.AppLockSession.lockApp(pkg)
+            }
             repository.lockApps(toLock)
         }
     }
@@ -212,6 +223,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun toggleAppLock(packageName: String, appName: String, shouldLock: Boolean) {
         viewModelScope.launch {
             if (shouldLock) {
+                // Ensure immediate lock protection: purge any active unlock token immediately
+                com.example.service.AppLockSession.lockApp(packageName)
                 repository.lockApp(packageName, appName)
             } else {
                 repository.unlockApp(packageName)
@@ -322,7 +335,33 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun restartCurrentTypeSetup() {
-        _setupState.value = SetupState.WelcomePatternRequired
+        when (val current = _setupState.value) {
+            is SetupState.SetFirstPattern -> {
+                _setupState.value = SetupState.SetFirstPattern(errorMessage = null, resetKey = current.resetKey + 1)
+            }
+            is SetupState.ConfirmPattern -> {
+                _setupState.value = SetupState.SetFirstPattern(errorMessage = null, resetKey = current.attemptId + 1)
+            }
+            is SetupState.SetFirstPin -> {
+                _setupState.value = SetupState.SetFirstPin(errorMessage = null, resetKey = current.resetKey + 1)
+            }
+            is SetupState.ConfirmPin -> {
+                _setupState.value = SetupState.SetFirstPin(errorMessage = null, resetKey = current.attemptId + 1)
+            }
+            is SetupState.SetFirstPassword -> {
+                _setupState.value = SetupState.SetFirstPassword(errorMessage = null, resetKey = current.resetKey + 1)
+            }
+            is SetupState.ConfirmPassword -> {
+                _setupState.value = SetupState.SetFirstPassword(errorMessage = null, resetKey = current.attemptId + 1)
+            }
+            else -> {
+                _setupState.value = SetupState.SelectLockType
+            }
+        }
+    }
+
+    fun goToSelectLockType() {
+        _setupState.value = SetupState.SelectLockType
     }
 
     fun completeWizard() {

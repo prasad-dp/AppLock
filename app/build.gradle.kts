@@ -80,6 +80,7 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.biometric)
   implementation(libs.androidx.security.crypto)
+  implementation(libs.play.billing.ktx)
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.camera.camera2)

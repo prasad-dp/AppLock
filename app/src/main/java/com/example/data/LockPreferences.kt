@@ -75,7 +75,7 @@ class LockPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean("auto_cleanup_logs_enabled", value).apply()
 
     var reLockTimeout: String
-        get() = prefs.getString("relock_timeout_policy", "30_sec") ?: "30_sec"
+        get() = prefs.getString("relock_timeout_policy", "immediately") ?: "immediately"
         set(value) = prefs.edit().putString("relock_timeout_policy", value).apply()
 
     var lockType: String
@@ -139,14 +139,6 @@ class LockPreferences(context: Context) {
     var isPremiumUser: Boolean
         get() = prefs.getBoolean("is_premium_user", false)
         set(value) = prefs.edit().putBoolean("is_premium_user", value).apply()
-
-    fun isDoubleLockWarningSuppressed(packageName: String): Boolean {
-        return prefs.getBoolean("suppress_double_lock_warning_$packageName", false)
-    }
-
-    fun suppressDoubleLockWarning(packageName: String, suppress: Boolean) {
-        prefs.edit().putBoolean("suppress_double_lock_warning_$packageName", suppress).apply()
-    }
 
     fun getPerAppRelockTimeout(packageName: String): String? {
         return prefs.getString("per_app_relock_timeout_$packageName", null)

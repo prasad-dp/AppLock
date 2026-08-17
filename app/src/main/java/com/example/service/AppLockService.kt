@@ -142,12 +142,12 @@ class AppLockService : Service() {
                             val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                             val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                             val relockThresholdMs = when (relockPolicy) {
-                                "immediately" -> 1_500L // Re-lock immediately upon leaving app
+                                "immediately" -> 0L // Re-lock instantly upon switching away to a different app/launcher
                                 "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
                                 "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
                                 "1_min" -> 60_000L // Re-lock 1 minute after leaving app
                                 "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
-                                else -> 30_000L
+                                else -> 0L
                             }
 
                             if (outOfForegroundDuration >= relockThresholdMs) {
@@ -186,19 +186,22 @@ class AppLockService : Service() {
                     Log.e(TAG, "Error in checking loop", e)
                 }
                 
-                // Adaptive Battery Optimization:
-                // - If no apps are locked: sleep 800ms to conserve battery
-                // - When active app switching occurs or on locked apps: 50ms for instant reaction
-                // - When sitting stably in a normal app: 200ms
-                val nextDelay = if (lockedPackages.isEmpty()) {
+                // Adaptive Battery & Latency Optimization:
+                // - If Accessibility service is running, it handles 0ms event-driven locking, so polling can relax (300ms)
+                // - If no apps are locked: sleep 800ms
+                // - When active app switching occurs or on locked apps: 30ms for instant reaction
+                // - When sitting stably in a normal app: 150ms
+                val nextDelay = if (AppLockAccessibilityService.isAccessibilityRunning) {
+                    300L
+                } else if (lockedPackages.isEmpty()) {
                     800L
                 } else if (lastKnownForegroundPackage != currentApp) {
                     lastKnownForegroundPackage = currentApp
-                    50L
+                    30L
                 } else if (currentApp != null && lockedPackages.contains(currentApp)) {
-                    50L
+                    30L
                 } else {
-                    200L
+                    150L
                 }
                 delay(nextDelay)
             }
@@ -212,13 +215,17 @@ class AppLockService : Service() {
         return lower == "android" ||
                 lower == "com.android.systemui" ||
                 lower == "com.google.android.gms" ||
+                lower == "com.google.android.packageinstaller" ||
                 lower.contains("permissioncontroller") ||
                 lower.contains("biometric") ||
                 lower.contains("inputmethod") ||
                 lower.contains("keyboard") ||
                 lower.contains("fingerprint") ||
                 lower.contains("keyguard") ||
-                lower.contains("systemui")
+                lower.contains("systemui") ||
+                lower.contains("credentials") ||
+                lower.contains("confirm_device_credential") ||
+                lower.contains("autofill")
     }
 
     private fun getForegroundPackageName(usm: UsageStatsManager): String? {
@@ -300,13 +307,15 @@ class AppLockService : Service() {
         val intent = Intent(this, UnlockActivity::class.java).apply {
             putExtra("EXTRA_PACKAGE_NAME", targetPackage)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
 
+        val options = ActivityOptions.makeCustomAnimation(this, 0, 0)
         try {
-            startActivity(intent)
+            startActivity(intent, options.toBundle())
         } catch (e: Exception) {
             Log.e(TAG, "Failed startActivity launch unlock screen", e)
             try {
@@ -316,13 +325,13 @@ class AppLockService : Service() {
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val bgOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     ActivityOptions.makeBasic().apply {
                         setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                     }.toBundle()
                 } else null
-                if (options != null) {
-                    pendingIntent.send(this, 0, null, null, null, null, options)
+                if (bgOptions != null) {
+                    pendingIntent.send(this, 0, null, null, null, null, bgOptions)
                 } else {
                     pendingIntent.send()
                 }

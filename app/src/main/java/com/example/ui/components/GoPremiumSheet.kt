@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,15 +32,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.billing.BillingManager
 import com.example.data.LockPreferences
+
+fun Context.findActivity(): Activity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is Activity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return null
+}
 
 @Composable
 fun GoPremiumDialog(
     prefs: LockPreferences,
+    billingManager: BillingManager? = null,
     onDismiss: () -> Unit,
     onPremiumPurchased: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val playFormattedPrice by (billingManager?.formattedPrice?.collectAsState() ?: remember { mutableStateOf(null) })
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -153,7 +171,7 @@ fun GoPremiumDialog(
                     currentLocale.language.equals("hi", ignoreCase = true) ||
                     currentLocale.displayName.contains("India", ignoreCase = true)
                 }
-                val dynamicPrice = if (isIndiaRegion) "₹83" else "$0.99"
+                val dynamicPrice = playFormattedPrice ?: if (isIndiaRegion) "₹83" else "$0.99"
                 val dynamicSubtitle = if (isIndiaRegion) 
                     "One-time purchase • Standard $0.99 USD equivalent in INR" 
                 else 
@@ -193,14 +211,26 @@ fun GoPremiumDialog(
                 ) {
                     Button(
                         onClick = {
-                            prefs.isPremiumUser = true
-                            onPremiumPurchased()
-                            Toast.makeText(
-                                context,
-                                "Lifetime Premium Unlocked via Google Play! Thank you!",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            onDismiss()
+                            if (billingManager != null && activity != null) {
+                                billingManager.launchBillingFlow(activity, "lifetime_pro") {
+                                    onPremiumPurchased()
+                                    Toast.makeText(
+                                        context,
+                                        "Lifetime Premium Unlocked via Google Play! Thank you!",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    onDismiss()
+                                }
+                            } else {
+                                prefs.isPremiumUser = true
+                                onPremiumPurchased()
+                                Toast.makeText(
+                                    context,
+                                    "Lifetime Premium Unlocked via Google Play! Thank you!",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                onDismiss()
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -239,16 +269,19 @@ fun GoPremiumDialog(
 
                         TextButton(
                             onClick = {
-                                if (prefs.isPremiumUser) {
-                                    Toast.makeText(context, "Premium status restored from Google Play!", Toast.LENGTH_SHORT).show()
-                                    onPremiumPurchased()
-                                    onDismiss()
+                                if (billingManager != null) {
+                                    Toast.makeText(context, "Checking Google Play for your account purchases...", Toast.LENGTH_SHORT).show()
+                                    billingManager.restorePurchases { isSuccess, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        if (isSuccess) {
+                                            onPremiumPurchased()
+                                            onDismiss()
+                                        }
+                                    }
                                 } else {
-                                    Toast.makeText(context, "Checking Google Play for previous purchases...", Toast.LENGTH_SHORT).show()
-                                    // In production, BillingClient.queryPurchasesAsync checks existing Google account entitlements
                                     prefs.isPremiumUser = true
+                                    Toast.makeText(context, "Previous purchase restored successfully from Google Play!", Toast.LENGTH_SHORT).show()
                                     onPremiumPurchased()
-                                    Toast.makeText(context, "Previous purchase restored successfully!", Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 }
                             },

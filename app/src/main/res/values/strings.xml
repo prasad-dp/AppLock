@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">App Locker</string>
+    <string name="accessibility_service_description">Enables real-time 0ms instant app locking without delay or home screen flashing.</string>
 </resources>

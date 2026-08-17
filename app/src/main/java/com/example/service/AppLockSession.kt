@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 object AppLockSession {
-    // Stores currently unlocked app package names during the current screen-on session
+    // Stores currently unlocked app package names during the current session
     private val unlockedApps = mutableSetOf<String>()
     private val unlockTimes = mutableMapOf<String, Long>()
     
@@ -41,6 +41,10 @@ object AppLockSession {
         }
     }
 
+    /**
+     * Instantly locks the specified app by revoking its session token.
+     * Takes effect immediately (0 delay).
+     */
     fun lockApp(packageName: String) {
         synchronized(unlockedApps) {
             unlockedApps.remove(packageName)
