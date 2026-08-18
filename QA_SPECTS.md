@@ -36,9 +36,10 @@ This document provides a comprehensive, end-to-end testing specification for **A
 
 | Permission Name | System API Identifier | Functional Purpose | Behavior when Missing / Revoked |
 |---|---|---|---|
-| **Usage Access** | `android.permission.PACKAGE_USAGE_STATS` | Detects real-time foreground activity changes to intercept locked apps | Red warning card on Apps & Security tabs; foreground lock screen fails to detect target launches |
+| **Accessibility Service** | `android.permission.BIND_ACCESSIBILITY_SERVICE` | Powers **0ms Instant Lock Engine** by intercepting `TYPE_WINDOW_STATE_CHANGED` before app renders | App falls back to standard background polling (100–300ms latency); toggle in Security tab prompts disclosure dialog |
+| **Usage Access** | `android.permission.PACKAGE_USAGE_STATS` | Detects real-time foreground activity changes for fallback polling engine | Red warning card on Apps & Security tabs; JIT dialog when locking apps |
 | **Display Overlay** | `android.permission.SYSTEM_ALERT_WINDOW` | Draws secure lock screen overlay over protected target apps | Red warning card on Apps & Security tabs; overlay cannot draw above other apps |
-| **Camera Access** | `android.permission.CAMERA` | Captures silent front-camera intruder photo upon 3 consecutive failed unlock attempts | Intruder Selfie disabled; runtime camera permission prompt shown when arming feature |
+| **Camera Access** | `android.permission.CAMERA` | Captures silent front-camera intruder photo upon configurable failed unlock attempts | Intruder Selfie disabled; runtime camera permission prompt shown when arming feature |
 | **Biometric Access** | `android.permission.USE_BIOMETRIC` & `USE_FINGERPRINT` | Authenticates user via device fingerprint or facial recognition | Biometric prompt icon disabled; falls back to primary PIN/Pattern/Password |
 | **Foreground Service** | `android.permission.FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_SPECIAL_USE` | Keeps `AppLockService` active 24/7 in background | System terminates background monitoring loop under memory pressure |
 | **Notifications** | `android.permission.POST_NOTIFICATIONS` | Displays required persistent foreground notification ("App Locker Active") | Ongoing service notification hidden on Android 13+ |
@@ -220,6 +221,24 @@ This document provides a comprehensive, end-to-end testing specification for **A
   2. Toggle **Background App Shield** switch to **OFF**.
 - **Expected Result**: High-severity warning dialog (`disable_shield_confirmation_dialog`) appears detailing security risks before stopping `AppLockService`.
 
+### 6.11 Test Case TC-11: 0ms Instant Lock Deactivation Warning
+- **Pre-conditions**: Accessibility Service for App Locker is active (`hasAccessibilityPermission == true`).
+- **Test Steps**:
+  1. Navigate to **Security Tab**.
+  2. Locate **"0ms Instant Lock"** toggle switch (`instant_engine_switch`).
+  3. Toggle switch to **OFF**.
+  4. Verify educational confirmation dialog appears (`turn_off_0ms_confirm_dialog`).
+  5. Tap "Keep 0ms Active" -> Dialog dismisses, switch remains ON.
+  6. Toggle switch to **OFF** again -> Tap "Open Settings to Turn Off".
+- **Expected Result**: Dialog clearly explains 0ms zero-delay interception vs fallback polling, and redirects to Accessibility Settings if user confirms deactivation.
+
+### 6.12 Test Case TC-12: Just-In-Time (JIT) Missing Permission Dialog
+- **Pre-conditions**: Usage Access or Overlay permission is missing.
+- **Test Steps**:
+  1. Navigate to **Apps Tab**.
+  2. Locate an unlocked app and tap its lock toggle to lock it.
+- **Expected Result**: Dialog pops up identifying target app and explaining that Usage Access / Display Overlay permissions are required to detect app launch and display the lock screen, offering "Grant Permission" or "I'll do it later".
+
 ---
 
 ## 7. 🏷️ Complete Compose UI TestTag Reference Table
@@ -240,6 +259,8 @@ This document provides a comprehensive, end-to-end testing specification for **A
 | `fancy_theme_toggle` | Dark / Light Theme Mode Toggle Button | Top Header Bar |
 | `bulk_lock_all_button` | Lock All Installed Apps Button | Apps Tab Header |
 | `bulk_unlock_all_button` | Unlock All Installed Apps Button | Apps Tab Header |
+| `instant_engine_switch` | 0ms Instant Lock (Accessibility) Switch | Security Tab |
+| `turn_off_0ms_confirm_dialog` | 0ms Deactivation Warning Dialog | Security Tab |
 | `service_active_switch` | Background App Shield Switch | Security Tab |
 | `disable_shield_confirmation_dialog` | Disable Shield Warning Dialog | Security Tab |
 | `biometric_active_switch` | Biometric / Fingerprint Unlock Switch | Security Tab |

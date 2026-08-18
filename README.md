@@ -1,76 +1,102 @@
-# 🛡️ App Locker & Intruder Security Vault
+# 🛡️ App Locker Pro & Intruder Security Vault
 
-An enterprise-grade, privacy-focused Android application designed to secure sensitive apps, detect unauthorized unlock attempts, capture silent intruder camera snapshots, and protect security logs using hardware-backed **AES-256 GCM Encryption** and **Biometric Vault Verification**.
+An enterprise-grade, privacy-focused Android application designed to secure sensitive apps with **0ms Instant Interception**, detect unauthorized unlock attempts, capture silent front-camera intruder snapshots, and protect security logs using hardware-backed **AES-256 GCM Encryption** and **Biometric Vault Verification**.
 
 ---
 
 ## 📑 Table of Contents
 1. [Overview & Key Purpose](#-overview--key-purpose)
-2. [Comprehensive Feature Breakdown](#-comprehensive-feature-breakdown)
-3. [Technology Stack](#-technology-stack)
-4. [System Architecture & Project Structure](#-system-architecture--project-structure)
-5. [Deep-Dive Implementation Details](#-deep-dive-implementation-details)
-   - [App Locking Mechanism & UsageStats Monitoring](#1-app-locking-mechanism--usagestats-monitoring)
-   - [Hardware-Backed AES-256 GCM Encryption](#2-hardware-backed-aes-256-gcm-encryption)
-   - [CameraX Silent Snapshot Capture](#3-camerax-silent-snapshot-capture)
-   - ["Tap to Reveal" Biometric Vault Shield](#4-tap-to-reveal-biometric-vault-shield)
-   - [Multi-Pass Secure File Shredding](#5-multi-pass-secure-file-shredding)
-   - [In-Memory LruCache & Database Optimizations](#6-in-memory-lrucache--database-optimizations)
-6. [Monetization & AdMob Integration](#-monetization--admob-integration)
-7. [Developer & Build Guide](#-developer--build-guide)
+2. [Dual-Engine App Locking Architecture](#-dual-engine-app-locking-architecture)
+3. [Comprehensive Feature Breakdown](#-comprehensive-feature-breakdown)
+4. [Hybrid Just-In-Time (JIT) Permission Model](#-hybrid-just-in-time-jit-permission-model)
+5. [Technology Stack](#-technology-stack)
+6. [System Architecture & Project Structure](#-system-architecture--project-structure)
+7. [Deep-Dive Implementation Details](#-deep-dive-implementation-details)
+   - [0ms Instant Lock Engine (Accessibility)](#1-0ms-instant-lock-engine-accessibilityservice)
+   - [Fallback Foreground Polling Engine (UsageStats)](#2-fallback-foreground-polling-engine-usagestatsmanager)
+   - [Hardware-Backed AES-256 GCM Encryption](#3-hardware-backed-aes-256-gcm-encryption)
+   - [CameraX Silent Snapshot Capture](#4-camerax-silent-snapshot-capture)
+   - ["Tap to Reveal" Biometric Vault Shield](#5-tap-to-reveal-biometric-vault-shield)
+   - [Multi-Pass Secure File Shredding](#6-multi-pass-secure-file-shredding)
+   - [In-Memory LruCache & Database Optimizations](#7-in-memory-lrucache--database-optimizations)
+8. [Monetization & In-App Purchases](#-monetization--in-app-purchases)
+9. [Developer & Build Guide](#-developer--build-guide)
 
 ---
 
 ## 🔒 Overview & Key Purpose
 
-Modern smartphones hold banking data, personal photos, private chats, and confidential business apps. Standard Android lock screens protect the entire device, but once unlocked and handed to a friend, child, or colleague, individual apps remain exposed.
+Modern smartphones hold banking credentials, personal messaging apps, private photos, and confidential enterprise tools. While device lock screens protect overall access, handing an unlocked device to a friend, child, or colleague leaves individual applications exposed.
 
-**App Locker & Intruder Security Vault** solves this by providing:
-- **Per-App Protection**: Lock individual applications (WhatsApp, Photos, Banking, Settings) behind a distinct PIN, Pattern, or Biometric prompt.
-- **Intruder Detection**: Silently capture a front-camera snapshot when anyone inputs an incorrect PIN or Pattern.
-- **Hardware-Level Encryption**: Encrypt captured intruder photos immediately using hardware keys inside the **Android KeyStore** so photos never sit unencrypted on disk.
-- **Vault Shielding**: Keep intruder records blurred and shielded until verified via Fingerprint or Face Unlock.
-- **Data Shredding**: Overwrite disk sectors with random noise and zeros prior to unlinking files when records are deleted.
+**App Locker Pro** addresses this with a multi-layered security suite:
+- **0ms Instant Interception**: Intercepts protected app launches at the window creation layer before any app screen content can be glimpsed.
+- **Per-App Protection**: Lock individual applications (WhatsApp, Banking, Photos, Settings) behind a distinct PIN, Pattern, or Password.
+- **Intruder Detection**: Silently capture a front-camera snapshot when anyone inputs an incorrect credential.
+- **Hardware-Level Encryption**: Encrypt captured intruder photos immediately using hardware-backed **AES-256 GCM** in the **Android KeyStore**.
+- **Biometric Vault**: Keep intruder records blurred and shielded until verified via Fingerprint or Face Unlock.
+- **Multi-Pass Data Shredding**: Overwrite disk sectors with cryptographic random noise and zeros prior to unlinking deleted records.
+
+---
+
+## ⚡ Dual-Engine App Locking Architecture
+
+App Locker Pro utilizes a dual-engine architecture to guarantee instant, flicker-free locking across all Android versions:
+
+| Engine | Technology | Latency | Benefit |
+| :--- | :--- | :--- | :--- |
+| **Primary Engine** | `AppLockAccessibilityService` | **0ms (Instant)** | Listens for `TYPE_WINDOW_STATE_CHANGED` events; intercepts the target app before its window draws. Completely eliminates home screen flickers and glimpses. |
+| **Fallback Engine** | `AppLockService` + `UsageStatsManager` | **50–180ms** | Foreground background service polling `UsageStatsManager.queryEvents()` when accessibility is unavailable. |
 
 ---
 
 ## 🌟 Comprehensive Feature Breakdown
 
-### 1. 🔐 Smart App Locking
-- **Supported Lock Types**: 4-Digit / 6-Digit PIN, Custom Pattern Lock, and System Biometrics (Fingerprint / Face Unlock / Device Credential).
-- **Foreground Monitoring**: Operates via a low-overhead foreground background service (`AppLockService`) that detects target package launches in real time and enforces a high-priority lock overlay window.
-- **System App Protection**: Pre-categorizes system settings, Play Store, and package installer to prevent unauthorized uninstallation or permission tampering.
+### 1. 🔐 Smart App Locking & Credential Methods
+- **Supported Lock Types**: 4-Digit Numeric PIN, Custom 3x3 Pattern Lock, and Alphanumeric Password.
+- **Biometric Integration**: Seamless device Biometric Prompt (Fingerprint / Face Unlock / Device Credential).
+- **Double-Lock Protection**: Built-in detector and Smart Advisor for apps with native biometrics (WhatsApp, Telegram, Google Wallet, Banking apps) to prevent infinite re-lock loops.
+- **Per-App Re-Lock Policies**: Configure global or granular timeouts (**Immediately**, **15 Seconds**, **30 Seconds**, **1 Minute**, **5 Minutes**).
+- **System App Protection**: Pre-categorizes System Settings, Google Play Store, and Package Installer to prevent unauthorized uninstallation or permission tampering.
 
 ### 2. 📸 CameraX Silent Intruder Detector
-- **Silent Front-Camera Capture**: Utilizes Google CameraX bound to the application lifecycle to take a low-latency front-camera photo without firing a camera flash or play shutter sounds.
-- **Custom Failed-Attempt Threshold**: Configure intruder snapshot triggers after **1, 2, 3, or 5 failed unlock attempts**.
+- **Silent Front-Camera Capture**: Utilizes Google CameraX bound to the application lifecycle with `CAPTURE_MODE_MINIMIZE_LATENCY` and `FLASH_MODE_OFF`.
+- **Configurable Threshold**: Trigger silent snapshots after **1, 2, 3, or 5 consecutive failed attempts**.
+- **Security Lockout Cooldown**: Enforces a 30-second security cooldown with real-time countdown timer upon reaching the threshold.
 - **Intruder Metadata Logs**: Logs precise timestamp, target application package name, and encrypted photo reference.
 
 ### 3. 🛡️ Hardware-Backed AES-256 Photo Encryption
-- **Zero Raw Disk Storage**: Photos are encrypted immediately in memory prior to being written to storage as `.enc` files.
-- **KeyStore Integrity**: Cryptographic keys are generated inside the device's hardware-backed **Android KeyStore** (`KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT`).
-- **RAM-Only Decryption**: Photos are decrypted directly into RAM bitmaps when viewed in the application. Unencrypted raw `.jpg` files are never written to physical disk.
+- **Zero Raw Disk Storage**: Photos are encrypted in memory prior to being written to storage as `.enc` files.
+- **Android KeyStore Integrity**: Cryptographic keys are generated and protected inside the device's hardware KeyStore (`AES/GCM/NoPadding`).
+- **RAM-Only Decryption**: Photos are decrypted directly into RAM bitmaps when viewed in the application. Unencrypted raw `.jpg` files are never saved to physical storage.
 
 ### 4. 👁️ "Tap to Reveal" Biometric Vault Lock
 - **Shielded Log Preview**: All intruder snapshot cards in the logs tab start in a blurred, lock-badged state.
 - **Biometric Prompt Verification**: Tapping a photo invokes Android's native `BiometricPrompt` (Fingerprint, Face Unlock, or Device PIN). Upon successful verification, the image is decrypted and displayed.
-- **Rewarded Ad Fallback**: Non-premium users without biometric hardware or configured PINs can watch a short rewarded ad to temporarily unblur the photo.
+- **Rewarded Ad Fallback**: Non-premium users without biometric hardware can watch a short rewarded ad to unblur photos.
 
 ### 5. 🗑️ Multi-Pass Secure File Shredding
 - **Storage Sanitization**: Deleting an intruder record executes a 3-pass sanitization sequence using `RandomAccessFile`:
   1. Overwrite all file bytes with cryptographically secure random bytes.
   2. Overwrite all file bytes with binary zeros (`0x00`).
-  3. Flush file buffer to physical media (`raf.fd.sync()`) and call `file.delete()`.
+  3. Flush file buffer to physical media (`raf.fd.sync()`) and unlink file (`file.delete()`).
 - Prevents forensic data recovery tools from restoring deleted intruder photos.
 
 ### 6. ⚡ Battery & Performance Optimization Engine
-- **Adaptive Service Polling Loop**:
-  - `50ms` delay during active app launch switching or locked package interaction.
-  - `180ms` delay when sitting stably in an unlocked application.
-  - `1200ms` delay when screen is turned off (`PowerManager.isInteractive == false`).
-- **In-Memory LruCache**: 15MB budget memory cache for decrypted thumbnails to prevent redundant AES decryption CPU usage during list scrolling.
+- **Smart Sleep Polling**: High-frequency querying pauses whenever the display is interactive sleep state (`PowerManager.isInteractive == false`).
+- **In-Memory LruCache**: 15MB budget memory cache for decrypted thumbnails to prevent redundant AES decryption during list scrolling.
 - **Room Database Indexing**: Indexed timestamps (`@Entity(indices = [Index(value = ["timestamp"])]))`) for fast logging queries and automated 30-day log purges.
-- **Compose Recomposition Skipping**: `@Immutable` annotations on core data models (`IntruderAlert`, `LockedApp`, `GridAppInfo`).
+- **Compose Recomposition Skipping**: `@Immutable` data models (`IntruderAlert`, `LockedApp`, `GridAppInfo`) for fluid 60fps scrolling.
+
+---
+
+## 🚦 Hybrid Just-In-Time (JIT) Permission Model
+
+To provide a friction-free onboarding experience while strictly complying with Android permission guidelines:
+1. **Friction-Free Onboarding**: Initial setup wizard focuses purely on creating and confirming the master credential without blocking permissions upfront.
+2. **Contextual In-App Banners**: High-visibility permission cards remain accessible on the **Apps** and **Security** tabs when permissions are pending.
+3. **Just-In-Time (JIT) Lock Prompt**: If a user attempts to lock an app without active Usage Access or Overlay permissions, a contextual dialog explains the requirement with a direct shortcut to system settings.
+4. **Contextual Camera Prompt**: Camera permission is requested strictly when arming Intruder Camera Detection.
+5. **0ms Deactivation Warning**: Toggling off 0ms Instant Lock presents an educational dialog detailing the benefits of zero-delay window interception before offering navigation to Accessibility Settings.
 
 ---
 
@@ -85,7 +111,7 @@ Modern smartphones hold banking data, personal photos, private chats, and confid
 | **Security** | Android KeyStore & `javax.crypto` | Hardware-backed AES-256 GCM key management |
 | **Biometrics** | `androidx.biometric:biometric` | Native Fingerprint, Face, and Device Credential auth |
 | **Camera** | AndroidX CameraX | Silent background front-camera image capture |
-| **Async / State** | Kotlin Coroutines & `StateFlow` | Thread management & reactive UI updates |
+| **In-App Billing** | Google Play Billing Client 6.0+ | Pro Subscriptions & Lifetime In-App Purchases |
 | **Monetization** | Google Mobile Ads SDK (AdMob) | Banner, Native, and Rewarded Video Ads |
 
 ---
@@ -98,8 +124,12 @@ app/src/main/java/com/example/
 ├── MainActivityViewModel.kt      # ViewModel managing state, app lists, setup flow
 ├── UnlockActivity.kt             # Full-screen lock overlay activity triggered on app launch
 │
+├── billing/
+│   └── BillingManager.kt         # Google Play Billing Client 6.0+ manager
+│
 ├── config/
 │   └── AdMobConfig.kt            # AdMob unit IDs and configuration
+│
 ├── data/
 │   ├── AppDatabase.kt            # Room database instance
 │   ├── AppRepository.kt          # Single repository for DB & Encrypted File operations
@@ -115,8 +145,9 @@ app/src/main/java/com/example/
 │   └── EncryptedFileManager.kt   # AES-256 KeyStore cipher, LruCache, multi-pass file shredder
 │
 ├── service/
-│   ├── AppLockService.kt         # Foreground monitoring service with adaptive polling
-│   └── AppLockSession.kt         # Temporary unlock grace period state manager
+│   ├── AppLockAccessibilityService.kt # 0ms Instant window interception service
+│   ├── AppLockService.kt              # Foreground monitoring service with adaptive polling
+│   └── AppLockSession.kt              # Temporary unlock grace period state manager
 │
 ├── ui/
 │   ├── components/               # Custom Compose components (AdMob, Sheets, Guidance)
@@ -132,34 +163,49 @@ app/src/main/java/com/example/
 
 ## 💡 Deep-Dive Implementation Details
 
-### 1. App Locking Mechanism & UsageStats Monitoring
-The application utilizes `UsageStatsManager.queryEvents()` inside `AppLockService`:
-1. `AppLockService` runs as a foreground service with a persistent notification.
-2. It maintains an in-memory `synchronizedSet` of locked package names populated directly from Room DB (`LockedAppDao`).
-3. Every poll tick, it checks the top foreground activity package name.
-4. If a target package is detected and is not currently in an active grace period (`AppLockSession`), `UnlockActivity` is immediately launched with `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP`.
+### 1. 0ms Instant Lock Engine (`AppLockAccessibilityService`)
+`AppLockAccessibilityService` hooks into `AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED`:
+```kotlin
+override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+    if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+    val packageName = event.packageName?.toString() ?: return
+    
+    // Check if target package is locked and not in active grace period
+    if (repository.isPackageLocked(packageName) && !AppLockSession.isPackageUnlocked(packageName)) {
+        val intent = Intent(this, UnlockActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra(UnlockActivity.EXTRA_PACKAGE_NAME, packageName)
+        }
+        startActivity(intent)
+    }
+}
+```
 
-### 2. Hardware-Backed AES-256 GCM Encryption
+### 2. Fallback Foreground Polling Engine (`UsageStatsManager`)
+`AppLockService` maintains an adaptive coroutine polling loop:
+1. Runs as a foreground service with a persistent notification.
+2. Maintains an in-memory `synchronizedSet` of locked package names from Room DB.
+3. Every tick, queries `UsageStatsManager.queryEvents()` for the foreground package.
+4. Triggers `UnlockActivity` if target package is detected.
+
+### 3. Hardware-Backed AES-256 GCM Encryption
 All intruder photos are encrypted using `AES/GCM/NoPadding`:
-- **Key Generation**: A 256-bit AES secret key is generated inside `AndroidKeyStore` with `AES/GCM/NoPadding` cipher transformations.
+- **Key Generation**: A 256-bit AES secret key is generated inside `AndroidKeyStore`.
 - **Initialization Vector (IV)**: A unique 12-byte random IV is generated for every photo and prepended to the encrypted file payload.
-- **Decryption**: When decoding, the 12-byte IV is extracted from the head of the file, fed into `GCMParameterSpec(128, iv)`, and decrypted into a byte array in memory before being passed to `BitmapFactory.decodeByteArray()`.
+- **Decryption**: The 12-byte IV is extracted from the head of the file, fed into `GCMParameterSpec(128, iv)`, and decrypted into RAM bytes before being decoded into a `Bitmap`.
 
-### 3. CameraX Silent Snapshot Capture
+### 4. CameraX Silent Snapshot Capture
 `IntruderCameraHelper` manages photo capture:
-- Binds `ProcessCameraProvider` to the application process lifecycle using `CameraSelector.LENS_FACING_FRONT`.
+- Binds `ProcessCameraProvider` to the application lifecycle with `CameraSelector.LENS_FACING_FRONT`.
 - Configures `ImageCapture.BUILDER` with `CAPTURE_MODE_MINIMIZE_LATENCY` and `FLASH_MODE_OFF`.
-- Captures output directly into a private app directory as an encrypted `.enc` file via `EncryptedFileManager.encryptBytesToFile()`.
+- Encrypts byte output immediately via `EncryptedFileManager.encryptBytesToFile()`.
 
-### 4. "Tap to Reveal" Biometric Vault Shield
-When a user views intruder logs in `MainActivity`:
-1. Intruder photos are rendered inside a container with high-radius Gaussian blur and a lock icon overlay.
-2. Tapping the item triggers `triggerVaultBiometricAuth()`:
-   - Queries `BiometricManager.from(activity)` for `BIOMETRIC_STRONG | BIOMETRIC_WEAK | DEVICE_CREDENTIAL`.
-   - On successful callback, the record's timestamp is added to `revealedPhotoAlertTimestamps` state set.
-   - The card recomposes to decode and render the unblurred bitmap.
+### 5. "Tap to Reveal" Biometric Vault Shield
+- Intruder photos render with high-radius Gaussian blur and lock overlay.
+- Tapping invokes `BiometricManager.from(activity)` for `BIOMETRIC_STRONG | BIOMETRIC_WEAK | DEVICE_CREDENTIAL`.
+- Successful verification unblurs the photo for that session.
 
-### 5. Multi-Pass Secure File Shredding
+### 6. Multi-Pass Secure File Shredding
 Deleting an intruder snapshot executes `EncryptedFileManager.shredAndDeleteFile(file)`:
 ```kotlin
 RandomAccessFile(file, "rws").use { raf ->
@@ -187,19 +233,18 @@ RandomAccessFile(file, "rws").use { raf ->
 file.delete()
 ```
 
-### 6. In-Memory LruCache & Database Optimizations
-- **Bitmap LruCache**: Decrypted bitmaps are stored in a 15MB `LruCache<String, Bitmap>` keyed by `${filePath}_${maxDimension}`. Subsequent re-renders during scrolling fetch the decoded bitmap in **O(1)** time without hitting the cipher engine.
-- **Parallel Batch Shredding**: `AppRepository.deleteAllIntruderAlerts()` wraps deletion tasks in `async(Dispatchers.IO)` coroutines to execute multi-file shredding concurrently.
+### 7. In-Memory LruCache & Database Optimizations
+- **Bitmap LruCache**: Decrypted bitmaps are stored in a memory-bounded `LruCache<String, Bitmap>` keyed by `${filePath}_${maxDimension}` for O(1) list scrolling.
+- **Parallel Batch Shredding**: Multi-file shredding runs concurrently on `Dispatchers.IO`.
 
 ---
 
-## 💰 Monetization & AdMob Integration
+## 💰 Monetization & In-App Purchases
 
-The application integrates Google Mobile Ads SDK (AdMob) with strict Play Store policy compliance:
+- **Google Play Billing 6.0+**: Seamless monthly/yearly subscriptions and lifetime Pro unlock via `BillingManager`.
 - **Banner Ads**: Non-intrusive bottom banner anchored in `MainActivity`.
-- **Native Cards**: Native ad placements seamlessly integrated within list items in the app lock manager and intruder log feeds.
-- **Rewarded Video Ads**: Option for non-premium users without biometric hardware to watch a short video ad to unblur intruder photos.
-- **AdMob Config**: Centralized in `com.example.config.AdMobConfig` using standard test unit IDs for safety during development.
+- **Native Cards**: Native ad cards integrated within app lists and intruder log feeds.
+- **Rewarded Video Ads**: Allows free users without biometric hardware to unblur intruder photos or share snapshots.
 
 ---
 
@@ -230,9 +275,12 @@ The application integrates Google Mobile Ads SDK (AdMob) with strict Play Store 
 
 ## 📄 License & Release Notes
 
-### Latest Release Updates
-- **Confirmation Wizard Redirection**: Added automatic reset redirection to initial lock creation screens when pattern/PIN/password confirmations do not match, complete with dynamic button labels (*"Redraw Pattern"*, *"Re-enter PIN"*, *"Re-enter Password"*).
-- **Unblockable Pattern Gesture Input**: Optimized touch gesture handling in `PatternLockView` to allow continuous drawing without touch state lockouts.
-- **Performance & Memory Tuning**: Optimized `AppLockService` background polling loops, state flow memory allocations, and zero-allocation in-place alphanumeric app sorting.
+### Latest Updates
+- **0ms Instant Lock Engine**: Integrated `AppLockAccessibilityService` for instantaneous app launch interception with zero screen delay.
+- **0ms Deactivation Warning**: Added comprehensive educational dialog explaining zero-delay benefits before disabling.
+- **Hybrid JIT Permission Model**: Streamlined credential setup flow with contextual Just-In-Time permission prompts.
+- **Double-Lock Smart Advisor**: Real-time conflict prevention for apps with native biometrics.
+- **Hardware-Backed AES-256 GCM & Multi-Pass Shredder**: Secure intruder snapshot lifecycle management.
+- **Performance & Memory Tuning**: Optimized background polling loops, state flow memory allocations, and zero-allocation in-place alphanumeric app sorting.
 
 All release artifacts (including `app-release.aab` and `PRIVACY_POLICY.html`) are located in the `store_assets/` folder ready for Google Play Console submission.
