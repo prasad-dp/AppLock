@@ -25,4 +25,16 @@ class AppLockApp : Application() {
         // Check and sync Google Play Store entitlements on application startup
         billingManager.queryPurchases()
     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        AppIconCache.trimMemory(level)
+        com.example.security.EncryptedFileManager.trimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        AppIconCache.clear()
+        com.example.security.EncryptedFileManager.clearCache()
+    }
 }

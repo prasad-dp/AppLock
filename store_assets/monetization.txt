@@ -61,14 +61,14 @@ Pricing:
 
 B. ONE-TIME IN-APP PURCHASES (Non-Consumable)
 --------------------------------------------------------------------------------
-Product ID: applocker_pro_lifetime
+Product ID: premium_pro (also supported: lifetime_pro, applocker_pro_lifetime)
 Type: In-App Product (Non-Consumable)
-Description: Lifetime Pro Access - Pay Once, Enjoy Forever
+Description: Lifetime Pro Access - Special Launch Pricing
 Pricing:
-  - USD: $24.99 (one-time payment)
-  - EUR: €24.99
-  - INR: ₹1,999
-  - GBP: £21.99
+  - INR: ₹29.00 (Special India Launch Price)
+  - USD: $0.99 (one-time payment)
+  - EUR: €0.99
+  - GBP: £0.89
 
 --------------------------------------------------------------------------------
 3. GOOGLE ADMOB PRODUCTION UNIT IDS & PLACEMENTS

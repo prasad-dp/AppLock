@@ -24,7 +24,8 @@ class BillingManager(
 
     // Primary product IDs configured in Google Play Console
     companion object {
-        val IN_APP_PRODUCT_IDS = listOf("lifetime_pro", "applock_pro", "premium_access", "pro_lifetime")
+        const val PRODUCT_PREMIUM_PRO = "premium_pro"
+        val IN_APP_PRODUCT_IDS = listOf(PRODUCT_PREMIUM_PRO, "lifetime_pro", "applock_pro", "premium_access", "pro_lifetime")
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -56,19 +57,38 @@ class BillingManager(
         }
     }
 
+    private var retryCount = 0
+    private val MAX_RETRY_ATTEMPTS = 4
+
     override fun onBillingSetupFinished(billingResult: BillingResult) {
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
             Log.d(TAG, "Google Play Billing setup successfully connected.")
+            retryCount = 0
             // Immediately query existing purchases to automatically restore Pro status across reinstalls
             queryPurchases()
             queryProductDetails()
         } else {
             Log.w(TAG, "Billing setup failed with response code: ${billingResult.responseCode}")
+            scheduleRetryConnection()
         }
     }
 
     override fun onBillingServiceDisconnected() {
-        Log.w(TAG, "Billing service disconnected. Will retry on next interaction.")
+        Log.w(TAG, "Billing service disconnected. Scheduling automatic reconnect...")
+        scheduleRetryConnection()
+    }
+
+    private fun scheduleRetryConnection() {
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+            retryCount++
+            val delayMs = 1500L * (1 shl (retryCount - 1))
+            scope.launch {
+                delay(delayMs)
+                if (!billingClient.isReady) {
+                    startBillingConnection()
+                }
+            }
+        }
     }
 
     /**
@@ -82,43 +102,50 @@ class BillingManager(
             return
         }
 
-        // Query INAPP purchases
+        var inAppChecked = false
+        var subsChecked = false
+        var foundPremium = prefs.isPremiumUser
+
+        fun checkFinished() {
+            if (inAppChecked && subsChecked) {
+                onComplete?.invoke(foundPremium || prefs.isPremiumUser)
+            }
+        }
+
+        // 1. Query INAPP purchases
         val inAppParams = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.INAPP)
             .build()
 
         billingClient.queryPurchasesAsync(inAppParams) { inAppResult, inAppPurchases ->
-            var hasActivePurchase = false
             if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 for (purchase in inAppPurchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-                        hasActivePurchase = true
+                        foundPremium = true
                         handlePurchase(purchase)
                     }
                 }
             }
+            inAppChecked = true
+            checkFinished()
+        }
 
-            // Query SUBS purchases
-            val subsParams = QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
-                .build()
+        // 2. Query SUBS purchases
+        val subsParams = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
 
-            billingClient.queryPurchasesAsync(subsParams) { subsResult, subsPurchases ->
-                if (subsResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    for (purchase in subsPurchases) {
-                        if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-                            hasActivePurchase = true
-                            handlePurchase(purchase)
-                        }
+        billingClient.queryPurchasesAsync(subsParams) { subsResult, subsPurchases ->
+            if (subsResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                for (purchase in subsPurchases) {
+                    if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                        foundPremium = true
+                        handlePurchase(purchase)
                     }
                 }
-
-                if (hasActivePurchase) {
-                    updatePremiumState(true)
-                }
-
-                onComplete?.invoke(prefs.isPremiumUser || hasActivePurchase)
             }
+            subsChecked = true
+            checkFinished()
         }
     }
 
@@ -192,7 +219,7 @@ class BillingManager(
      */
     fun launchBillingFlow(
         activity: Activity,
-        preferredProductId: String = "lifetime_pro",
+        preferredProductId: String = PRODUCT_PREMIUM_PRO,
         onFallbackSuccess: () -> Unit
     ) {
         if (!billingClient.isReady) {

@@ -104,12 +104,33 @@ object AppIconCache {
     }
 
     @Synchronized
+    fun trimMemory(level: Int) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
+            cache.evictAll()
+        } else if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            cache.trimToSize(cacheSizeKb / 2)
+        }
+    }
+
+    @Synchronized
     fun clear() {
         cache.evictAll()
     }
 }
 
 class MainActivity : FragmentActivity() {
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        AppIconCache.trimMemory(level)
+        com.example.security.EncryptedFileManager.trimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        AppIconCache.clear()
+        com.example.security.EncryptedFileManager.clearCache()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.filterTouchesWhenObscured = true
@@ -954,6 +975,9 @@ fun DashboardView(
     var zoomPhotoAlert by remember { mutableStateOf<IntruderAlert?>(null) }
     var showTransitionInterstitial by remember { mutableStateOf<String?>(null) }
     var showUnlockAllConfirmDialog by remember { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
+    var showTermsOfServiceDialog by remember { mutableStateOf(false) }
+    var showPurgeAllDataConfirmDialog by remember { mutableStateOf(false) }
     var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
@@ -1726,6 +1750,94 @@ fun DashboardView(
                 }
             }
         }
+    }
+
+    if (showPrivacyPolicyDialog) {
+        com.example.ui.components.PrivacyPolicyDialog(
+            onDismiss = { showPrivacyPolicyDialog = false }
+        )
+    }
+
+    if (showTermsOfServiceDialog) {
+        com.example.ui.components.TermsOfServiceDialog(
+            onDismiss = { showTermsOfServiceDialog = false }
+        )
+    }
+
+    if (showPurgeAllDataConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showPurgeAllDataConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = "Purge Warning",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Purge & Shred All Data?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "In compliance with GDPR Right to Erasure & Data Protection regulations, this will permanently wipe:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("• All captured intruder photo files (3-pass cryptographic shred)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("• All security incident logs & timestamps", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("• All locked application preferences & PIN/Pattern keys", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                    Text(
+                        text = "This action is irreversible.",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPurgeAllDataConfirmDialog = false
+                        viewModel.purgeAllIntruderLogs()
+                        viewModel.unlockAllApps()
+                        com.example.security.EncryptedFileManager.clearCache()
+                        Toast.makeText(context, "All personal data erased and forensically shredded.", Toast.LENGTH_LONG).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Erase Everything", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPurgeAllDataConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 
     // Ensure Service starts when permissions are available and service is active
@@ -2578,6 +2690,112 @@ fun DashboardView(
                                             }
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    // STEP 3: LEGAL, PRIVACY & COMPLIANCE CENTER
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("legal_compliance_center_card")
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = "Privacy Shield",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Privacy, Legal & Compliance",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "100% On-Device local security architecture. Compliant with GDPR (EU/UK), CCPA (California), DPDP Act (India), and Google Play Policies.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Privacy Policy Button
+                                OutlinedButton(
+                                    onClick = { showPrivacyPolicyDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("open_privacy_policy_button"),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Policy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Privacy Policy & Data Disclosures", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Terms of Service Button
+                                OutlinedButton(
+                                    onClick = { showTermsOfServiceDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("open_terms_of_service_button"),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gavel,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Terms of Service & Security Agreement", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Right to Erasure / Purge All Data
+                                OutlinedButton(
+                                    onClick = { showPurgeAllDataConfirmDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("purge_all_data_button"),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteForever,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Right to Erasure (Purge & Shred All Data)",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }

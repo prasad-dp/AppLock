@@ -33,6 +33,18 @@ object EncryptedFileManager {
         }
     }
 
+    fun trimMemory(level: Int) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
+            bitmapCache.evictAll()
+        } else if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            bitmapCache.trimToSize(7 * 1024 * 1024)
+        }
+    }
+
+    fun clearCache() {
+        bitmapCache.evictAll()
+    }
+
     private fun getOrCreateSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         val existingKey = keyStore.getKey(KEY_ALIAS, null) as? SecretKey
@@ -124,7 +136,11 @@ object EncryptedFileManager {
                     while (maxSide / sampleSize > maxDimension) {
                         sampleSize *= 2
                     }
-                    val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                    val decodeOpts = BitmapFactory.Options().apply { 
+                        inSampleSize = sampleSize 
+                        inPreferredConfig = Bitmap.Config.ARGB_8888
+                        inMutable = false
+                    }
                     BitmapFactory.decodeFile(activeFile.absolutePath, decodeOpts)
                 } else {
                     BitmapFactory.decodeFile(activeFile.absolutePath)
@@ -160,7 +176,11 @@ object EncryptedFileManager {
                 while (maxSide / sampleSize > maxDimension) {
                     sampleSize *= 2
                 }
-                val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                val decodeOpts = BitmapFactory.Options().apply { 
+                    inSampleSize = sampleSize 
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                    inMutable = false
+                }
                 BitmapFactory.decodeByteArray(plainBytes, 0, plainBytes.size, decodeOpts)
             } else {
                 BitmapFactory.decodeByteArray(plainBytes, 0, plainBytes.size)

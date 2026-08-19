@@ -161,9 +161,9 @@ fun GoPremiumDialog(
                     currentLocale.language.equals("hi", ignoreCase = true) ||
                     currentLocale.displayName.contains("India", ignoreCase = true)
                 }
-                val dynamicPrice = playFormattedPrice ?: if (isIndiaRegion) "₹83" else "$0.99"
+                val dynamicPrice = playFormattedPrice ?: if (isIndiaRegion) "₹29" else "$0.99"
                 val dynamicSubtitle = if (isIndiaRegion) 
-                    "One-time purchase • Standard $0.99 USD equivalent in INR" 
+                    "One-time purchase • Special India launch price of ₹29" 
                 else 
                     "One-time purchase • Localized currency handled by Google Play"
 
@@ -202,7 +202,7 @@ fun GoPremiumDialog(
                     Button(
                         onClick = {
                             if (billingManager != null && activity != null) {
-                                billingManager.launchBillingFlow(activity, "lifetime_pro") {
+                                billingManager.launchBillingFlow(activity, BillingManager.PRODUCT_PREMIUM_PRO) {
                                     onPremiumPurchased()
                                     Toast.makeText(
                                         context,
@@ -238,7 +238,7 @@ fun GoPremiumDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Buy Lifetime Access",
+                            text = "Buy Lifetime Access • $dynamicPrice",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )

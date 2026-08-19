@@ -64,6 +64,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     val billingManager: BillingManager = (application as? AppLockApp)?.billingManager ?: BillingManager(application, prefs)
     val isPremiumFlow: StateFlow<Boolean> = billingManager.isPremium
+    val formattedPriceFlow: StateFlow<String?> = billingManager.formattedPrice
 
     fun refreshPurchases() {
         billingManager.queryPurchases()
@@ -449,6 +450,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             repository.deleteAllIntruderAlerts()
             intruderDeletionCount = 0
         }
+    }
+
+    fun purgeAllIntruderLogs() {
+        deleteAllIntruderAlerts()
     }
 
     fun clearAllIntruderAlerts() {
