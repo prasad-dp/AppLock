@@ -1,0 +1,114 @@
+================================================================================
+          APP LOCKER PRO & INTRUDER SECURITY VAULT - MONETIZATION CONFIG
+================================================================================
+Package Name: com.aistudio.applocker.kyzqpz
+Version: 1.0.1 (versionCode: 2)
+Category: Tools / Security / Productivity
+Developer Email: prasadkalepu315@gmail.com
+Document Status: Production Launch Ready
+
+--------------------------------------------------------------------------------
+1. MONETIZATION OVERVIEW & HYBRID MODEL
+--------------------------------------------------------------------------------
+App Locker Pro operates on a high-retention Hybrid Freemium Model:
+1. Free Tier (Ad-Supported):
+   - Access to Core App Locking (PIN, Pattern, Password, Biometrics).
+   - Up to 10 Locked Apps simultaneously.
+   - Intruder Camera Snapshots (Basic resolution, unblurred via Rewarded Ads).
+   - Smart Double-Lock Advisor for banking/messaging apps.
+   - Non-intrusive bottom banner and native ad cards in settings/lists.
+
+2. Pro Tier (Paid Subscription / Lifetime Purchase):
+   - 100% Ad-Free Experience (removes all Banners, Native, and Interstitial ads).
+   - Unlimited App Locks across all installed and system applications.
+   - Instant "Tap to Reveal" Biometric Vault for Intruder Snapshots (no ads required).
+   - Priority 0ms Instant Interception Engine with continuous protection.
+   - Custom Themes, Wallpapers, and Camouflage App Icons.
+   - Multi-Pass Forensic File Shredder for all alert records.
+
+--------------------------------------------------------------------------------
+2. GOOGLE PLAY IN-APP BILLING (BILLING CLIENT 6.0+) CONFIGURATION
+--------------------------------------------------------------------------------
+Configure the following Product IDs in Google Play Console -> Monetize -> Products:
+
+A. SUBSCRIPTIONS (Auto-Renewable)
+--------------------------------------------------------------------------------
+Product ID: applocker_pro_monthly
+Type: Auto-renewing Subscription
+Base Plan ID: monthly-auto-renew
+Billing Period: 1 Month
+Grace Period: 16 Days
+Account Hold: 30 Days
+Free Trial: None
+Pricing:
+  - USD: $1.99 / month
+  - EUR: €1.99 / month
+  - INR: ₹149 / month
+  - GBP: £1.79 / month
+
+Product ID: applocker_pro_yearly
+Type: Auto-renewing Subscription
+Base Plan ID: annual-discount-tier
+Billing Period: 1 Year
+Grace Period: 16 Days
+Account Hold: 30 Days
+Free Trial: 7-Day Free Trial (New users only)
+Pricing:
+  - USD: $11.99 / year (~$0.99/mo, 50% discount)
+  - EUR: €11.99 / year
+  - INR: ₹899 / year
+  - GBP: £10.49 / year
+
+B. ONE-TIME IN-APP PURCHASES (Non-Consumable)
+--------------------------------------------------------------------------------
+Product ID: applocker_pro_lifetime
+Type: In-App Product (Non-Consumable)
+Description: Lifetime Pro Access - Pay Once, Enjoy Forever
+Pricing:
+  - USD: $24.99 (one-time payment)
+  - EUR: €24.99
+  - INR: ₹1,999
+  - GBP: £21.99
+
+--------------------------------------------------------------------------------
+3. GOOGLE ADMOB PRODUCTION UNIT IDS & PLACEMENTS
+--------------------------------------------------------------------------------
+Target App ID in AdMob: ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
+
+Ad Placements & Formats:
+1. Sticky Bottom Banner Ad:
+   - Ad Unit ID: ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZ01
+   - Screen Placement: MainActivity bottom bar (above navigation tabs)
+   - Refresh Rate: Google Optimized (30-60s)
+   - Policy Rule: Hidden immediately when Pro is active (`isProUser == true`)
+
+2. Native In-Feed Security Cards:
+   - Ad Unit ID: ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZ02
+   - Screen Placement: Between app list items in Apps Tab and Security Hub
+   - Styling: Fluid Material 3 dark/light dynamic theme card matching UI
+
+3. Rewarded Video Ad:
+   - Ad Unit ID: ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZ03
+   - Trigger Point: Unlocking shielded intruder snapshot without Pro subscription
+   - Reward: 24-hour instant photo preview unlock + share privilege
+
+--------------------------------------------------------------------------------
+4. APP-ADS.TXT CONFIGURATION (IAB COMPLIANCE)
+--------------------------------------------------------------------------------
+To prevent unauthorized ad inventory spoofing and maximize AdMob eCPM, host this
+exact line on your developer website root domain (e.g., https://yourdomain.com/app-ads.txt):
+
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+
+*(Replace pub-XXXXXXXXXXXXXXXX with your real AdMob Publisher ID)*
+
+--------------------------------------------------------------------------------
+5. PLAY CONSOLE FINANCIAL & TAX COMPLIANCE CHECKLIST
+--------------------------------------------------------------------------------
+[✓] Set up Google Payments Merchant Account under Play Console -> Settings.
+[✓] Submit United States W-8BEN Tax Form (for non-US entities) or W-9 (for US).
+[✓] Verify Target Banking Account via micro-deposits.
+[✓] Configure Value Added Tax (VAT) / Goods & Services Tax (GST) auto-collection.
+[✓] Link Google Play Console with Google Cloud Project for Real-Time Developer
+    Notifications (RTDN) on subscription renewals/cancellations.
+================================================================================

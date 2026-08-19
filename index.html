@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Locker Pro & Intruder Security Vault - Official Site & Privacy Policy</title>
+    <meta name="description" content="Enterprise-grade Android app locker with 0ms Instant Interception, hardware-backed AES-256 GCM encryption, silent front-camera intruder snapshots, and biometric vault protection.">
+    <meta name="theme-color" content="#0F172A">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0B0F19;
+            --card-bg: #131B2E;
+            --card-border: #1E293B;
+            --primary-blue: #3B82F6;
+            --accent-cyan: #06B6D4;
+            --accent-green: #10B981;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --text-sub: #64748B;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(16px);
+            background: rgba(11, 15, 25, 0.85);
+            border-bottom: 1px solid var(--card-border);
+            padding: 16px 24px;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-logo span.badge {
+            background: linear-gradient(135deg, #3B82F6, #06B6D4);
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--accent-cyan);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #2563EB, #06B6D4);
+            color: #ffffff !important;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+        }
+
+        .hero {
+            padding: 80px 24px 60px;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent-cyan);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(180deg, #FFFFFF 30%, #94A3B8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p.lead {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 760px;
+            margin: 0 auto 36px;
+        }
+
+        .hero-cta {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .features-grid {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 32px;
+            position: relative;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: #3B82F6;
+        }
+
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: rgba(59, 130, 246, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .feature-card h3 {
+            font-size: 1.35rem;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .tech-specs {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 24px;
+        }
+
+        .specs-table-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--card-border);
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--accent-cyan);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            color: var(--text-muted);
+        }
+
+        td strong {
+            color: var(--text-main);
+        }
+
+        .privacy-section {
+            max-width: 900px;
+            margin: 80px auto;
+            padding: 40px 32px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+        }
+
+        .privacy-section h2 {
+            font-size: 2rem;
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .privacy-section p.updated {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-bottom: 32px;
+        }
+
+        .privacy-section h3 {
+            font-size: 1.25rem;
+            color: var(--accent-cyan);
+            margin: 28px 0 12px;
+            font-weight: 700;
+        }
+
+        .privacy-section ul {
+            padding-left: 24px;
+            margin-bottom: 16px;
+            color: var(--text-muted);
+        }
+
+        .privacy-section li {
+            margin-bottom: 8px;
+        }
+
+        footer {
+            border-top: 1px solid var(--card-border);
+            padding: 40px 24px;
+            text-align: center;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="nav-container">
+            <a href="#" class="brand-logo">
+                🛡️ App Locker Pro <span class="badge">v1.0.1</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#privacy">Privacy Policy</a>
+                <a href="#contact">Contact</a>
+                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download">Get on Play Store</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-badge">⚡ 0ms Zero-Delay Window Interception & Hardware KeyStore AES-256</div>
+            <h1>The Ultimate Shield for Your Android Apps & Privacy</h1>
+            <p class="lead">Protect WhatsApp, Banking, Photos, and System Settings. Silently capture front-camera intruder snapshots with hardware-backed encryption and zero-latency window locking.</p>
+            
+            <div class="hero-cta">
+                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download" style="font-size: 1.05rem; padding: 14px 28px;">
+                    Download on Google Play
+                </a>
+                <a href="#privacy" class="btn-download" style="background: transparent; border: 1px solid var(--card-border); box-shadow: none;">
+                    Read Privacy Policy
+                </a>
+            </div>
+        </section>
+
+        <section class="features-grid" id="features">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>0ms Instant Interception</h3>
+                <p>Intercepts protected app launches at the window creation layer via <code>AccessibilityService</code> before any screen content draws. Eliminates flickers and glimpses completely.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <h3>Silent Intruder Detector</h3>
+                <p>Google CameraX silently captures a high-definition front-camera snapshot when anyone inputs an incorrect PIN, Pattern, or Password after configurable failed attempts.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Hardware-Backed AES-256</h3>
+                <p>Intruder photos are encrypted in memory with 256-bit AES GCM using keys securely stored in the hardware <strong>Android KeyStore</strong>. Zero unencrypted raw files touch disk.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">👁️</div>
+                <h3>Biometric Vault Shield</h3>
+                <p>All intruder snapshot logs remain blurred and locked until verified via device Fingerprint, Face Recognition, or Master Credential.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Smart Double-Lock Advisor</h3>
+                <p>Intelligently detects apps with native biometric locks (WhatsApp, Banking apps, Google Wallet) and prevents infinite authentication loops.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🗑️</div>
+                <h3>3-Pass Forensic File Shredder</h3>
+                <p>When deleting intruder snapshots, the application overwrites disk sectors with cryptographically random noise and zeros prior to unlinking.</p>
+            </div>
+        </section>
+
+        <section class="tech-specs" id="architecture">
+            <h2 style="font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 28px;">Technical Specifications</h2>
+            <div class="specs-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Technology</th>
+                            <th>Security / Performance Guarantee</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Primary Lock Engine</strong></td>
+                            <td>Accessibility Window State Interceptor</td>
+                            <td>0ms instant response without app content leakage</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Fallback Engine</strong></td>
+                            <td>UsageStatsManager + Foreground Service</td>
+                            <td>Adaptive low-overhead background polling</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cryptography</strong></td>
+                            <td>Android KeyStore + AES/GCM/NoPadding</td>
+                            <td>Hardware-backed 256-bit symmetric encryption</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Camera Engine</strong></td>
+                            <td>AndroidX CameraX Lifecycle Integration</td>
+                            <td>Zero-flash, zero-shutter silent capture</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Data Persistence</strong></td>
+                            <td>Android Room Database with SQLite Indices</td>
+                            <td>Fast querying and automated 30-day log purges</td>
+                        </tr>
+                        <tr>
+                            <td><strong>UI Framework</strong></td>
+                            <td>Jetpack Compose & Material Design 3</td>
+                            <td>Fluid 60fps dynamic theming with zero layout jank</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="privacy-section" id="privacy">
+            <h2>Official Privacy Policy</h2>
+            <p class="updated">Last Updated: August 18, 2026 | Effective Date: August 18, 2026</p>
+
+            <p>This Privacy Policy applies to the <strong>App Locker Pro & Intruder Security Vault</strong> mobile application (Package ID: <code>com.aistudio.applocker.kyzqpz</code>) developed by the App Locker Security Team.</p>
+
+            <h3>1. Zero Remote Storage & Local Data Processing</h3>
+            <p>We believe in absolute data privacy. All core security operations execute strictly locally on your Android device:</p>
+            <ul>
+                <li><strong>Intruder Photos:</strong> When an intruder enters an incorrect passcode, a front-camera snapshot is captured, immediately encrypted with hardware-backed AES-256 GCM, and saved to private sandboxed app storage. <strong>Intruder photos are never uploaded to any cloud server, third-party database, or external service.</strong></li>
+                <li><strong>Passcodes & Hash Digests:</strong> Passwords, PINs, and Pattern sequences are stored exclusively on-device in salted, encrypted format.</li>
+                <li><strong>Biometric Data:</strong> Fingerprint and Face Unlock authentication is handled directly by Android's native <code>BiometricPrompt</code> API. The app never accesses, stores, or handles raw biometric templates.</li>
+                <li><strong>Installed App Lists:</strong> Application metadata is queried locally to populate your app lock list and is never tracked or shared.</li>
+            </ul>
+
+            <h3>2. Required Android System Permissions & Purpose</h3>
+            <ul>
+                <li><strong>Accessibility Service (BIND_ACCESSIBILITY_SERVICE):</strong> Used exclusively to power the 0ms Instant Lock Engine by detecting window state transitions (<code>TYPE_WINDOW_STATE_CHANGED</code>) when a protected app is launched. We do <strong>not</strong> read screen text, intercept user keystrokes, track user inputs, or collect personal data.</li>
+                <li><strong>Usage Access (PACKAGE_USAGE_STATS):</strong> Used by the fallback monitoring service to identify foreground application changes.</li>
+                <li><strong>Display Over Other Apps (SYSTEM_ALERT_WINDOW):</strong> Enables the high-priority lock screen overlay above locked applications.</li>
+                <li><strong>Camera (CAMERA):</strong> Used solely to capture silent intruder photos when failed unlock attempts exceed the user-defined threshold.</li>
+                <li><strong>Biometrics (USE_BIOMETRIC / USE_FINGERPRINT):</strong> Allows one-touch biometric authentication for the owner.</li>
+                <li><strong>Foreground Service (FOREGROUND_SERVICE):</strong> Ensures continuous, uninterrupted background protection.</li>
+            </ul>
+
+            <h3>3. Third-Party Services & Monetization</h3>
+            <p>Our app incorporates Google Mobile Ads (AdMob) and Google Play Billing:</p>
+            <ul>
+                <li><strong>Google AdMob:</strong> May collect anonymous or pseudonymous device identifiers (such as Android Advertising ID) for ad delivery, fraud prevention, and analytics in accordance with Google's Advertising Policies. Pro subscribers enjoy an ad-free experience.</li>
+                <li><strong>Google Play In-App Billing:</strong> Handles secure purchase transactions for Pro subscriptions. Payment details are processed directly by Google Play.</li>
+            </ul>
+
+            <h3>4. Data Deletion & Multi-Pass Shredding</h3>
+            <p>You maintain full control over your data. All intruder alerts and photos can be deleted at any time from the Intruder Logs tab. Deletion triggers a 3-pass forensic shredder that overwrites physical storage sectors with random noise and zeros. Uninstalling the app permanently purges all encrypted logs from the device.</p>
+
+            <h3>5. Children's Privacy</h3>
+            <p>Our application is not directed at children under the age of 13. We do not knowingly collect personal information from children.</p>
+
+            <h3>6. Developer Contact & Data Protection Officer</h3>
+            <p id="contact">For any privacy questions, security disclosures, or support requests, please contact:</p>
+            <p><strong>Email:</strong> <a href="mailto:prasadkalepu315@gmail.com" style="color: var(--accent-cyan);">prasadkalepu315@gmail.com</a></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 App Locker Pro & Intruder Security Vault. All rights reserved. | <a href="#privacy">Privacy Policy</a> | <a href="#architecture">Architecture</a></p>
+    </footer>
+
+</body>
+</html>
