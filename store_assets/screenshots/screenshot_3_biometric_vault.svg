@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Background Gradient -->
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#080C14"/>
+            <stop offset="50%" stop-color="#0F172A"/>
+            <stop offset="100%" stop-color="#020617"/>
+        </linearGradient>
+
+        <!-- Ambient Top Glow -->
+        <radialGradient id="topGlow" cx="50%" cy="15%" r="60%">
+            <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.0"/>
+        </radialGradient>
+
+        <!-- Phone Frame Gradient -->
+        <linearGradient id="phoneBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#475569"/>
+            <stop offset="50%" stop-color="#1E293B"/>
+            <stop offset="100%" stop-color="#64748B"/>
+        </linearGradient>
+
+        <!-- Phone Screen Inner Gradient -->
+        <linearGradient id="phoneInner" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0B0F19"/>
+            <stop offset="100%" stop-color="#070A10"/>
+        </linearGradient>
+
+        <!-- Drop Shadow Filter -->
+        <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="25" stdDeviation="40" flood-color="#000000" flood-opacity="0.75" />
+            <feDropShadow dx="0" dy="0" stdDeviation="30" flood-color="#06B6D4" flood-opacity="0.25" />
+        </filter>
+    </defs>
+
+    <!-- Canvas Background -->
+    <rect width="1080" height="1920" fill="url(#bgGrad)" />
+    <rect width="1080" height="1920" fill="url(#topGlow)" />
+
+    <!-- TOP HEADER SECTION -->
+    <!-- Feature Pill Badge -->
+    <g transform="translate(540, 140)">
+        <rect x="-240" y="-24" width="480" height="48" rx="24" fill="rgba(15, 23, 42, 0.85)" stroke="#06B6D4" stroke-width="2" />
+        <text x="0" y="7" text-anchor="middle" fill="#06B6D4" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="bold" letter-spacing="1.5">👁️ TAP TO REVEAL VAULT</text>
+    </g>
+
+    <!-- Main Title -->
+    <text x="540" y="270" text-anchor="middle" fill="#FFFFFF" font-family="'Plus Jakarta Sans', sans-serif" font-size="64" font-weight="800" letter-spacing="-1">Biometric Shield Vault</text>
+
+    <!-- Subtitle -->
+    <text x="540" y="340" text-anchor="middle" fill="#94A3B8" font-family="'Plus Jakarta Sans', sans-serif" font-size="28" font-weight="500">Intruder evidence stays frosted until fingerprint unlock</text>
+
+    <!-- Feature Highlight Pills -->
+    
+        <g transform="translate(120, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#06B6D4" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🔒 Frosted Previews</text>
+        </g>
+        
+        <g transform="translate(410, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#06B6D4" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">👆 Fingerprint / Face ID</text>
+        </g>
+        
+        <g transform="translate(700, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#06B6D4" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🛡️ 100% On-Device</text>
+        </g>
+        
+
+    <!-- 3D SMARTPHONE DEVICE MOCKUP -->
+    <g transform="translate(310, 520)" filter="url(#phoneShadow)">
+        <!-- Outer Chassis -->
+        <rect x="0" y="0" width="460" height="1350" rx="55" fill="url(#phoneBorder)" stroke="#334155" stroke-width="4" />
+        
+        <!-- Screen Bezel -->
+        <rect x="10" y="10" width="440" height="1330" rx="46" fill="#000000" />
+
+        <!-- Phone Display Screen -->
+        <rect x="16" y="16" width="428" height="1318" rx="40" fill="url(#phoneInner)" />
+
+        <!-- Camera Punch Hole Cutout -->
+        <circle cx="230" cy="40" r="9" fill="#000000" />
+        <circle cx="230" cy="40" r="5" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" />
+
+        <!-- Android Status Bar -->
+        <text x="50" y="46" fill="#94A3B8" font-family="sans-serif" font-size="14" font-weight="bold">9:41</text>
+        <g transform="translate(370, 36)">
+            <!-- 5G & Battery -->
+            <text x="0" y="10" fill="#94A3B8" font-family="sans-serif" font-size="12" font-weight="bold">5G</text>
+            <rect x="22" y="0" width="22" height="12" rx="3" fill="none" stroke="#94A3B8" stroke-width="1.5" />
+            <rect x="24" y="2" width="16" height="8" rx="2" fill="#10B981" />
+        </g>
+
+        <!-- UI SCREEN CONTENT INSIDE PHONE -->
+        <g transform="translate(0, 50)">
+            
+        <!-- Top Bar with Shield -->
+        <rect x="25" y="60" width="410" height="70" rx="16" fill="#131B2E" stroke="#1E293B" stroke-width="1.5" />
+        <text x="45" y="102" fill="#F8FAFC" font-family="sans-serif" font-size="18" font-weight="bold">Intruder Vault (4 Logs)</text>
+        <rect x="305" y="78" width="115" height="34" rx="8" fill="rgba(6, 182, 212, 0.15)" />
+        <text x="362" y="100" text-anchor="middle" fill="#06B6D4" font-family="sans-serif" font-size="12" font-weight="bold">🔒 SHIELDED</text>
+
+        <!-- Log Item 1: Frosted Shielded Preview -->
+        <g transform="translate(25, 150)">
+            <rect x="0" y="0" width="410" height="180" rx="20" fill="#131B2E" stroke="#06B6D4" stroke-width="2" />
+            <!-- Frosted Glass Image Area -->
+            <rect x="15" y="15" width="150" height="150" rx="14" fill="#1E293B" />
+            <circle cx="90" cy="75" r="30" fill="rgba(6, 182, 212, 0.2)" stroke="#06B6D4" stroke-width="2" />
+            <path d="M 80,75 Q 90,65 100,75 M 84,80 Q 90,72 96,80 M 88,85 Q 90,80 92,85" fill="none" stroke="#06B6D4" stroke-width="3" stroke-linecap="round" />
+            <text x="90" y="125" text-anchor="middle" fill="#06B6D4" font-family="sans-serif" font-size="11" font-weight="bold">TAP TO UNBLUR</text>
+
+            <!-- Info Side -->
+            <text x="180" y="45" fill="#F8FAFC" font-family="sans-serif" font-size="17" font-weight="bold">WhatsApp</text>
+            <text x="180" y="70" fill="#EF4444" font-family="sans-serif" font-size="13" font-weight="bold">🔴 2 Failed PIN Tries</text>
+            <text x="180" y="95" fill="#94A3B8" font-family="sans-serif" font-size="12">Today, 09:41 PM</text>
+            <rect x="180" y="115" width="120" height="30" rx="8" fill="#1E293B" />
+            <text x="240" y="135" text-anchor="middle" fill="#64748B" font-family="sans-serif" font-size="11">AES-256 .enc</text>
+        </g>
+
+        <!-- Log Item 2 -->
+        <g transform="translate(25, 350)">
+            <rect x="0" y="0" width="410" height="180" rx="20" fill="#131B2E" stroke="#1E293B" stroke-width="1.5" />
+            <!-- Frosted Glass Image Area -->
+            <rect x="15" y="15" width="150" height="150" rx="14" fill="#1E293B" />
+            <circle cx="90" cy="75" r="30" fill="rgba(6, 182, 212, 0.2)" stroke="#06B6D4" stroke-width="2" />
+            <path d="M 80,75 Q 90,65 100,75 M 84,80 Q 90,72 96,80" fill="none" stroke="#06B6D4" stroke-width="3" stroke-linecap="round" />
+            <text x="90" y="125" text-anchor="middle" fill="#06B6D4" font-family="sans-serif" font-size="11" font-weight="bold">TAP TO UNBLUR</text>
+
+            <!-- Info Side -->
+            <text x="180" y="45" fill="#F8FAFC" font-family="sans-serif" font-size="17" font-weight="bold">Google Photos</text>
+            <text x="180" y="70" fill="#EF4444" font-family="sans-serif" font-size="13" font-weight="bold">🔴 Pattern Mismatch</text>
+            <text x="180" y="95" fill="#94A3B8" font-family="sans-serif" font-size="12">Yesterday, 04:15 PM</text>
+            <rect x="180" y="115" width="120" height="30" rx="8" fill="#1E293B" />
+            <text x="240" y="135" text-anchor="middle" fill="#64748B" font-family="sans-serif" font-size="11">AES-256 .enc</text>
+        </g>
+
+        <!-- Biometric Unlock Button -->
+        <g transform="translate(50, 560)">
+            <rect x="0" y="0" width="360" height="60" rx="16" fill="linear-gradient(135deg, #0891B2, #2563EB)" />
+            <text x="180" y="37" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold">👆 Unlock Vault with Biometrics</text>
+        </g>
+        
+        </g>
+
+        <!-- Android Home Navigation Pill Indicator -->
+        <rect x="170" y="1300" width="120" height="5" rx="2.5" fill="#64748B" />
+    </g>
+
+</svg>

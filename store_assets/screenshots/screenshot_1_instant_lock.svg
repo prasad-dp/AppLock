@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Background Gradient -->
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#080C14"/>
+            <stop offset="50%" stop-color="#0F172A"/>
+            <stop offset="100%" stop-color="#020617"/>
+        </linearGradient>
+
+        <!-- Ambient Top Glow -->
+        <radialGradient id="topGlow" cx="50%" cy="15%" r="60%">
+            <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+        </radialGradient>
+
+        <!-- Phone Frame Gradient -->
+        <linearGradient id="phoneBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#475569"/>
+            <stop offset="50%" stop-color="#1E293B"/>
+            <stop offset="100%" stop-color="#64748B"/>
+        </linearGradient>
+
+        <!-- Phone Screen Inner Gradient -->
+        <linearGradient id="phoneInner" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0B0F19"/>
+            <stop offset="100%" stop-color="#070A10"/>
+        </linearGradient>
+
+        <!-- Drop Shadow Filter -->
+        <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="25" stdDeviation="40" flood-color="#000000" flood-opacity="0.75" />
+            <feDropShadow dx="0" dy="0" stdDeviation="30" flood-color="#3B82F6" flood-opacity="0.25" />
+        </filter>
+    </defs>
+
+    <!-- Canvas Background -->
+    <rect width="1080" height="1920" fill="url(#bgGrad)" />
+    <rect width="1080" height="1920" fill="url(#topGlow)" />
+
+    <!-- TOP HEADER SECTION -->
+    <!-- Feature Pill Badge -->
+    <g transform="translate(540, 140)">
+        <rect x="-240" y="-24" width="480" height="48" rx="24" fill="rgba(15, 23, 42, 0.85)" stroke="#3B82F6" stroke-width="2" />
+        <text x="0" y="7" text-anchor="middle" fill="#3B82F6" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="bold" letter-spacing="1.5">⚡ 0ms ZERO-DELAY ENGINE</text>
+    </g>
+
+    <!-- Main Title -->
+    <text x="540" y="270" text-anchor="middle" fill="#FFFFFF" font-family="'Plus Jakarta Sans', sans-serif" font-size="64" font-weight="800" letter-spacing="-1">0ms Instant App Lock</text>
+
+    <!-- Subtitle -->
+    <text x="540" y="340" text-anchor="middle" fill="#94A3B8" font-family="'Plus Jakarta Sans', sans-serif" font-size="28" font-weight="500">Blocks WhatsApp & Banking apps with zero screen glimpse</text>
+
+    <!-- Feature Highlight Pills -->
+    
+        <g transform="translate(120, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#3B82F6" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">⚡ Zero Latency</text>
+        </g>
+        
+        <g transform="translate(410, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#3B82F6" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🛡️ Accessibility Layer</text>
+        </g>
+        
+        <g transform="translate(700, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#3B82F6" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🚫 No Screen Flash</text>
+        </g>
+        
+
+    <!-- 3D SMARTPHONE DEVICE MOCKUP -->
+    <g transform="translate(310, 520)" filter="url(#phoneShadow)">
+        <!-- Outer Chassis -->
+        <rect x="0" y="0" width="460" height="1350" rx="55" fill="url(#phoneBorder)" stroke="#334155" stroke-width="4" />
+        
+        <!-- Screen Bezel -->
+        <rect x="10" y="10" width="440" height="1330" rx="46" fill="#000000" />
+
+        <!-- Phone Display Screen -->
+        <rect x="16" y="16" width="428" height="1318" rx="40" fill="url(#phoneInner)" />
+
+        <!-- Camera Punch Hole Cutout -->
+        <circle cx="230" cy="40" r="9" fill="#000000" />
+        <circle cx="230" cy="40" r="5" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" />
+
+        <!-- Android Status Bar -->
+        <text x="50" y="46" fill="#94A3B8" font-family="sans-serif" font-size="14" font-weight="bold">9:41</text>
+        <g transform="translate(370, 36)">
+            <!-- 5G & Battery -->
+            <text x="0" y="10" fill="#94A3B8" font-family="sans-serif" font-size="12" font-weight="bold">5G</text>
+            <rect x="22" y="0" width="22" height="12" rx="3" fill="none" stroke="#94A3B8" stroke-width="1.5" />
+            <rect x="24" y="2" width="16" height="8" rx="2" fill="#10B981" />
+        </g>
+
+        <!-- UI SCREEN CONTENT INSIDE PHONE -->
+        <g transform="translate(0, 50)">
+            
+        <!-- App Logo Header -->
+        <g transform="translate(180, 100)">
+            <circle cx="50" cy="50" r="44" fill="#25D366" />
+            <path d="M 32,32 C 32,45 42,55 55,55 C 57,55 60,54 62,53 L 68,55 L 66,49 C 67,47 68,45 68,42 C 68,29 58,19 45,19 C 32,19 32,32 32,32 Z" fill="#FFFFFF" transform="translate(-10, -5) scale(1.2)" />
+        </g>
+        <text x="230" y="230" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">WhatsApp</text>
+        <text x="230" y="260" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="18">Enter 4-Digit PIN to Access</text>
+
+        <!-- PIN Dots -->
+        <g transform="translate(120, 290)">
+            <circle cx="40" cy="20" r="12" fill="#3B82F6" />
+            <circle cx="90" cy="20" r="12" fill="#3B82F6" />
+            <circle cx="140" cy="20" r="12" fill="#3B82F6" />
+            <circle cx="190" cy="20" r="12" fill="#334155" stroke="#475569" stroke-width="2" />
+        </g>
+
+        <!-- Keypad -->
+        <g transform="translate(50, 360)">
+            <!-- Row 1 -->
+            <rect x="20" y="0" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="65" y="46" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">1</text>
+            <rect x="135" y="0" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="180" y="46" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">2</text>
+            <rect x="250" y="0" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="295" y="46" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">3</text>
+
+            <!-- Row 2 -->
+            <rect x="20" y="90" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="65" y="136" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">4</text>
+            <rect x="135" y="90" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="180" y="136" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">5</text>
+            <rect x="250" y="90" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="295" y="136" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">6</text>
+
+            <!-- Row 3 -->
+            <rect x="20" y="180" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="65" y="226" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">7</text>
+            <rect x="135" y="180" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="180" y="226" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">8</text>
+            <rect x="250" y="180" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="295" y="226" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">9</text>
+
+            <!-- Row 4 -->
+            <rect x="20" y="270" width="90" height="75" rx="20" fill="#0F172A" />
+            <circle cx="65" cy="308" r="14" fill="none" stroke="#3B82F6" stroke-width="3" />
+            <path d="M 58,308 Q 65,300 72,308" fill="none" stroke="#3B82F6" stroke-width="2.5" />
+            <rect x="135" y="270" width="90" height="75" rx="20" fill="#1E293B" />
+            <text x="180" y="316" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="28" font-weight="bold">0</text>
+            <rect x="250" y="270" width="90" height="75" rx="20" fill="#0F172A" />
+            <text x="295" y="316" text-anchor="middle" fill="#EF4444" font-family="sans-serif" font-size="24">⌫</text>
+        </g>
+        
+        <!-- Bottom Protection Tag -->
+        <rect x="60" y="740" width="340" height="42" rx="12" fill="rgba(59, 130, 246, 0.15)" stroke="rgba(59, 130, 246, 0.3)" stroke-width="1.5" />
+        <text x="230" y="767" text-anchor="middle" fill="#60A5FA" font-family="sans-serif" font-size="14" font-weight="bold">⚡ 0ms Instant Interception Active</text>
+        
+        </g>
+
+        <!-- Android Home Navigation Pill Indicator -->
+        <rect x="170" y="1300" width="120" height="5" rx="2.5" fill="#64748B" />
+    </g>
+
+</svg>

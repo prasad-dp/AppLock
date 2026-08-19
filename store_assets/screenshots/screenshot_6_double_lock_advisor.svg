@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Background Gradient -->
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#080C14"/>
+            <stop offset="50%" stop-color="#0F172A"/>
+            <stop offset="100%" stop-color="#020617"/>
+        </linearGradient>
+
+        <!-- Ambient Top Glow -->
+        <radialGradient id="topGlow" cx="50%" cy="15%" r="60%">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.0"/>
+        </radialGradient>
+
+        <!-- Phone Frame Gradient -->
+        <linearGradient id="phoneBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#475569"/>
+            <stop offset="50%" stop-color="#1E293B"/>
+            <stop offset="100%" stop-color="#64748B"/>
+        </linearGradient>
+
+        <!-- Phone Screen Inner Gradient -->
+        <linearGradient id="phoneInner" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0B0F19"/>
+            <stop offset="100%" stop-color="#070A10"/>
+        </linearGradient>
+
+        <!-- Drop Shadow Filter -->
+        <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="25" stdDeviation="40" flood-color="#000000" flood-opacity="0.75" />
+            <feDropShadow dx="0" dy="0" stdDeviation="30" flood-color="#F59E0B" flood-opacity="0.25" />
+        </filter>
+    </defs>
+
+    <!-- Canvas Background -->
+    <rect width="1080" height="1920" fill="url(#bgGrad)" />
+    <rect width="1080" height="1920" fill="url(#topGlow)" />
+
+    <!-- TOP HEADER SECTION -->
+    <!-- Feature Pill Badge -->
+    <g transform="translate(540, 140)">
+        <rect x="-240" y="-24" width="480" height="48" rx="24" fill="rgba(15, 23, 42, 0.85)" stroke="#F59E0B" stroke-width="2" />
+        <text x="0" y="7" text-anchor="middle" fill="#F59E0B" font-family="'Plus Jakarta Sans', sans-serif" font-size="20" font-weight="bold" letter-spacing="1.5">🔄 DUAL-LOCK LOOP PREVENTER</text>
+    </g>
+
+    <!-- Main Title -->
+    <text x="540" y="270" text-anchor="middle" fill="#FFFFFF" font-family="'Plus Jakarta Sans', sans-serif" font-size="64" font-weight="800" letter-spacing="-1">Smart Double-Lock Advisor</text>
+
+    <!-- Subtitle -->
+    <text x="540" y="340" text-anchor="middle" fill="#94A3B8" font-family="'Plus Jakarta Sans', sans-serif" font-size="28" font-weight="500">Eliminates frustrating double-auth on banking & chats</text>
+
+    <!-- Feature Highlight Pills -->
+    
+        <g transform="translate(120, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#F59E0B" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🔄 Loop Prevention</text>
+        </g>
+        
+        <g transform="translate(410, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#F59E0B" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">🏦 Banking Optimized</text>
+        </g>
+        
+        <g transform="translate(700, 440)">
+            <rect x="0" y="0" width="270" height="48" rx="24" fill="rgba(30, 41, 59, 0.9)" stroke="#F59E0B" stroke-width="1.5" />
+            <text x="135" y="30" text-anchor="middle" fill="#F8FAFC" font-family="'Plus Jakarta Sans', sans-serif" font-size="17" font-weight="bold">⚡ Smart Delay</text>
+        </g>
+        
+
+    <!-- 3D SMARTPHONE DEVICE MOCKUP -->
+    <g transform="translate(310, 520)" filter="url(#phoneShadow)">
+        <!-- Outer Chassis -->
+        <rect x="0" y="0" width="460" height="1350" rx="55" fill="url(#phoneBorder)" stroke="#334155" stroke-width="4" />
+        
+        <!-- Screen Bezel -->
+        <rect x="10" y="10" width="440" height="1330" rx="46" fill="#000000" />
+
+        <!-- Phone Display Screen -->
+        <rect x="16" y="16" width="428" height="1318" rx="40" fill="url(#phoneInner)" />
+
+        <!-- Camera Punch Hole Cutout -->
+        <circle cx="230" cy="40" r="9" fill="#000000" />
+        <circle cx="230" cy="40" r="5" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" />
+
+        <!-- Android Status Bar -->
+        <text x="50" y="46" fill="#94A3B8" font-family="sans-serif" font-size="14" font-weight="bold">9:41</text>
+        <g transform="translate(370, 36)">
+            <!-- 5G & Battery -->
+            <text x="0" y="10" fill="#94A3B8" font-family="sans-serif" font-size="12" font-weight="bold">5G</text>
+            <rect x="22" y="0" width="22" height="12" rx="3" fill="none" stroke="#94A3B8" stroke-width="1.5" />
+            <rect x="24" y="2" width="16" height="8" rx="2" fill="#10B981" />
+        </g>
+
+        <!-- UI SCREEN CONTENT INSIDE PHONE -->
+        <g transform="translate(0, 50)">
+            
+        <!-- Advisor Banner -->
+        <rect x="25" y="60" width="410" height="110" rx="18" fill="rgba(245, 158, 11, 0.15)" stroke="#F59E0B" stroke-width="2" />
+        <circle cx="65" cy="115" r="24" fill="#F59E0B" />
+        <text x="65" y="123" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="22" font-weight="bold">💡</text>
+        <text x="105" y="100" fill="#FCD34D" font-family="sans-serif" font-size="16" font-weight="bold">Smart Double-Lock Advisor</text>
+        <text x="105" y="125" fill="#94A3B8" font-family="sans-serif" font-size="13">3 apps with native biometrics detected</text>
+        <text x="105" y="145" fill="#FCD34D" font-family="sans-serif" font-size="12" font-weight="bold">✓ Loop prevention active</text>
+
+        <!-- Detected App 1 -->
+        <g transform="translate(25, 190)">
+            <rect x="0" y="0" width="410" height="90" rx="16" fill="#131B2E" stroke="#1E293B" stroke-width="1.5" />
+            <circle cx="45" cy="45" r="22" fill="#25D366" />
+            <text x="45" y="52" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="18">💬</text>
+            <text x="80" y="38" fill="#F8FAFC" font-family="sans-serif" font-size="16" font-weight="bold">WhatsApp</text>
+            <text x="80" y="60" fill="#94A3B8" font-family="sans-serif" font-size="12">Has native Fingerprint Lock</text>
+            <!-- Toggle Switch ON -->
+            <rect x="330" y="30" width="55" height="30" rx="15" fill="#F59E0B" />
+            <circle cx="368" cy="45" r="11" fill="#FFFFFF" />
+        </g>
+
+        <!-- Detected App 2 -->
+        <g transform="translate(25, 300)">
+            <rect x="0" y="0" width="410" height="90" rx="16" fill="#131B2E" stroke="#1E293B" stroke-width="1.5" />
+            <circle cx="45" cy="45" r="22" fill="#3B82F6" />
+            <text x="45" y="52" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="18">🏦</text>
+            <text x="80" y="38" fill="#F8FAFC" font-family="sans-serif" font-size="16" font-weight="bold">Google Wallet / Banking</text>
+            <text x="80" y="60" fill="#94A3B8" font-family="sans-serif" font-size="12">Has biometric authentication</text>
+            <!-- Toggle Switch ON -->
+            <rect x="330" y="30" width="55" height="30" rx="15" fill="#F59E0B" />
+            <circle cx="368" cy="45" r="11" fill="#FFFFFF" />
+        </g>
+
+        <!-- Smart Delay Slider Card -->
+        <g transform="translate(25, 410)">
+            <rect x="0" y="0" width="410" height="150" rx="20" fill="#131B2E" stroke="#1E293B" stroke-width="1.5" />
+            <text x="25" y="35" fill="#F8FAFC" font-family="sans-serif" font-size="16" font-weight="bold">Re-Lock Delay Grace Period</text>
+            <text x="25" y="60" fill="#94A3B8" font-family="sans-serif" font-size="13">Avoid re-prompting if switching back within:</text>
+            
+            <rect x="25" y="85" width="80" height="38" rx="10" fill="#1E293B" />
+            <text x="65" y="109" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">0s</text>
+
+            <rect x="115" y="85" width="80" height="38" rx="10" fill="#F59E0B" />
+            <text x="155" y="109" text-anchor="middle" fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold">15s</text>
+
+            <rect x="205" y="85" width="80" height="38" rx="10" fill="#1E293B" />
+            <text x="245" y="109" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">30s</text>
+
+            <rect x="295" y="85" width="85" height="38" rx="10" fill="#1E293B" />
+            <text x="337" y="109" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">1 min</text>
+        </g>
+        
+        </g>
+
+        <!-- Android Home Navigation Pill Indicator -->
+        <rect x="170" y="1300" width="120" height="5" rx="2.5" fill="#64748B" />
+    </g>
+
+</svg>

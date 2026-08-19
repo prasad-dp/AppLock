@@ -13,6 +13,15 @@ All required assets are generated and organized in the repository:
 │   ├── app-release.aab                         # Signed Android App Bundle (v1.0.1, versionCode: 2)
 │   ├── play_store_512x512_icon.png             # 512x512 Hi-Res 32-bit PNG Store Icon
 │   ├── play_store_1024x500_feature_graphic.png # 1024x500 PNG Feature Graphic Banner
+│   ├── screenshots/                            # 8x Full-Resolution 1080x1920 Phone Screenshots
+│   │   ├── playstore_phone_screenshot_1_instant_lock.png
+│   │   ├── playstore_phone_screenshot_2_intruder_selfie.png
+│   │   ├── playstore_phone_screenshot_3_biometric_vault.png
+│   │   ├── playstore_phone_screenshot_4_hardware_encryption.png
+│   │   ├── playstore_phone_screenshot_5_lock_modes.png
+│   │   ├── playstore_phone_screenshot_6_double_lock_advisor.png
+│   │   ├── playstore_phone_screenshot_7_forensic_shredder.png
+│   │   └── playstore_phone_screenshot_8_security_hub.png
 │   ├── PLAY_STORE_LISTING.md                   # Complete ASO Titles, Descriptions & Declaration Texts
 │   ├── monetization.txt                        # Google Play Billing SKUs & AdMob Configuration
 │   ├── PRIVACY_POLICY.html                     # Standalone Privacy Policy page
@@ -45,7 +54,15 @@ Navigate to **Grow -> Store presence -> Main store listing**:
 - **Full description:** Copy the pre-formatted text from `store_assets/PLAY_STORE_LISTING.md`.
 - **App Icon:** Upload `store_assets/play_store_512x512_icon.png`.
 - **Feature Graphic:** Upload `store_assets/play_store_1024x500_feature_graphic.png`.
-- **Screenshots:** Capture and upload phone screenshots (or use device emulator captures).
+- **Phone Screenshots (Upload all 8 in order):**
+  1. `store_assets/screenshots/playstore_phone_screenshot_1_instant_lock.png` (0ms Instant Interception)
+  2. `store_assets/screenshots/playstore_phone_screenshot_2_intruder_selfie.png` (Silent Intruder Selfie)
+  3. `store_assets/screenshots/playstore_phone_screenshot_3_biometric_vault.png` (Biometric Vault Shield)
+  4. `store_assets/screenshots/playstore_phone_screenshot_4_hardware_encryption.png` (AES-256 KeyStore)
+  5. `store_assets/screenshots/playstore_phone_screenshot_5_lock_modes.png` (PIN/Pattern/Password)
+  6. `store_assets/screenshots/playstore_phone_screenshot_6_double_lock_advisor.png` (Double-Lock Advisor)
+  7. `store_assets/screenshots/playstore_phone_screenshot_7_forensic_shredder.png` (3-Pass File Shredder)
+  8. `store_assets/screenshots/playstore_phone_screenshot_8_security_hub.png` (Security Command Center)
 
 ---
 
