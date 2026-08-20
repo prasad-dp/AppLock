@@ -92,8 +92,8 @@ class BillingManager(
     }
 
     /**
-     * Queries Google Play for active in-app and subscription purchases.
-     * Restores Pro status automatically if the user's Google Account already has an active entitlement.
+     * Queries Google Play for active in-app/subscription purchases AND purchase history.
+     * Restores Pro status automatically if the user's Google Account has a lifetime purchase across reinstalls and test phases.
      */
     fun queryPurchases(onComplete: ((Boolean) -> Unit)? = null) {
         if (!billingClient.isReady) {
@@ -108,44 +108,74 @@ class BillingManager(
 
         fun checkFinished() {
             if (inAppChecked && subsChecked) {
+                if (foundPremium) {
+                    updatePremiumState(true)
+                }
                 onComplete?.invoke(foundPremium || prefs.isPremiumUser)
             }
         }
 
-        // 1. Query INAPP purchases
+        // 1. Query INAPP active purchases
         val inAppParams = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.INAPP)
             .build()
 
         billingClient.queryPurchasesAsync(inAppParams) { inAppResult, inAppPurchases ->
-            if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK) {
+            if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK && inAppPurchases.isNotEmpty()) {
                 for (purchase in inAppPurchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                         foundPremium = true
                         handlePurchase(purchase)
                     }
                 }
+                inAppChecked = true
+                checkFinished()
+            } else {
+                // Fallback: Query purchase history for INAPP across internal, external & production tracks
+                val historyParams = QueryPurchaseHistoryParams.newBuilder()
+                    .setProductType(BillingClient.ProductType.INAPP)
+                    .build()
+                billingClient.queryPurchaseHistoryAsync(historyParams) { historyResult, historyList ->
+                    if (historyResult.responseCode == BillingClient.BillingResponseCode.OK && !historyList.isNullOrEmpty()) {
+                        Log.d(TAG, "Found historical in-app purchase for account. Restoring Pro status.")
+                        foundPremium = true
+                        updatePremiumState(true)
+                    }
+                    inAppChecked = true
+                    checkFinished()
+                }
             }
-            inAppChecked = true
-            checkFinished()
         }
 
-        // 2. Query SUBS purchases
+        // 2. Query SUBS active purchases
         val subsParams = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.SUBS)
             .build()
 
         billingClient.queryPurchasesAsync(subsParams) { subsResult, subsPurchases ->
-            if (subsResult.responseCode == BillingClient.BillingResponseCode.OK) {
+            if (subsResult.responseCode == BillingClient.BillingResponseCode.OK && subsPurchases.isNotEmpty()) {
                 for (purchase in subsPurchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                         foundPremium = true
                         handlePurchase(purchase)
                     }
                 }
+                subsChecked = true
+                checkFinished()
+            } else {
+                val subsHistoryParams = QueryPurchaseHistoryParams.newBuilder()
+                    .setProductType(BillingClient.ProductType.SUBS)
+                    .build()
+                billingClient.queryPurchaseHistoryAsync(subsHistoryParams) { subsHistoryResult, subsHistoryList ->
+                    if (subsHistoryResult.responseCode == BillingClient.BillingResponseCode.OK && !subsHistoryList.isNullOrEmpty()) {
+                        Log.d(TAG, "Found historical subscription purchase for account. Restoring Pro status.")
+                        foundPremium = true
+                        updatePremiumState(true)
+                    }
+                    subsChecked = true
+                    checkFinished()
+                }
             }
-            subsChecked = true
-            checkFinished()
         }
     }
 

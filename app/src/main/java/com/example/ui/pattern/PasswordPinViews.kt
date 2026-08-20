@@ -122,13 +122,7 @@ fun PinPadView(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Large Premium Keyboard Layout: strictly 3-column layout to align perfectly on all screens
-        val lastRow = if (onCancelClick != null) {
-            listOf("X", "0", "⌫")
-        } else if (isBiometricEnabled) {
-            listOf("FP", "0", "⌫")
-        } else {
-            listOf("", "0", "⌫")
-        }
+        val lastRow = listOf("", "0", "⌫")
 
         val keys = listOf(
             listOf("1", "2", "3"),
