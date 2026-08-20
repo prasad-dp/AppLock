@@ -105,7 +105,7 @@ fun PinPadView(
                 )
                 val bulletColor by animateColorAsState(
                     targetValue = if (isFilled) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                     animationSpec = tween(durationMillis = 200),
                     label = "bulletColor"
                 )
@@ -148,12 +148,13 @@ fun PinPadView(
                                 modifier = Modifier
                                     .size(68.dp)
                                     .clip(CircleShape)
+                                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), CircleShape)
                                     .background(
                                         when (key) {
                                             "FP" -> MaterialTheme.colorScheme.secondaryContainer
                                             "⌫" -> MaterialTheme.colorScheme.surfaceVariant
                                             "X" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            else -> MaterialTheme.colorScheme.surface
                                         }
                                     )
                                     .clickable {
@@ -818,6 +819,7 @@ fun FaceScanningBottomSheet(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
         ) {
             Column(

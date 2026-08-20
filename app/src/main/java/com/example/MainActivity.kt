@@ -850,10 +850,15 @@ fun SystemPermissionBannerCard(
     if (needsPermissions) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = if (!hasUsagePermission || !hasOverlayPermission)
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
-                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                containerColor = MaterialTheme.colorScheme.surface
             ),
+            border = BorderStroke(
+                1.5.dp,
+                if (!hasUsagePermission || !hasOverlayPermission)
+                    MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.primary
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(16.dp),
             modifier = modifier.fillMaxWidth()
         ) {
@@ -863,8 +868,8 @@ fun SystemPermissionBannerCard(
                         imageVector = if (!hasUsagePermission || !hasOverlayPermission) Icons.Default.Warning else Icons.Default.Bolt,
                         contentDescription = "Status",
                         tint = if (!hasUsagePermission || !hasOverlayPermission)
-                            MaterialTheme.colorScheme.onErrorContainer
-                        else MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -874,8 +879,8 @@ fun SystemPermissionBannerCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (!hasUsagePermission || !hasOverlayPermission)
-                            MaterialTheme.colorScheme.onErrorContainer
-                        else MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -884,9 +889,7 @@ fun SystemPermissionBannerCard(
                         "App Locker needs system access to detect app launches and display the lock screen on protected apps."
                     else "Enable 0ms instant window interception to eliminate screen flicker when opening locked apps.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (!hasUsagePermission || !hasOverlayPermission)
-                        MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                    else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1111,8 +1114,9 @@ fun DashboardView(
                     prefs = LockPreferences(context),
                     onSuccess = {
                         isVerifyingToReset = false
+                        showFullSettingsScreen = false
                         viewModel.resetSetupWizard()
-                        Toast.makeText(context, "Old Lock Cleared. Resetting...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Old Lock Cleared. Set your new credential.", Toast.LENGTH_SHORT).show()
                     },
                     onCancel = {
                         isVerifyingToReset = false
@@ -1848,6 +1852,7 @@ fun DashboardView(
                         viewModel.purgeAllIntruderLogs()
                         viewModel.unlockAllApps()
                         com.example.security.EncryptedFileManager.clearCache()
+                        viewModel.billingManager.queryPurchases()
                         Toast.makeText(context, "All personal data erased and forensically shredded.", Toast.LENGTH_LONG).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -2002,10 +2007,97 @@ fun DashboardView(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 0. Pro Membership Status & Plan Card
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isPremiumUser)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            else
+                                MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("membership_status_card")
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isPremiumUser) Icons.Default.WorkspacePremium else Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = if (isPremiumUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Membership Status",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                AssistChip(
+                                    onClick = { },
+                                    label = {
+                                        Text(
+                                            text = if (isPremiumUser) "PRO MEMBER" else "FREE TIER",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = if (isPremiumUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                        labelColor = if (isPremiumUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = if (isPremiumUser)
+                                    "You are currently on the PRO / PAID Tier. Enjoy an ad-free experience, full vault protection, and all lifetime premium features."
+                                else
+                                    "You are currently using the FREE Tier. Upgrade to Premium Pro to remove ads, unlock full vault security, and access all features.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = {
+                                    if (isPremiumUser) {
+                                        viewModel.billingManager.restorePurchases { _, msg ->
+                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        }
+                                    } else {
+                                        showGoPremiumDialog = true
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isPremiumUser) Icons.Default.SettingsBackupRestore else Icons.Default.WorkspacePremium,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (isPremiumUser) "Restore Purchases" else "Upgrade to Premium Pro")
+                            }
+                        }
+                    }
+                }
+
                 // 1. Lock Credentials & Security
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -2059,7 +2151,9 @@ fun DashboardView(
                 // 2. Privacy, Data & Compliance
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -2129,7 +2223,9 @@ fun DashboardView(
                 // 4. App Preferences & About
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -2170,7 +2266,7 @@ fun DashboardView(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text("Application Version", style = MaterialTheme.typography.bodyMedium)
-                                Text("0.0.5 (Build 5)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                Text("0.0.4 (Build 4)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
@@ -2271,11 +2367,52 @@ fun DashboardView(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "PRO",
+                                    text = "GO PRO",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
+                            }
+                        }
+                    } else {
+                        Surface(
+                            onClick = { showFullSettingsScreen = true },
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, Color(0xFFFDE047)),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.testTag("toolbar_pro_active_button")
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        brush = Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color(0xFFF59E0B),
+                                                Color(0xFFD97706),
+                                                Color(0xFFB45309)
+                                            )
+                                        )
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.WorkspacePremium,
+                                        contentDescription = "Pro Member Active",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "PRO ✦",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }
@@ -2305,7 +2442,9 @@ fun DashboardView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Row(
@@ -2483,8 +2622,10 @@ fun DashboardView(
                                 }
                             ),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                             )
                         )
 
@@ -2502,7 +2643,19 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.ALL)
                                 },
-                                label = { Text("All Apps") }
+                                label = { Text("All Apps") },
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = filterMode == AppFilterMode.ALL,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                )
                             )
                             FilterChip(
                                 selected = filterMode == AppFilterMode.LOCKED,
@@ -2512,7 +2665,19 @@ fun DashboardView(
                                     viewModel.setFilterMode(AppFilterMode.LOCKED)
                                 },
                                 label = { Text("Locked (${lockedApps.size})") },
-                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = filterMode == AppFilterMode.LOCKED,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                )
                             )
                             FilterChip(
                                 selected = filterMode == AppFilterMode.UNLOCKED,
@@ -2521,7 +2686,19 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.UNLOCKED)
                                 },
-                                label = { Text("Unlocked") }
+                                label = { Text("Unlocked") },
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = filterMode == AppFilterMode.UNLOCKED,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                )
                             )
                         }
                     }
@@ -2638,7 +2815,9 @@ fun DashboardView(
                     // STEP 2: CONTROLS SETTINGS CARD
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -2984,7 +3163,9 @@ fun DashboardView(
                 ) {
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -3025,8 +3206,10 @@ fun DashboardView(
 
                                 Card(
                                     colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        containerColor = MaterialTheme.colorScheme.surface
                                     ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                                     shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -3087,7 +3270,9 @@ fun DashboardView(
 
                                 if (!isIntruderDetectionEnabledState) {
                                     Card(
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -3110,16 +3295,16 @@ fun DashboardView(
                                                     text = "Intruder Detection is OFF",
                                                     style = MaterialTheme.typography.titleSmall,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                    color = MaterialTheme.colorScheme.error
                                                 )
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
                                                 text = "Intruder photos will not be captured on failed unlock attempts.",
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.height(10.dp))
                                             Button(
                                                 onClick = {
                                                     val granted = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -3131,10 +3316,20 @@ fun DashboardView(
                                                         cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                                                     }
                                                 },
-                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error,
+                                                    contentColor = MaterialTheme.colorScheme.onError
+                                                ),
+                                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                                                 modifier = Modifier.align(Alignment.End)
                                             ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
                                                 Text("Turn ON Intruder Detection", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                             }
                                         }
@@ -3498,7 +3693,8 @@ fun AppRowItem(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("app_row_${appInfo.packageName}")
@@ -3511,8 +3707,9 @@ fun AppRowItem(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(10.dp))
                     .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -3565,14 +3762,19 @@ fun AppRowItem(
             if (appInfo.isLocked) {
                 Surface(
                     onClick = { onPerAppRelockClick(appInfo) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (perAppTimeout != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (perAppTimeout != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(
+                        1.dp,
+                        if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    shadowElevation = 1.dp,
                     modifier = Modifier
                         .padding(end = 6.dp)
                         .testTag("per_app_relock_button_${appInfo.packageName}")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -3601,7 +3803,7 @@ fun AppRowItem(
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }

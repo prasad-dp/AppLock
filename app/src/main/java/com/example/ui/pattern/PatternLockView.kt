@@ -41,7 +41,7 @@ fun PatternLockView(
     val primaryColor = MaterialTheme.colorScheme.primary
     val successColor = Color(0xFF66BB6A)
     val errorColor = MaterialTheme.colorScheme.error
-    val dotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+    val dotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
     val targetLineColor = when (state) {
         PatternState.DRAWING -> primaryColor

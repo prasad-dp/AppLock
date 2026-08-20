@@ -371,6 +371,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun completeWizard() {
         _setupState.value = SetupState.SetupFinished
+        triggerAdMobInterstitial()
     }
 
     fun isServiceActive(): Boolean {
