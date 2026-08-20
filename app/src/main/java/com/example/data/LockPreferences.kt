@@ -67,7 +67,7 @@ class LockPreferences(context: Context) {
     }
 
     var isIntruderDetectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, true)
+        get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_INTRUDER_DETECTION_ENABLED, value).apply()
 
     var isAutoCleanupEnabled: Boolean

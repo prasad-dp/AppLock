@@ -271,21 +271,33 @@ fun PasswordUnlockView(
             shape = RoundedCornerShape(12.dp),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
+                imeAction = if (requireValidation) ImeAction.Next else ImeAction.Done
             ),
             keyboardActions = KeyboardActions(
                 onDone = {
                     if (passwordInput.isNotBlank() && isLengthValid) {
                         onPasswordComplete(passwordInput)
                     }
+                },
+                onNext = {
+                    if (passwordInput.isNotBlank() && isLengthValid) {
+                        onPasswordComplete(passwordInput)
+                    }
                 }
             ),
             trailingIcon = {
-                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                val description = if (passwordVisible) "Hide password" else "Show password"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (passwordInput.isNotEmpty()) {
+                        IconButton(onClick = { passwordInput = "" }) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Clear input")
+                        }
+                    }
+                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val description = if (passwordVisible) "Hide password" else "Show password"
 
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = description)
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = description)
+                    }
                 }
             }
         )
@@ -313,9 +325,9 @@ fun PasswordUnlockView(
             enabled = passwordInput.isNotBlank() && isLengthValid,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(52.dp)
                 .testTag("submit_password_button"),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(14.dp)
         ) {
             Text(
                 text = buttonText,

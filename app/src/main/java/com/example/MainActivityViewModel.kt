@@ -271,7 +271,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     val patternString = pattern.joinToString(",")
                     prefs.savedPattern = com.example.util.SecurityUtils.hashSecret(patternString)
                     prefs.lockType = "pattern"
-                    _setupState.value = SetupState.SetupSuccess
+                    completeWizard()
                 } else {
                     // Stay on confirmation screen with error prompt so user can retry confirmation
                     _setupState.value = SetupState.ConfirmPattern(
@@ -295,7 +295,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 if (current.firstAttempt == pin) {
                     prefs.savedPasscode = com.example.util.SecurityUtils.hashSecret(pin)
                     prefs.lockType = "pin"
-                    _setupState.value = SetupState.SetupSuccess
+                    completeWizard()
                 } else {
                     // Stay on confirmation screen with error prompt so user can retry confirmation
                     _setupState.value = SetupState.ConfirmPin(
@@ -321,7 +321,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 if (current.firstAttempt == password) {
                     prefs.savedPasscode = com.example.util.SecurityUtils.hashSecret(password)
                     prefs.lockType = "password"
-                    _setupState.value = SetupState.SetupSuccess
+                    completeWizard()
                 } else {
                     // Stay on confirmation screen with error prompt so user can retry confirmation
                     _setupState.value = SetupState.ConfirmPassword(
@@ -333,6 +333,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
             else -> {}
         }
+    }
+
+    fun goToWelcome() {
+        _setupState.value = SetupState.WelcomePatternRequired
     }
 
     fun restartCurrentTypeSetup() {

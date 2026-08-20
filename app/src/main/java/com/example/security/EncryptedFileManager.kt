@@ -250,12 +250,12 @@ object EncryptedFileManager {
      * Decrypts encrypted file to temporary cache for user-initiated sharing.
      */
     fun getDecryptedTempFileForShare(context: Context, file: File): File? {
-        val bitmap = decryptFileToBitmap(file) ?: return null
+        val bitmap = decryptFileToBitmap(file, maxDimension = 0) ?: return null
         return try {
             val cacheDir = File(context.cacheDir, "shared_intruders").apply { if (!exists()) mkdirs() }
             val tempFile = File(cacheDir, "shared_snapshot_${System.currentTimeMillis()}.jpg")
             FileOutputStream(tempFile).use { fos ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 92, fos)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos)
             }
             tempFile
         } catch (e: Exception) {

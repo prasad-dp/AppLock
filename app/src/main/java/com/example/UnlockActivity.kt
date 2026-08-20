@@ -106,12 +106,28 @@ class UnlockActivity : FragmentActivity() {
         }
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val pkg = targetPackageState.value
+        if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
+            AppLockSession.activeUnlockingPackage = null
+        }
+        if (!isFinishing) {
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         val pkg = targetPackageState.value
         if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
             if (AppLockSession.activeUnlockingPackage == pkg) {
                 AppLockSession.activeUnlockingPackage = null
+            }
+            if (!isFinishing) {
+                finish()
             }
         }
     }

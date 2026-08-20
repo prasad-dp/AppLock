@@ -17,6 +17,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
@@ -232,9 +233,18 @@ fun LockerMainScreen(
                         state = state,
                         isDarkMode = isDarkMode,
                         onDarkModeChange = onDarkModeChange,
-                        onPatternDrawn = { viewModel.handlePatternDrawn(it) },
-                        onPinEntered = { viewModel.handlePinEntered(it) },
-                        onPasswordEntered = { viewModel.handlePasswordEntered(it) },
+                        onPatternDrawn = { 
+                            isAppLockerUnlocked = true
+                            viewModel.handlePatternDrawn(it) 
+                        },
+                        onPinEntered = { 
+                            isAppLockerUnlocked = true
+                            viewModel.handlePinEntered(it) 
+                        },
+                        onPasswordEntered = { 
+                            isAppLockerUnlocked = true
+                            viewModel.handlePasswordEntered(it) 
+                        },
                         onSelectLockType = { viewModel.selectLockType(it) },
                         onFinish = { 
                             isAppLockerUnlocked = true
@@ -242,7 +252,8 @@ fun LockerMainScreen(
                         },
                         onStart = { viewModel.startWizard() },
                         onRestartCurrentType = { viewModel.restartCurrentTypeSetup() },
-                        onChangeLockType = { viewModel.goToSelectLockType() }
+                        onChangeLockType = { viewModel.goToSelectLockType() },
+                        onGoToWelcome = { viewModel.goToWelcome() }
                     )
                 }
                 is SetupState.SetupFinished -> {
@@ -379,10 +390,25 @@ fun PatternWizardView(
     onFinish: () -> Unit,
     onStart: () -> Unit,
     onRestartCurrentType: () -> Unit = {},
-    onChangeLockType: () -> Unit = {}
+    onChangeLockType: () -> Unit = {},
+    onGoToWelcome: () -> Unit = {}
 ) {
     var feedbackState by remember { mutableStateOf(PatternState.DRAWING) }
     var instructionText by remember { mutableStateOf("") }
+
+    val handleBack: () -> Unit = {
+        if (state == SetupState.SelectLockType) {
+            onGoToWelcome()
+        } else if (state is SetupState.ConfirmPattern || state is SetupState.ConfirmPin || state is SetupState.ConfirmPassword) {
+            onRestartCurrentType()
+        } else {
+            onChangeLockType()
+        }
+    }
+
+    if (state != SetupState.WelcomePatternRequired && state != SetupState.SetupSuccess) {
+        BackHandler(onBack = handleBack)
+    }
 
     LaunchedEffect(state) {
         when (state) {
@@ -452,13 +478,7 @@ fun PatternWizardView(
             val showBackButton = state != SetupState.WelcomePatternRequired && state != SetupState.SetupSuccess
             if (showBackButton) {
                 IconButton(
-                    onClick = {
-                        if (state == SetupState.SelectLockType) {
-                            onRestartCurrentType()
-                        } else {
-                            onChangeLockType()
-                        }
-                    },
+                    onClick = handleBack,
                     modifier = Modifier.testTag("wizard_back_button")
                 ) {
                     Icon(
@@ -478,9 +498,13 @@ fun PatternWizardView(
         }
 
         // Shield / Lock graphics
+        val isPasswordMode = state is SetupState.SetFirstPassword || state is SetupState.ConfirmPassword
+        val iconBoxSize = if (isPasswordMode) 52.dp else 72.dp
+        val iconInnerSize = if (isPasswordMode) 28.dp else 36.dp
+
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(iconBoxSize)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
@@ -489,7 +513,7 @@ fun PatternWizardView(
                 imageVector = if (state == SetupState.SetupSuccess) Icons.Default.LockOpen else Icons.Default.Lock,
                 contentDescription = "Lock",
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(iconInnerSize)
             )
         }
 
@@ -690,9 +714,10 @@ fun PatternWizardView(
                 is SetupState.ConfirmPin -> "Re-enter from start"
                 is SetupState.SetFirstPin -> "Clear / Re-enter PIN"
                 is SetupState.ConfirmPassword -> "Re-enter from start"
-                is SetupState.SetFirstPassword -> "Clear / Re-enter Password"
+                is SetupState.SetFirstPassword -> "Re-enter Password"
                 else -> "Re-enter"
             }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -723,7 +748,7 @@ fun PatternWizardView(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Change Mode")
+                    Text("Choose Other Mode")
                 }
             }
         } else {
@@ -2021,13 +2046,15 @@ fun DashboardView(
                         onToggle = { onDarkModeChange(!isDarkMode) }
                     )
 
-                    // Reset Action Button
+                    // Settings Tab Button
                     IconButton(
-                        onClick = { isVerifyingToReset = true }
+                        onClick = { selectedTabIndex = 3 },
+                        modifier = Modifier.testTag("toolbar_settings_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SettingsBackupRestore,
-                            contentDescription = "Reset pattern lock"
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = if (selectedTabIndex == 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -2099,7 +2126,7 @@ fun DashboardView(
 
         // MATERIAL 3 TAB ROW NAVIGATION
         TabRow(
-            selectedTabIndex = selectedTabIndex,
+            selectedTabIndex = selectedTabIndex.coerceIn(0, 2),
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxWidth()
@@ -2695,112 +2722,6 @@ fun DashboardView(
                         }
                     }
 
-                    // STEP 3: LEGAL, PRIVACY & COMPLIANCE CENTER
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("legal_compliance_center_card")
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Security,
-                                        contentDescription = "Privacy Shield",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Privacy, Legal & Compliance",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "100% On-Device local security architecture. Compliant with GDPR (EU/UK), CCPA (California), DPDP Act (India), and Google Play Policies.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Privacy Policy Button
-                                OutlinedButton(
-                                    onClick = { showPrivacyPolicyDialog = true },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("open_privacy_policy_button"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Policy,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Privacy Policy & Data Disclosures", fontWeight = FontWeight.SemiBold)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Terms of Service Button
-                                OutlinedButton(
-                                    onClick = { showTermsOfServiceDialog = true },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("open_terms_of_service_button"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Gavel,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Terms of Service & Security Agreement", fontWeight = FontWeight.SemiBold)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Right to Erasure / Purge All Data
-                                OutlinedButton(
-                                    onClick = { showPurgeAllDataConfirmDialog = true },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("purge_all_data_button"),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DeleteForever,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Right to Erasure (Purge & Shred All Data)",
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     // ADMOB BANNER
                     if (!isPremiumUser) {
                         item {
@@ -2810,8 +2731,6 @@ fun DashboardView(
                             )
                         }
                     }
-
-
                 }
             }
 
@@ -3021,7 +2940,7 @@ fun DashboardView(
 
                     if (intruderAlerts.isNotEmpty()) {
                         items(intruderAlerts, key = { it.timestamp }) { alert ->
-                            val isPhotoUnlocked = revealedPhotoAlertTimestamps.contains(alert.timestamp)
+                            val isPhotoUnlocked = isPremiumUser || revealedPhotoAlertTimestamps.contains(alert.timestamp)
                             IntruderAlertItem(
                                 alert = alert,
                                 isPremiumUser = isPremiumUser,
@@ -3042,6 +2961,226 @@ fun DashboardView(
                         }
                     }
 
+                }
+            }
+
+            3 -> {
+                // TAB 3: SETTINGS TAB
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollConnection)
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Privacy & Terms Options Card
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_privacy_legal_card")
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PrivacyTip,
+                                        contentDescription = "Privacy Shield",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Privacy, Terms & Compliance",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "100% On-Device local security architecture. Compliant with GDPR, CCPA, DPDP Act, and Google Play Policies.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Privacy Policy Button
+                                OutlinedButton(
+                                    onClick = { showPrivacyPolicyDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("open_privacy_policy_button"),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Policy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Privacy Policy & Data Disclosures", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Terms of Service Button
+                                OutlinedButton(
+                                    onClick = { showTermsOfServiceDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("open_terms_of_service_button"),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gavel,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Terms of Service & Security Agreement", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Clear Data / Right to Erasure
+                                OutlinedButton(
+                                    onClick = { showPurgeAllDataConfirmDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("purge_all_data_button"),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteForever,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Clear Data (Purge & Shred Storage)",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Security & Reset Card
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Security & Reset Options",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                OutlinedButton(
+                                    onClick = { isVerifyingToReset = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SettingsBackupRestore,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Reset Lock Pattern / PIN / Password", fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+
+                    // App Version & About Card
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("app_version_about_card")
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "About App",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "About App Locker",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Application Version", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("0.0.5 (Build 5)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Engine Architecture", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("0ms Turbo Accessibility", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Security Engine", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("100% On-Device Local", style = MaterialTheme.typography.bodySmall, color = Color(0xFF2E7D32))
+                                }
+                            }
+                        }
+                    }
+
+                    if (!isPremiumUser) {
+                        item {
+                            com.example.ui.components.AdMobBanner(
+                                isPremium = isPremiumUser,
+                                onGoPremiumClick = { showGoPremiumDialog = true }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -3137,18 +3276,26 @@ fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert
                 type = "image/jpeg"
                 putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
                 putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Intruder Alert Photo")
                 clipData = android.content.ClipData.newRawUri("Intruder Photo", contentUri)
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
             val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Intruder Snapshot").apply {
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newRawUri("Intruder Photo", contentUri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val resInfoList = context.packageManager.queryIntentActivities(shareIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            val resInfoList = context.packageManager.queryIntentActivities(
+                android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "image/*" },
+                0
+            )
             for (resolveInfo in resInfoList) {
                 val pkgName = resolveInfo.activityInfo.packageName
-                context.grantUriPermission(pkgName, contentUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try {
+                    context.grantUriPermission(pkgName, contentUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                } catch (e: Exception) {
+                    // Ignore grant errors for individual target packages
+                }
             }
             context.startActivity(chooserIntent)
         } else {
@@ -3501,10 +3648,15 @@ fun IntruderAlertItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                RoundedCornerShape(12.dp)
-            )
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+            .clickable {
+                if (isPhotoUnlocked) {
+                    onZoomPhoto(alert)
+                } else {
+                    onWatchAdForPhoto(alert)
+                }
+            }
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
