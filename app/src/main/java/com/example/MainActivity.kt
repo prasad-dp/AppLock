@@ -841,95 +841,73 @@ fun SystemPermissionBannerCard(
     hasUsagePermission: Boolean,
     hasOverlayPermission: Boolean,
     hasAccessibilityPermission: Boolean = true,
+    isDismissedForSession: Boolean = false,
+    onDismiss: () -> Unit = {},
     onShowAccessibilityDisclosure: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val needsPermissions = !hasUsagePermission || !hasOverlayPermission || !hasAccessibilityPermission
+    val missingCorePermissions = !hasUsagePermission || !hasOverlayPermission
+    val missingAccessibility = !hasAccessibilityPermission && !missingCorePermissions && !isDismissedForSession
 
-    if (needsPermissions) {
+    if (missingCorePermissions) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
             ),
-            border = BorderStroke(
-                1.5.dp,
-                if (!hasUsagePermission || !hasOverlayPermission)
-                    MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.primary
-            ),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(16.dp),
             modifier = modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (!hasUsagePermission || !hasOverlayPermission) Icons.Default.Warning else Icons.Default.Bolt,
-                        contentDescription = "Status",
-                        tint = if (!hasUsagePermission || !hasOverlayPermission)
-                            MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = if (!hasUsagePermission || !hasOverlayPermission)
-                            "System Permission Required"
-                        else "Boost to 0ms Instant Lock",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (!hasUsagePermission || !hasOverlayPermission)
-                            MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = if (!hasUsagePermission || !hasOverlayPermission)
-                        "App Locker needs system access to detect app launches and display the lock screen on protected apps."
-                    else "Enable 0ms instant window interception to eliminate screen flicker when opening locked apps.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!hasAccessibilityPermission) {
-                        Button(
-                            onClick = onShowAccessibilityDisclosure,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("grant_accessibility_banner_button")
-                        ) {
-                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Enable 0ms Instant Lock")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "System Permission Alert",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
-                    if (!hasUsagePermission) {
-                        Button(
-                            onClick = {
-                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Permissions Required",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = if (!hasOverlayPermission && !hasUsagePermission) {
+                                "Grant Overlay and Usage Access permissions so App Locker can protect your apps."
+                            } else if (!hasOverlayPermission) {
+                                "Grant Display Overlay permission to show the security lock screen."
+                            } else {
+                                "Grant Usage Access permission to detect when protected apps launch."
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                                contentColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("grant_permission_button")
-                        ) {
-                            Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Grant Usage Access Permission")
-                        }
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     if (!hasOverlayPermission) {
                         Button(
                             onClick = {
@@ -949,17 +927,116 @@ fun SystemPermissionBannerCard(
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                                contentColor = MaterialTheme.colorScheme.errorContainer
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
                             ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("grant_overlay_permission_button")
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("grant_overlay_permission_button")
                         ) {
-                            Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Grant Display Overlay Permission")
+                            Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Grant Overlay", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         }
+                    }
+                    if (!hasUsagePermission) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("grant_permission_button")
+                        ) {
+                            Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Grant Usage", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    } else if (missingAccessibility) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+            ),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp),
+            modifier = modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = "0ms Instant Lock",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Boost to 0ms Instant Lock",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Zero-delay interception eliminates screen flicker and locks apps immediately.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp).testTag("dismiss_zero_ms_banner")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss 0ms banner for this session",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onShowAccessibilityDisclosure,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                        modifier = Modifier.testTag("grant_accessibility_banner_button")
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Enable 0ms", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1044,6 +1121,7 @@ fun DashboardView(
     var hasUsagePermission by remember { mutableStateOf(hasUsageStatsPermission(context)) }
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var hasAccessibilityPermission by remember { mutableStateOf(isAccessibilityEnabled(context)) }
+    var isZeroMsBannerDismissedForSession by remember { mutableStateOf(false) }
     var showAccessibilityDisclosureInDashboard by remember { mutableStateOf(false) }
     var showMissingPermissionOnLockDialog by remember { mutableStateOf(false) }
     var showTurnOff0msConfirmDialog by remember { mutableStateOf(false) }
@@ -2713,12 +2791,15 @@ fun DashboardView(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // System Permissions Banner on Apps Screen if permissions are missing or instant lock is available
-                        if (!hasUsagePermission || !hasOverlayPermission || !hasAccessibilityPermission) {
+                        val showPermissionBanner = (!hasUsagePermission || !hasOverlayPermission) || (!hasAccessibilityPermission && !isZeroMsBannerDismissedForSession)
+                        if (showPermissionBanner) {
                             item {
                                 SystemPermissionBannerCard(
                                     hasUsagePermission = hasUsagePermission,
                                     hasOverlayPermission = hasOverlayPermission,
                                     hasAccessibilityPermission = hasAccessibilityPermission,
+                                    isDismissedForSession = isZeroMsBannerDismissedForSession,
+                                    onDismiss = { isZeroMsBannerDismissedForSession = true },
                                     onShowAccessibilityDisclosure = { showAccessibilityDisclosureInDashboard = true }
                                 )
                             }

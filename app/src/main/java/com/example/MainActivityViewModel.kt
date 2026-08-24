@@ -233,9 +233,12 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    private var isResetMode = false
+
     // Pattern / PIN / Password wizard control
     fun resetSetupWizard() {
         prefs.clearPattern()
+        isResetMode = true
         _setupState.value = SetupState.WelcomePatternRequired
     }
 
@@ -371,7 +374,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun completeWizard() {
         _setupState.value = SetupState.SetupFinished
-        triggerAdMobInterstitial()
+        if (isResetMode) {
+            triggerAdMobInterstitial()
+            isResetMode = false
+        }
     }
 
     fun isServiceActive(): Boolean {
