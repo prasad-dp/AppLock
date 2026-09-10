@@ -4,7 +4,10 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.ActivityOptions
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -24,6 +27,20 @@ class AppLockAccessibilityService : AccessibilityService() {
     private val lastSeenForegroundTime = java.util.Collections.synchronizedMap(mutableMapOf<String, Long>())
     private var lastForegroundPackage: String? = null
     private var lastLaunchTime = 0L
+    @Volatile
+    private var isUnlockActivityInForeground = false
+
+    private val screenLockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                lastSeenForegroundTime.clear()
+                lastForegroundPackage = null
+                isUnlockActivityInForeground = false
+                AppLockSession.clearSession()
+                Log.d(TAG, "Screen off: Accessibility session cleared.")
+            }
+        }
+    }
 
     companion object {
         private const val TAG = "AppLockAccessibility"
@@ -35,6 +52,9 @@ class AppLockAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         isAccessibilityRunning = true
         Log.d(TAG, "Accessibility Service Connected: 0ms Instant Lock Engine Active")
+
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        registerReceiver(screenLockReceiver, filter)
 
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
@@ -67,18 +87,20 @@ class AppLockAccessibilityService : AccessibilityService() {
             val now = System.currentTimeMillis()
             for (unlockedApp in AppLockSession.getUnlockedAppsCopy()) {
                 lastSeenForegroundTime[unlockedApp] = now
+                AppLockSession.updateActiveTime(unlockedApp)
             }
             return
         }
 
         lastForegroundPackage = pkgName
         lastSeenForegroundTime[pkgName] = System.currentTimeMillis()
+        AppLockSession.updateActiveTime(pkgName)
 
         // Check relock for other unlocked apps
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
         for (unlockedApp in currentUnlockedApps) {
             if (unlockedApp != pkgName) {
-                val lastSeen = lastSeenForegroundTime[unlockedApp] ?: System.currentTimeMillis()
+                val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
                 val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
 
                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
@@ -99,7 +121,12 @@ class AppLockAccessibilityService : AccessibilityService() {
             }
         }
 
-        if (pkgName == packageName) return // Don't lock our own app
+        if (pkgName == packageName) {
+            isUnlockActivityInForeground = true
+            return // Don't lock our own app
+        } else {
+            isUnlockActivityInForeground = false
+        }
 
         if (AppLockSession.activeUnlockingPackage != null && pkgName != AppLockSession.activeUnlockingPackage) {
             AppLockSession.activeUnlockingPackage = null
@@ -108,7 +135,8 @@ class AppLockAccessibilityService : AccessibilityService() {
         if (lockedPackages.contains(pkgName)) {
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
-            val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800)
+            // If the unlock screen is already in the foreground, do NOT re-trigger launch (prevents input interruption)
+            val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800)
 
             if (!isUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
                 Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
@@ -183,6 +211,9 @@ class AppLockAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         isAccessibilityRunning = false
+        try {
+            unregisterReceiver(screenLockReceiver)
+        } catch (_: Exception) {}
         serviceJob.cancel()
     }
 }

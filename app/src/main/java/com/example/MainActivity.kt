@@ -3,6 +3,8 @@ package com.example
 import com.example.util.AlphanumericComparator
 import com.example.util.findActivity
 import com.example.util.PermissionUtils
+import com.example.util.OemAccessibilityHelper
+import com.example.ui.components.AccessibilityDisclosureModal
 
 import android.app.AppOpsManager
 import android.app.Application
@@ -764,75 +766,9 @@ fun AccessibilityDisclosureDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = "Instant Lock",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        },
-        title = {
-            Text(
-                text = "Instant 0ms Lock Protection",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "App Locker uses the Accessibility Service API to detect when protected apps are opened and display the security lock screen immediately (0ms delay), completely eliminating screen flicker.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "🔒 Privacy Commitment:",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "• We do NOT collect or read screen contents or messages.\n• We do NOT record keystrokes or sensitive credentials.\n• Used strictly for window detection on your locked apps.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                modifier = Modifier.testTag("dialog_enable_accessibility_button")
-            ) {
-                Text("Open Settings")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Not Now")
-            }
-        }
+    AccessibilityDisclosureModal(
+        onDismiss = onDismiss,
+        onConfirmOpenSettings = onConfirm
     )
 }
 
@@ -1128,19 +1064,11 @@ fun DashboardView(
     var lockedTargetAppName by remember { mutableStateOf("") }
 
     if (showAccessibilityDisclosureInDashboard) {
-        AccessibilityDisclosureDialog(
+        AccessibilityDisclosureModal(
             onDismiss = { showAccessibilityDisclosureInDashboard = false },
-            onConfirm = {
+            onConfirmOpenSettings = {
                 showAccessibilityDisclosureInDashboard = false
-                try {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(intent)
-                    Toast.makeText(context, "Turn on 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
-                }
+                OemAccessibilityHelper.openAccessibilitySettings(context)
             }
         )
     }
@@ -1608,15 +1536,7 @@ fun DashboardView(
                 TextButton(
                     onClick = {
                         showTurnOff0msConfirmDialog = false
-                        try {
-                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            context.startActivity(intent)
-                            Toast.makeText(context, "Turn off 'App Locker' in Accessibility Settings", Toast.LENGTH_LONG).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Open Settings -> Accessibility -> App Locker", Toast.LENGTH_LONG).show()
-                        }
+                        OemAccessibilityHelper.openAccessibilitySettings(context)
                     }
                 ) {
                     Text(
@@ -2344,7 +2264,7 @@ fun DashboardView(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text("Application Version", style = MaterialTheme.typography.bodyMedium)
-                                Text("0.0.4 (Build 4)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                Text("${com.example.BuildConfig.VERSION_NAME} (Build ${com.example.BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

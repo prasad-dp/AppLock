@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">App Locker</string>
-    <string name="accessibility_service_description">Enables real-time 0ms instant app locking without delay or home screen flashing.</string>
+    <string name="accessibility_service_description">App Locker uses this service exclusively to detect when locked apps open and present the security lock screen immediately (0ms delay). It does not collect, read, or share any personal data, messages, screen contents, or keystrokes.</string>
 </resources>

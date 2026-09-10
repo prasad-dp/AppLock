@@ -63,7 +63,7 @@ class ExampleRobolectricTest {
 
         // Enter correct confirmation PIN
         viewModel.handlePinEntered("1234")
-        assertTrue(viewModel.setupState.value is SetupState.SetupSuccess)
+        assertTrue(viewModel.setupState.value is SetupState.SetupFinished)
     }
 
     @Test

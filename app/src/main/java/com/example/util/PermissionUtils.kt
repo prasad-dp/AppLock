@@ -43,6 +43,9 @@ object PermissionUtils {
      * Checks if the Accessibility Service is enabled for 0ms instant window interception.
      */
     fun isAccessibilityEnabled(context: Context): Boolean {
+        if (com.example.service.AppLockAccessibilityService.isAccessibilityRunning) {
+            return true
+        }
         val enabledServices = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES

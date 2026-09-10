@@ -7,6 +7,7 @@ object AppLockSession {
     // Stores currently unlocked app package names during the current session
     private val unlockedApps = mutableSetOf<String>()
     private val unlockTimes = mutableMapOf<String, Long>()
+    private val lastActiveTimes = mutableMapOf<String, Long>()
     
     // Track the package we are actively unlocking so we do not launch multiple overlay activities
     @Volatile
@@ -32,10 +33,26 @@ object AppLockSession {
         }
     }
 
+    fun getLastActiveTime(packageName: String): Long {
+        synchronized(unlockedApps) {
+            return lastActiveTimes[packageName] ?: unlockTimes[packageName] ?: 0L
+        }
+    }
+
+    fun updateActiveTime(packageName: String) {
+        synchronized(unlockedApps) {
+            if (packageName in unlockedApps) {
+                lastActiveTimes[packageName] = System.currentTimeMillis()
+            }
+        }
+    }
+
     fun unlockApp(packageName: String) {
+        val now = System.currentTimeMillis()
         synchronized(unlockedApps) {
             unlockedApps.add(packageName)
-            unlockTimes[packageName] = System.currentTimeMillis()
+            unlockTimes[packageName] = now
+            lastActiveTimes[packageName] = now
         }
         if (activeUnlockingPackage == packageName) {
             activeUnlockingPackage = null
@@ -50,6 +67,7 @@ object AppLockSession {
         synchronized(unlockedApps) {
             unlockedApps.remove(packageName)
             unlockTimes.remove(packageName)
+            lastActiveTimes.remove(packageName)
         }
     }
 
@@ -57,6 +75,7 @@ object AppLockSession {
         synchronized(unlockedApps) {
             unlockedApps.clear()
             unlockTimes.clear()
+            lastActiveTimes.clear()
         }
         activeUnlockingPackage = null
     }

@@ -127,16 +127,18 @@ class AppLockService : Service() {
                         val now = System.currentTimeMillis()
                         for (unlockedApp in AppLockSession.getUnlockedAppsCopy()) {
                             lastSeenForegroundTime[unlockedApp] = now
+                            AppLockSession.updateActiveTime(unlockedApp)
                         }
                     } else if (currentApp != null) {
                         lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
+                        AppLockSession.updateActiveTime(currentApp)
                     }
 
                     // Auto-relock any unlocked app that is no longer in the foreground
                     val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
                     for (unlockedApp in currentUnlockedApps) {
                         if (unlockedApp != currentApp && !isTransient) {
-                            val lastSeen = lastSeenForegroundTime[unlockedApp] ?: System.currentTimeMillis()
+                            val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
                             val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
 
                             val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null

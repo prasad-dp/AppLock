@@ -942,8 +942,21 @@ fun LockVerifyScreen(
     var appLabel by remember(packageName) { mutableStateOf("") }
     var appIcon by remember(packageName) { mutableStateOf<Drawable?>(null) }
 
-    var wrongAttemptsCount by remember(packageName) { mutableIntStateOf(prefs.getFailedAttempts(packageName)) }
-    var lockoutSecondsLeft by remember(packageName) { mutableStateOf(0L) }
+    val now = System.currentTimeMillis()
+    val initialEndMillis = remember(packageName) { prefs.getLockoutEndTimestamp(packageName) }
+    val initialAttempts = remember(packageName) {
+        if (initialEndMillis in 1..now) {
+            prefs.setFailedAttempts(packageName, 0)
+            prefs.setLockoutEndTimestamp(packageName, 0L)
+            0
+        } else {
+            prefs.getFailedAttempts(packageName)
+        }
+    }
+    var wrongAttemptsCount by remember(packageName) { mutableIntStateOf(initialAttempts) }
+    var lockoutSecondsLeft by remember(packageName) {
+        mutableStateOf(if (initialEndMillis > now) (initialEndMillis - now + 999) / 1000 else 0L)
+    }
     val showFaceScan = false
 
     LaunchedEffect(packageName) {
@@ -953,9 +966,10 @@ fun LockVerifyScreen(
             if (endMillis > currentMillis) {
                 lockoutSecondsLeft = (endMillis - currentMillis + 999) / 1000
             } else {
-                if (lockoutSecondsLeft > 0) {
+                if (endMillis != 0L || lockoutSecondsLeft > 0) {
                     wrongAttemptsCount = 0 // Reset attempts count upon transition out of lockout cooldown
                     prefs.setFailedAttempts(packageName, 0)
+                    prefs.setLockoutEndTimestamp(packageName, 0L)
                 }
                 lockoutSecondsLeft = 0
             }
@@ -1073,6 +1087,7 @@ fun LockVerifyScreen(
                                 statusText = "Unlock successful!"
                                 wrongAttemptsCount = 0
                                 prefs.setFailedAttempts(packageName, 0)
+                                prefs.setLockoutEndTimestamp(packageName, 0L)
                                 coroutineScope.launch {
                                     delay(300)
                                     onSuccess()
@@ -1324,6 +1339,7 @@ fun LockVerifyScreen(
                                 statusText = "Unlock successful!"
                                 wrongAttemptsCount = 0
                                 prefs.setFailedAttempts(packageName, 0)
+                                prefs.setLockoutEndTimestamp(packageName, 0L)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1359,6 +1375,7 @@ fun LockVerifyScreen(
                                 statusText = "PIN verified!"
                                 wrongAttemptsCount = 0
                                 prefs.setFailedAttempts(packageName, 0)
+                                prefs.setLockoutEndTimestamp(packageName, 0L)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1391,6 +1408,7 @@ fun LockVerifyScreen(
                                 statusText = "Password verified!"
                                 wrongAttemptsCount = 0
                                 prefs.setFailedAttempts(packageName, 0)
+                                prefs.setLockoutEndTimestamp(packageName, 0L)
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()

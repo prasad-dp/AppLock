@@ -121,15 +121,9 @@ class UnlockActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
-        val pkg = targetPackageState.value
-        if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
-            if (AppLockSession.activeUnlockingPackage == pkg) {
-                AppLockSession.activeUnlockingPackage = null
-            }
-            if (!isFinishing) {
-                finish()
-            }
-        }
+        // Do NOT finish on onStop. When the screen turns off or sleeps, UnlockActivity
+        // must remain intact in front of the locked app so that when the device is unlocked again,
+        // the app is still shielded. Deliberate navigation away is handled by onUserLeaveHint() and onBackPressed().
     }
 
     override fun onDestroy() {
