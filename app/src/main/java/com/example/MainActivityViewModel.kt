@@ -111,7 +111,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
             for ((packageName, appName) in installed) {
                 installedSet.add(packageName)
-                if (hasQuery && !appName.contains(trimmedQuery, ignoreCase = true)) {
+                if (hasQuery && !appName.contains(trimmedQuery, ignoreCase = true) && !packageName.contains(trimmedQuery, ignoreCase = true)) {
                     continue
                 }
                 val isLocked = lockedSet.contains(packageName)
@@ -133,7 +133,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
             for (lockedApp in lockedList) {
                 if (!installedSet.contains(lockedApp.packageName)) {
-                    if (hasQuery && !lockedApp.appName.contains(trimmedQuery, ignoreCase = true)) {
+                    if (hasQuery && !lockedApp.appName.contains(trimmedQuery, ignoreCase = true) && !lockedApp.packageName.contains(trimmedQuery, ignoreCase = true)) {
                         continue
                     }
                     val matchesFilter = when (filter) {

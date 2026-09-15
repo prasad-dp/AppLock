@@ -110,20 +110,27 @@ fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                                 "• SYSTEM_ALERT_WINDOW: Draws the security passcode/pattern overlay above protected apps."
                     )
 
-                    LegalSectionHeader(title = "5. Biometric Data & Authentication")
+                    LegalSectionHeader(title = "5. Advertising & Third-Party SDKs (AdMob)")
+                    LegalBodyText(
+                        text = "• Free Tier: The free version displays banner, interstitial, and rewarded ads delivered via Google AdMob SDK.\n" +
+                                "• Zero Personal Tracking: We do not collect or transmit personal identifiers. Ad delivery adheres to Google Play Families and privacy guidelines.\n" +
+                                "• Ad-Free Experience: Upgrading to Premium Pro permanently removes all advertising and unlocks all security features."
+                    )
+
+                    LegalSectionHeader(title = "6. Biometric Data & Authentication")
                     LegalBodyText(
                         text = "• Biometric verification uses Android's official BiometricPrompt API.\n" +
                                 "• The app never accesses, records, or stores raw biometric or fingerprint templates."
                     )
 
-                    LegalSectionHeader(title = "6. Data Deletion & Right to Erasure")
+                    LegalSectionHeader(title = "7. Data Deletion & Right to Erasure")
                     LegalBodyText(
-                        text = "You can immediately wipe all data at any time from Settings > 'Purge All Data'. Deleting logs runs a 3-pass cryptographic shredder. Uninstalling the app permanently erases all sandbox data."
+                        text = "You can immediately wipe all data at any time from Settings > 'Clear Data (Purge & Shred Storage)'. Deleting logs runs a 3-pass cryptographic shredder. Uninstalling the app permanently erases all sandbox data."
                     )
 
-                    LegalSectionHeader(title = "7. Contact & Privacy Inquiries")
+                    LegalSectionHeader(title = "8. Policy Updates & Inquiries")
                     LegalBodyText(
-                        text = "For any privacy questions or regulatory inquiries, contact our Data Privacy team at: dptechsupport10@gmail.com."
+                        text = "Last updated: September 2026. For any privacy questions or regulatory inquiries, contact our Data Privacy team at: dptechsupport10@gmail.com."
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -217,20 +224,33 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
                                 "• You agree not to use this software in violation of any applicable local, national, or international surveillance or privacy laws."
                     )
 
-                    LegalSectionHeader(title = "3. Google Play Purchases & Refunds")
+                    LegalSectionHeader(title = "3. Google Play Purchases & Billing")
                     LegalBodyText(
-                        text = "• Premium Pro purchases are processed securely through Google Play Billing.\n" +
-                                "• Entitlements are tied to your Google Play account and can be restored across device reinstalls using the 'Restore Purchase' option."
+                        text = "• Premium Pro is an optional upgrade processed securely via Google Play In-App Billing.\n" +
+                                "• Purchasing Premium Pro grants lifetime access to ad-free protection, advanced re-lock timers, and full intruder photo vault capabilities.\n" +
+                                "• Purchases are bound to your Google Play account and can be restored at any time via the 'Restore Purchases' button in Settings.\n" +
+                                "• Refund requests are handled in accordance with Google Play's standard refund policies."
                     )
 
-                    LegalSectionHeader(title = "4. Limitation of Liability")
+                    LegalSectionHeader(title = "4. Free Tier & Advertising")
                     LegalBodyText(
-                        text = "The application is provided 'AS IS' without warranty of any kind. To the maximum extent permitted by applicable law, the developers shall not be liable for any indirect, incidental, or consequential damages resulting from device malfunction, forgotten master passwords, or third-party OS interference."
+                        text = "• The free version of App Locker is supported by Google AdMob advertising.\n" +
+                                "• Ad delivery does not interfere with the core offline security functions of the application."
                     )
 
-                    LegalSectionHeader(title = "5. Governing Law")
+                    LegalSectionHeader(title = "5. Limitation of Liability")
                     LegalBodyText(
-                        text = "These terms shall be governed by and construed in accordance with applicable consumer protection and digital security legislation."
+                        text = "The application is provided 'AS IS' without warranty of any kind. To the maximum extent permitted by applicable law, the developers shall not be liable for any indirect, incidental, or consequential damages resulting from device malfunction, forgotten master passwords, or third-party OS battery-saver interference."
+                    )
+
+                    LegalSectionHeader(title = "6. Modifications & Updates")
+                    LegalBodyText(
+                        text = "We reserve the right to update these terms to reflect changes in app functionality or regulatory requirements. Continued use of the application indicates acceptance of any revised terms."
+                    )
+
+                    LegalSectionHeader(title = "7. Contact")
+                    LegalBodyText(
+                        text = "Last updated: September 2026. For questions regarding these Terms, contact: dptechsupport10@gmail.com."
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))

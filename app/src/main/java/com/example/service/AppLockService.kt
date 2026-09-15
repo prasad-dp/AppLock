@@ -189,21 +189,21 @@ class AppLockService : Service() {
                 }
                 
                 // Adaptive Battery & Latency Optimization:
-                // - If Accessibility service is running, it handles 0ms event-driven locking, so polling can relax (300ms)
-                // - If no apps are locked: sleep 800ms
-                // - When active app switching occurs or on locked apps: 30ms for instant reaction
-                // - When sitting stably in a normal app: 150ms
+                // - If Accessibility service is running, it handles 0ms event-driven locking, so polling can relax (250ms)
+                // - If no apps are locked: sleep 600ms
+                // - When active app switching occurs or on locked apps: 10ms for instant reaction
+                // - When sitting stably in an app: 35ms for ultra-responsive instant lock pop
                 val nextDelay = if (AppLockAccessibilityService.isAccessibilityRunning) {
-                    300L
+                    250L
                 } else if (lockedPackages.isEmpty()) {
-                    800L
+                    600L
                 } else if (lastKnownForegroundPackage != currentApp) {
                     lastKnownForegroundPackage = currentApp
-                    30L
+                    10L
                 } else if (currentApp != null && lockedPackages.contains(currentApp)) {
-                    30L
+                    10L
                 } else {
-                    150L
+                    35L
                 }
                 delay(nextDelay)
             }

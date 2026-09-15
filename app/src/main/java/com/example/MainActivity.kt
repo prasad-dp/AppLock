@@ -44,6 +44,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -277,41 +278,94 @@ fun LockTypeCard(
     title: String,
     description: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    badgeText: String? = null,
+    gradientColors: List<Color> = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary),
     onClick: () -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
         ),
-        shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .testTag("select_lock_type_$title")
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+            // Distinctive Gradient Icon Container
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        brush = Brush.linearGradient(colors = gradientColors)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (badgeText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Text(
+                                text = badgeText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
                 )
             }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Select $title",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -500,19 +554,37 @@ fun PatternWizardView(
         }
 
         // Shield / Lock graphics
+        val isSelectLockType = state == SetupState.SelectLockType
         val isPasswordMode = state is SetupState.SetFirstPassword || state is SetupState.ConfirmPassword
-        val iconBoxSize = if (isPasswordMode) 52.dp else 72.dp
-        val iconInnerSize = if (isPasswordMode) 28.dp else 36.dp
+        val iconBoxSize = if (isPasswordMode) 52.dp else if (isSelectLockType) 76.dp else 72.dp
+        val iconInnerSize = if (isPasswordMode) 28.dp else if (isSelectLockType) 38.dp else 36.dp
 
         Box(
             modifier = Modifier
                 .size(iconBoxSize)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkMode) 0.25f else 0.18f),
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDarkMode) 0.10f else 0.05f)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.5.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        )
+                    ),
+                    shape = CircleShape
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (state == SetupState.SetupSuccess) Icons.Default.LockOpen else Icons.Default.Lock,
+                imageVector = if (state == SetupState.SetupSuccess) Icons.Default.LockOpen else Icons.Default.Security,
                 contentDescription = "Lock",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(iconInnerSize)
@@ -583,28 +655,67 @@ fun PatternWizardView(
                 }
                 SetupState.SelectLockType -> {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
                     ) {
                         LockTypeCard(
                             title = "Pattern Lock",
-                            description = "Draw a visual connected swipe gesture",
+                            description = "Connect dots in a smooth, intuitive swipe gesture",
                             icon = Icons.Default.Gesture,
+                            badgeText = "POPULAR",
+                            gradientColors = listOf(Color(0xFF6750A4), Color(0xFF9C27B0)),
                             onClick = { onSelectLockType("pattern") }
                         )
                         LockTypeCard(
                             title = "PIN Lock",
-                            description = "Secure 4-digit code using numbers",
+                            description = "Enter a fast and secure 4-digit numeric code",
                             icon = Icons.Default.Dialpad,
+                            badgeText = "RECOMMENDED",
+                            gradientColors = listOf(Color(0xFF006C51), Color(0xFF00897B)),
                             onClick = { onSelectLockType("pin") }
                         )
                         LockTypeCard(
                             title = "Password Lock",
-                            description = "Alphanumeric characters for security",
+                            description = "Alphanumeric security with letters, numbers & symbols",
                             icon = Icons.Default.VpnKey,
+                            badgeText = "MAX SECURITY",
+                            gradientColors = listOf(Color(0xFF00639B), Color(0xFF1976D2)),
                             onClick = { onSelectLockType("password") }
                         )
+
+                        // Hardware Encryption Trust Banner
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDarkMode) 0.35f else 0.55f),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Protected by on-device hardware encryption. You can change your lock mode anytime in Settings.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
                     }
                 }
                 is SetupState.SetFirstPattern, is SetupState.ConfirmPattern -> {
@@ -789,10 +900,9 @@ fun SystemPermissionBannerCard(
     if (missingCorePermissions) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                containerColor = MaterialTheme.colorScheme.errorContainer
             ),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             shape = RoundedCornerShape(16.dp),
             modifier = modifier.fillMaxWidth()
         ) {
@@ -801,19 +911,19 @@ fun SystemPermissionBannerCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                        modifier = Modifier.size(40.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = "System Permission Alert",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "System Permission Alert",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -832,7 +942,7 @@ fun SystemPermissionBannerCard(
                                 "Grant Usage Access permission to detect when protected apps launch."
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -900,10 +1010,9 @@ fun SystemPermissionBannerCard(
     } else if (missingAccessibility) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
             ),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             shape = RoundedCornerShape(16.dp),
             modifier = modifier.fillMaxWidth()
         ) {
@@ -912,19 +1021,19 @@ fun SystemPermissionBannerCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        modifier = Modifier.size(40.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = "0ms Instant Lock",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "0ms Instant Lock",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -2556,6 +2665,8 @@ fun DashboardView(
             )
         }
 
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
         // TAB CONTENT SECTIONS
         when (selectedTabIndex) {
             0 -> {
@@ -2565,20 +2676,18 @@ fun DashboardView(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
                     ) {
                         if (lockedApps.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 8.dp),
+                                    .padding(bottom = 6.dp),
                                 horizontalArrangement = Arrangement.End
                             ) {
-                                OutlinedButton(
+                                TextButton(
                                     onClick = { showUnlockAllConfirmDialog = true },
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    shape = RoundedCornerShape(12.dp)
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                 ) {
                                     Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -2606,7 +2715,7 @@ fun DashboardView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("search_app_text_field"),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(14.dp),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(
@@ -2631,7 +2740,7 @@ fun DashboardView(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 8.dp),
+                                .padding(top = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
@@ -2641,7 +2750,8 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.ALL)
                                 },
-                                label = { Text("All Apps") },
+                                label = { Text("All Apps", fontWeight = if (filterMode == AppFilterMode.ALL) FontWeight.SemiBold else FontWeight.Normal) },
+                                shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = filterMode == AppFilterMode.ALL,
@@ -2662,8 +2772,9 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.LOCKED)
                                 },
-                                label = { Text("Locked (${lockedApps.size})") },
+                                label = { Text("Locked (${lockedApps.size})", fontWeight = if (filterMode == AppFilterMode.LOCKED) FontWeight.SemiBold else FontWeight.Normal) },
                                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = filterMode == AppFilterMode.LOCKED,
@@ -2684,7 +2795,8 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.UNLOCKED)
                                 },
-                                label = { Text("Unlocked") },
+                                label = { Text("Unlocked", fontWeight = if (filterMode == AppFilterMode.UNLOCKED) FontWeight.SemiBold else FontWeight.Normal) },
+                                shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = filterMode == AppFilterMode.UNLOCKED,
@@ -2699,19 +2811,65 @@ fun DashboardView(
                                 )
                             )
                         }
+
+                        // Compact non-intrusive permission warning during active search
+                        val isSearching = searchQuery.trim().isNotEmpty()
+                        val missingCorePermissions = !hasUsagePermission || !hasOverlayPermission
+                        if (isSearching && missingCorePermissions) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Protection inactive: Grant permissions",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { showMissingPermissionOnLockDialog = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Grant", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                        }
                     }
 
+                    val isSearching = searchQuery.trim().isNotEmpty()
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
                             .nestedScroll(scrollConnection)
                             .imePadding(),
-                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // System Permissions Banner on Apps Screen if permissions are missing or instant lock is available
-                        val showPermissionBanner = (!hasUsagePermission || !hasOverlayPermission) || (!hasAccessibilityPermission && !isZeroMsBannerDismissedForSession)
+                        // System Permissions Banner shown when NOT actively searching so search results are never obstructed
+                        val showPermissionBanner = !isSearching && ((!hasUsagePermission || !hasOverlayPermission) || (!hasAccessibilityPermission && !isZeroMsBannerDismissedForSession))
                         if (showPermissionBanner) {
                             item {
                                 SystemPermissionBannerCard(
@@ -2722,6 +2880,38 @@ fun DashboardView(
                                     onDismiss = { isZeroMsBannerDismissedForSession = true },
                                     onShowAccessibilityDisclosure = { showAccessibilityDisclosureInDashboard = true }
                                 )
+                            }
+                        }
+
+                        // Search result header with count and quick clear
+                        if (isSearching && !isLoadingApps && appGridState.isNotEmpty()) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 2.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Found ${appGridState.size} ${if (appGridState.size == 1) "app" else "apps"} matching \"${searchQuery.trim()}\"",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.updateSearchQuery("")
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Clear", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
                             }
                         }
 
@@ -2743,26 +2933,74 @@ fun DashboardView(
                                     verticalArrangement = Arrangement.Center,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 40.dp)
+                                        .padding(vertical = 36.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.SearchOff,
+                                        imageVector = if (isSearching) Icons.Default.SearchOff else Icons.Default.Apps,
                                         contentDescription = "Search empty",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(64.dp)
+                                        modifier = Modifier.size(56.dp)
                                     )
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(14.dp))
                                     Text(
-                                        text = "No Applications Found",
+                                        text = when {
+                                            isSearching && filterMode == AppFilterMode.LOCKED -> "No Locked Apps Matching \"${searchQuery.trim()}\""
+                                            isSearching && filterMode == AppFilterMode.UNLOCKED -> "No Unlocked Apps Matching \"${searchQuery.trim()}\""
+                                            isSearching -> "No Applications Matching \"${searchQuery.trim()}\""
+                                            filterMode == AppFilterMode.LOCKED -> "No Locked Applications"
+                                            filterMode == AppFilterMode.UNLOCKED -> "All Applications Are Locked"
+                                            else -> "No Applications Found"
+                                        },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
                                     )
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Try adjusting your search query or filter.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        text = when {
+                                            isSearching && filterMode != AppFilterMode.ALL -> "The application may be in another tab. Try searching in All Apps."
+                                            isSearching -> "Check your spelling or try searching with a different term."
+                                            filterMode == AppFilterMode.LOCKED -> "Toggle the switch next to any app in the list to lock it."
+                                            else -> "Try adjusting your filters or reinstalling missing apps."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 24.dp)
                                     )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isSearching && filterMode != AppFilterMode.ALL) {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.setFilterMode(AppFilterMode.ALL)
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Search All Apps", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                        if (isSearching) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    focusManager.clearFocus()
+                                                    keyboardController?.hide()
+                                                    viewModel.updateSearchQuery("")
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Text("Clear Search", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         } else {
@@ -3065,6 +3303,9 @@ fun DashboardView(
                                     Box(modifier = Modifier.fillMaxWidth()) {
                                         OutlinedCard(
                                             onClick = { dropdownExpanded = true },
+                                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                            shape = RoundedCornerShape(12.dp),
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .testTag("relock_timeout_dropdown")
@@ -3693,25 +3934,23 @@ fun AppRowItem(
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("app_row_${appInfo.packageName}")
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            // Render App System Icon directly for vector adaptive compatibility in Android
+            // Render App Icon cleanly with subtle rounded container
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(10.dp))
-                    .padding(4.dp),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 val currentIcon = appIcon
@@ -3719,19 +3958,19 @@ fun AppRowItem(
                     Image(
                         painter = DrawablePainter(currentIcon),
                         contentDescription = "App Icon",
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().padding(2.dp)
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Default.Android,
                         contentDescription = "Standard Android icon",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(32.dp)
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -3739,23 +3978,23 @@ fun AppRowItem(
                 Text(
                     text = appInfo.appName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (appInfo.isLocked) {
                     val badgeLabel = when (perAppTimeout) {
-                        "immediately" -> "Immediately"
+                        "immediately" -> "Instant 0ms"
                         "15_sec" -> "15s custom"
                         "30_sec" -> "30s custom"
                         "1_min" -> "1m custom"
                         "5_min" -> "5m custom"
-                        else -> "Global timeout"
+                        else -> "Standard relock"
                     }
                     Text(
                         text = badgeLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -3763,19 +4002,18 @@ fun AppRowItem(
             if (appInfo.isLocked) {
                 Surface(
                     onClick = { onPerAppRelockClick(appInfo) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (perAppTimeout != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (perAppTimeout != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(
                         1.dp,
-                        if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        if (perAppTimeout != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant
                     ),
-                    shadowElevation = 1.dp,
                     modifier = Modifier
-                        .padding(end = 6.dp)
+                        .padding(end = 4.dp)
                         .testTag("per_app_relock_button_${appInfo.packageName}")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -3783,7 +4021,7 @@ fun AppRowItem(
                             imageVector = Icons.Default.Timer,
                             contentDescription = "Custom Relock Timer",
                             tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                         if (!isPremiumUser) {
                             Icon(
@@ -3800,7 +4038,7 @@ fun AppRowItem(
                                     "30_sec" -> "30s"
                                     "1_min" -> "1m"
                                     "5_min" -> "5m"
-                                    else -> "Global"
+                                    else -> "Default"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
@@ -3868,11 +4106,13 @@ fun IntruderAlertItem(
             .format(java.util.Date(alert.timestamp))
     }
 
-    Row(
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
             .clickable {
                 if (isPhotoUnlocked) {
                     onZoomPhoto(alert)
@@ -3880,109 +4120,114 @@ fun IntruderAlertItem(
                     onWatchAdForPhoto(alert)
                 }
             }
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (alert.photoPath.isNotEmpty()) {
-            val decryptedBitmap = remember(alert.photoPath, isPhotoUnlocked) {
-                if (isPhotoUnlocked) {
-                    com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath))
-                } else null
-            }
-            if (isPhotoUnlocked && decryptedBitmap != null) {
-                coil.compose.AsyncImage(
-                    model = decryptedBitmap,
-                    contentDescription = "Intruder snapshot",
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                        .clickable { onZoomPhoto(alert) },
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                )
-            } else {
-                Surface(
-                    onClick = { onWatchAdForPhoto(alert) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(2.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (alert.photoPath.isNotEmpty()) {
+                val decryptedBitmap = remember(alert.photoPath, isPhotoUnlocked) {
+                    if (isPhotoUnlocked) {
+                        com.example.security.EncryptedFileManager.decryptFileToBitmap(java.io.File(alert.photoPath))
+                    } else null
+                }
+                if (isPhotoUnlocked && decryptedBitmap != null) {
+                    coil.compose.AsyncImage(
+                        model = decryptedBitmap,
+                        contentDescription = "Intruder snapshot",
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                            .clickable { onZoomPhoto(alert) },
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Surface(
+                        onClick = { onWatchAdForPhoto(alert) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                        modifier = Modifier.size(64.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Locked photo",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Watch Ad",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Locked photo",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Watch Ad",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Photo,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
             }
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Photo,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = attemptedAppName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Method: ${alert.lockType.uppercase(java.util.Locale.US)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = dateStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
-        }
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Target: $attemptedAppName",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Cred type: ${alert.lockType.uppercase(java.util.Locale.US)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = dateStr,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Light
-            )
-        }
+            IconButton(
+                onClick = { onShare(alert) },
+                modifier = Modifier.testTag("share_snapshot_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Share snapshot",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
-        IconButton(
-            onClick = { onShare(alert) },
-            modifier = Modifier.testTag("share_snapshot_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Share,
-                contentDescription = "Share snapshot",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        IconButton(
-            onClick = { onDelete(alert) },
-            modifier = Modifier.testTag("delete_snapshot_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete record",
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-            )
+            IconButton(
+                onClick = { onDelete(alert) },
+                modifier = Modifier.testTag("delete_snapshot_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete record",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                )
+            }
         }
     }
 }
