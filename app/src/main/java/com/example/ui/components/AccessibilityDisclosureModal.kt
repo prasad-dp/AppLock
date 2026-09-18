@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -237,61 +238,120 @@ fun AccessibilityDisclosureModal(
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Setup Steps for Your Phone",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Customized for ${selectedBrand.displayName} (${selectedBrand.skinName})",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+                            Text(
+                                text = "Setup Steps for Your Phone",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
 
-                                // Brand Selector Button
-                                Box {
-                                    FilledTonalButton(
-                                        onClick = { isBrandMenuExpanded = true },
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.testTag("brand_selector_dropdown_btn")
+                            // Brand Selector Banner with aligned Change button
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Text("Change", style = MaterialTheme.typography.labelSmall)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            modifier = Modifier.size(34.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PhoneAndroid,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Column {
+                                            Text(
+                                                text = selectedBrand.displayName,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = selectedBrand.skinName,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
 
-                                    DropdownMenu(
-                                        expanded = isBrandMenuExpanded,
-                                        onDismissRequest = { isBrandMenuExpanded = false }
-                                    ) {
-                                        OemBrand.values().forEach { brand ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Column {
-                                                        Text(brand.displayName, fontWeight = FontWeight.SemiBold)
-                                                        Text(brand.skinName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    }
-                                                },
-                                                onClick = {
-                                                    selectedBrand = brand
-                                                    isBrandMenuExpanded = false
-                                                },
-                                                leadingIcon = if (selectedBrand == brand) {
-                                                    { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                                                } else null
-                                            )
+                                    // Brand Selector Button
+                                    Box {
+                                        FilledTonalButton(
+                                            onClick = { isBrandMenuExpanded = true },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier
+                                                .height(36.dp)
+                                                .defaultMinSize(minWidth = 72.dp, minHeight = 36.dp)
+                                                .testTag("brand_selector_dropdown_btn")
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Change",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1
+                                                )
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDropDown,
+                                                    contentDescription = "Change device brand",
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
+                                        DropdownMenu(
+                                            expanded = isBrandMenuExpanded,
+                                            onDismissRequest = { isBrandMenuExpanded = false }
+                                        ) {
+                                            OemBrand.values().forEach { brand ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Column {
+                                                            Text(brand.displayName, fontWeight = FontWeight.SemiBold)
+                                                            Text(brand.skinName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        selectedBrand = brand
+                                                        isBrandMenuExpanded = false
+                                                    },
+                                                    leadingIcon = if (selectedBrand == brand) {
+                                                        { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                                    } else null
+                                                )
+                                            }
                                         }
                                     }
                                 }
