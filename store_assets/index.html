@@ -6,6 +6,7 @@
     <title>App Locker - Privacy Guard & Security Vault</title>
     <meta name="description" content="Protect your privacy with App Locker. Featuring 0ms Instant Interception, hardware-backed AES-256 encryption, silent intruder snapshots, and biometric security.">
     <meta name="theme-color" content="#070A12">
+    <link rel="icon" type="image/png" href="app_logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -127,16 +128,18 @@
             letter-spacing: -0.02em;
         }
 
-        .brand-logo .shield-icon {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, #3B82F6, #06B6D4);
+        .brand-app-logo {
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
-            font-size: 1.1rem;
+            object-fit: cover;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: transform 0.2s ease;
+        }
+
+        .brand-logo:hover .brand-app-logo {
+            transform: scale(1.08);
         }
 
         .brand-logo span.badge {
@@ -189,12 +192,31 @@
 
         /* Hero Section */
         .hero {
-            padding: 90px 24px 70px;
+            padding: 70px 24px 70px;
             max-width: 1200px;
             margin: 0 auto;
             text-align: center;
             position: relative;
             z-index: 1;
+        }
+
+        .hero-logo-wrapper {
+            margin-bottom: 24px;
+            display: inline-block;
+        }
+
+        .hero-app-logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(59, 130, 246, 0.4), 0 0 24px rgba(6, 182, 212, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: floatLogo 6s ease-in-out infinite alternate;
+        }
+
+        @keyframes floatLogo {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-8px); }
         }
 
         .hero-badge {
@@ -606,7 +628,7 @@
                 display: none;
             }
             .hero {
-                padding: 60px 16px 40px;
+                padding: 50px 16px 40px;
             }
             .privacy-section {
                 padding: 32px 20px;
@@ -630,7 +652,7 @@
     <header>
         <div class="nav-container">
             <a href="#" class="brand-logo">
-                <div class="shield-icon">🛡️</div>
+                <img src="app_logo.png" alt="App Locker Logo" class="brand-app-logo">
                 <span>App Locker</span>
                 <span class="badge">v1.0.1</span>
             </a>
@@ -649,6 +671,9 @@
     <main>
         <!-- Hero Section -->
         <section class="hero">
+            <div class="hero-logo-wrapper">
+                <img src="app_logo.png" alt="App Locker Logo" class="hero-app-logo">
+            </div>
             <div class="hero-badge">⚡ 0ms Zero-Latency Shield & On-Device Cryptography</div>
             <h1>The Ultimate Shield for Your <span class="gradient-text">Apps & Privacy</span></h1>
             <p class="lead">Protect WhatsApp, Banking, Photos, and System Settings. Silently capture front-camera intruder snapshots with hardware-backed AES-256 encryption and zero-latency window locking.</p>
@@ -866,6 +891,10 @@
 
     <!-- Footer -->
     <footer>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px;">
+            <img src="app_logo.png" alt="App Locker Logo" style="width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
+            <span style="font-weight: 700; color: #FFFFFF; font-size: 1.1rem;">App Locker</span>
+        </div>
         <p>&copy; 2026 App Locker & Intruder Security Vault. All rights reserved. | <a href="#privacy">Privacy Policy</a> | <a href="app-ads.txt">AdMob app-ads.txt</a></p>
     </footer>
 
