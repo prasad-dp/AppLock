@@ -1,6 +1,6 @@
 # 🚀 Google Play Store Listing & Launch Metadata
 
-**Application:** App Locker Pro & Intruder Security Vault  
+**Application:** App Locker & Intruder Security Vault  
 **Package Name:** `com.aistudio.applocker.kyzqpz`  
 **Version:** `1.0.1` (`versionCode`: `2`)  
 **Target SDK:** Android 16 (API Level 36, `compileSdk: 36`) | **Min SDK:** Android 7.0 (API Level 24)
@@ -11,7 +11,7 @@
 
 ### App Title (Max 30 Characters)
 ```text
-App Locker Pro: Intruder Vault
+App Locker: Intruder Vault
 ```
 
 ### Short Description (Max 80 Characters)
@@ -21,10 +21,10 @@ Lock apps instantly, capture silent intruder selfies & encrypt security logs.
 
 ### Full Description (Formatted for Google Play Store)
 ```text
-🛡️ Protect your privacy, confidential chats, banking apps, and personal photos with App Locker Pro — the enterprise-grade app lock and silent intruder security vault for Android.
+🛡️ Protect your privacy, confidential chats, banking apps, and personal photos with App Locker — the enterprise-grade app lock and silent intruder security vault for Android.
 
 ⚡ 0ms ZERO-DELAY INSTANT INTERCEPTION
-Unlike standard app lockers that suffer from 1-2 second screen lag, App Locker Pro intercepts protected app launches at the window creation layer via Accessibility Services. Zero screen glimpses. Zero delay.
+Unlike standard app lockers that suffer from 1-2 second screen lag, App Locker intercepts protected app launches at the window creation layer via Accessibility Services. Zero screen glimpses. Zero delay.
 
 📸 SILENT FRONT-CAMERA INTRUDER DETECTOR
 Catch anyone snooping on your phone! When an unauthorized user enters an incorrect PIN, Pattern, or Password, the front camera silently captures a high-resolution snapshot without flashing or playing shutter sounds.
@@ -36,7 +36,7 @@ Your security logs never sit unencrypted on disk. All intruder photos are encryp
 Intruder snapshot previews are blurred and shielded in the logs tab. Only you can unblur and inspect intruder evidence using your Fingerprint, Face Recognition, or Master Passcode.
 
 🔄 SMART DOUBLE-LOCK ADVISOR
-Avoid annoying double-authentication loops! App Locker Pro automatically detects apps that have native biometric security (such as WhatsApp, Google Wallet, and Banking apps) and optimizes lock timing.
+Avoid annoying double-authentication loops! App Locker automatically detects apps that have native biometric security (such as WhatsApp, Google Wallet, and Banking apps) and optimizes lock timing.
 
 🗑️ 3-PASS FORENSIC FILE SHREDDER
 When you delete an intruder alert, physical storage sectors are overwritten with cryptographic random noise and zeros before unlinking, preventing forensic data recovery.
@@ -55,7 +55,7 @@ When you delete an intruder alert, physical storage sectors are overwritten with
 ═════════════════════════════════════════════
 🔒 PERMISSIONS & ACCESSIBILITY DISCLOSURE
 ═════════════════════════════════════════════
-App Locker Pro uses the Android Accessibility Service (BIND_ACCESSIBILITY_SERVICE) exclusively to detect window state transitions (TYPE_WINDOW_STATE_CHANGED) when a protected app is launched, enabling 0ms instant locking. App Locker Pro NEVER reads screen content, monitors keystrokes, tracks user inputs, or transmits personal information.
+App Locker uses the Android Accessibility Service (BIND_ACCESSIBILITY_SERVICE) exclusively to detect window state transitions (TYPE_WINDOW_STATE_CHANGED) when a protected app is launched, enabling 0ms instant locking. App Locker NEVER reads screen content, monitors keystrokes, tracks user inputs, or transmits personal information.
 ```
 
 ---
@@ -107,7 +107,7 @@ When completing the **Data Safety** section in Google Play Console, use the foll
 When asked to explain the usage of `BIND_ACCESSIBILITY_SERVICE` in Google Play Console:
 
 ```text
-App Locker Pro utilizes BIND_ACCESSIBILITY_SERVICE strictly as an app locking mechanism to detect TYPE_WINDOW_STATE_CHANGED events when protected target applications are opened. This allows the app to display a secure lock screen overlay with zero latency (0ms), preventing private screen content from being glimpsed. The service does not read user interface text, monitor user keystrokes, track user actions, or transmit any data off the device.
+App Locker utilizes BIND_ACCESSIBILITY_SERVICE strictly as an app locking mechanism to detect TYPE_WINDOW_STATE_CHANGED events when protected target applications are opened. This allows the app to display a secure lock screen overlay with zero latency (0ms), preventing private screen content from being glimpsed. The service does not read user interface text, monitor user keystrokes, track user actions, or transmit any data off the device.
 ```
 
 ---

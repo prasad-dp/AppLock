@@ -1,12 +1,12 @@
-# 🧪 App Locker Pro — Complete QA Testing & Feature Specification Document (`QA_SPECTS.md`)
+# 🧪 App Locker — Complete QA Testing & Feature Specification Document (`QA_SPECTS.md`)
 
-This document provides a comprehensive, end-to-end testing specification for **App Locker Pro**, designed for QA engineers, automation testers, and security auditors. It covers architecture, permission matrices, monetization mechanics, functional feature breakdowns, test case scenarios, and UI test tags across the entire application.
+This document provides a comprehensive, end-to-end testing specification for **App Locker**, designed for QA engineers, automation testers, and security auditors. It covers architecture, permission matrices, monetization mechanics, functional feature breakdowns, test case scenarios, and UI test tags across the entire application.
 
 ---
 
 ## 1. 🔍 System & Architecture Overview
 
-- **Application Name**: App Locker Pro
+- **Application Name**: App Locker
 - **Package Name (Namespace)**: `com.example`
 - **Application ID**: `com.aistudio.applocker.kxmpzq`
 - **UI Framework**: Jetpack Compose (100% declarative UI with Material Design 3)
@@ -127,11 +127,11 @@ This document provides a comprehensive, end-to-end testing specification for **A
 ### 6.1 Test Case TC-01: System Permission Banner Synchronization
 - **Pre-conditions**: Revoke Usage Access or Display Overlay permission in System Settings.
 - **Test Steps**:
-  1. Launch App Locker Pro.
+  1. Launch App Locker.
   2. Navigate to **Apps Tab**. Observe reddish "System Permission Required" warning card at top.
   3. Navigate to **Security Tab**. Observe exact same warning card.
   4. Tap "Grant Permission" and enable permission in System Settings.
-  5. Return to App Locker Pro.
+  5. Return to App Locker.
 - **Expected Result**: Warning banner disappears synchronously on both Apps Tab and Security Tab.
 
 ### 6.2 Test Case TC-02: App Locking & Foreground Interception
@@ -144,7 +144,7 @@ This document provides a comprehensive, end-to-end testing specification for **A
 - **Expected Result**: `UnlockActivity` overlay immediately intercepts Chrome. Chrome is blocked until valid credential is provided.
 
 ### 6.3 Test Case TC-03: Security Lockout Cooldown (3 Wrong Attempts)
-- **Pre-conditions**: App Locker Pro is locking a target app.
+- **Pre-conditions**: App Locker is locking a target app.
 - **Test Steps**:
   1. Open locked app to bring up lock overlay.
   2. Enter **1st wrong PIN/Pattern**. Observe error prompt & vibration.

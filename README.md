@@ -1,4 +1,4 @@
-# 🛡️ App Locker Pro & Intruder Security Vault
+# 🛡️ App Locker & Intruder Security Vault
 
 An enterprise-grade, privacy-focused Android application designed to secure sensitive apps with **0ms Instant Interception**, detect unauthorized unlock attempts, capture silent front-camera intruder snapshots, and protect security logs using hardware-backed **AES-256 GCM Encryption** and **Biometric Vault Verification**.
 
@@ -28,7 +28,7 @@ An enterprise-grade, privacy-focused Android application designed to secure sens
 
 Modern smartphones hold banking credentials, personal messaging apps, private photos, and confidential enterprise tools. While device lock screens protect overall access, handing an unlocked device to a friend, child, or colleague leaves individual applications exposed.
 
-**App Locker Pro** addresses this with a multi-layered security suite:
+**App Locker** addresses this with a multi-layered security suite:
 - **0ms Instant Interception**: Intercepts protected app launches at the window creation layer before any app screen content can be glimpsed.
 - **Per-App Protection**: Lock individual applications (WhatsApp, Banking, Photos, Settings) behind a distinct PIN, Pattern, or Password.
 - **Intruder Detection**: Silently capture a front-camera snapshot when anyone inputs an incorrect credential.
@@ -40,7 +40,7 @@ Modern smartphones hold banking credentials, personal messaging apps, private ph
 
 ## ⚡ Dual-Engine App Locking Architecture
 
-App Locker Pro utilizes a dual-engine architecture to guarantee instant, flicker-free locking across all Android versions:
+App Locker utilizes a dual-engine architecture to guarantee instant, flicker-free locking across all Android versions:
 
 | Engine | Technology | Latency | Benefit |
 | :--- | :--- | :--- | :--- |
