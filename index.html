@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#0F172A">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-dark: #0B0F19;
@@ -26,6 +26,10 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
@@ -101,6 +105,8 @@
             font-weight: 700 !important;
             box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
             transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
         }
 
         .btn-download:hover {
@@ -204,48 +210,6 @@
             line-height: 1.6;
         }
 
-        .tech-specs {
-            max-width: 1200px;
-            margin: 60px auto;
-            padding: 0 24px;
-        }
-
-        .specs-table-container {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            overflow: hidden;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        th, td {
-            padding: 16px 24px;
-            border-bottom: 1px solid var(--card-border);
-            font-size: 0.95rem;
-        }
-
-        th {
-            background: rgba(15, 23, 42, 0.6);
-            color: var(--accent-cyan);
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 0.05em;
-        }
-
-        td {
-            color: var(--text-muted);
-        }
-
-        td strong {
-            color: var(--text-main);
-        }
-
         .privacy-section {
             max-width: 900px;
             margin: 80px auto;
@@ -275,6 +239,11 @@
             font-weight: 700;
         }
 
+        .privacy-section p {
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
         .privacy-section ul {
             padding-left: 24px;
             margin-bottom: 16px;
@@ -283,6 +252,15 @@
 
         .privacy-section li {
             margin-bottom: 8px;
+        }
+
+        code {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--card-border);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--accent-cyan);
         }
 
         footer {
@@ -296,6 +274,11 @@
         footer a {
             color: var(--accent-cyan);
             text-decoration: none;
+            margin: 0 8px;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -308,7 +291,6 @@
             </a>
             <div class="nav-links">
                 <a href="#features">Features</a>
-                <a href="#architecture">Architecture</a>
                 <a href="#privacy">Privacy Policy</a>
                 <a href="#contact">Contact</a>
                 <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download">Get on Play Store</a>
@@ -370,53 +352,6 @@
             </div>
         </section>
 
-        <section class="tech-specs" id="architecture">
-            <h2 style="font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 28px;">Technical Specifications</h2>
-            <div class="specs-table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Component</th>
-                            <th>Technology</th>
-                            <th>Security / Performance Guarantee</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Primary Lock Engine</strong></td>
-                            <td>Accessibility Window State Interceptor</td>
-                            <td>0ms instant response without app content leakage</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Fallback Engine</strong></td>
-                            <td>UsageStatsManager + Foreground Service</td>
-                            <td>Adaptive low-overhead background polling</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Cryptography</strong></td>
-                            <td>Android KeyStore + AES/GCM/NoPadding</td>
-                            <td>Hardware-backed 256-bit symmetric encryption</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Camera Engine</strong></td>
-                            <td>AndroidX CameraX Lifecycle Integration</td>
-                            <td>Zero-flash, zero-shutter silent capture</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Data Persistence</strong></td>
-                            <td>Android Room Database with SQLite Indices</td>
-                            <td>Fast querying and automated 30-day log purges</td>
-                        </tr>
-                        <tr>
-                            <td><strong>UI Framework</strong></td>
-                            <td>Jetpack Compose & Material Design 3</td>
-                            <td>Fluid 60fps dynamic theming with zero layout jank</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
         <section class="privacy-section" id="privacy">
             <h2>Official Privacy Policy</h2>
             <p class="updated">Last Updated: August 18, 2026 | Effective Date: August 18, 2026</p>
@@ -445,7 +380,7 @@
             <h3>3. Third-Party Services & Monetization</h3>
             <p>Our app incorporates Google Mobile Ads (AdMob) and Google Play Billing:</p>
             <ul>
-                <li><strong>Google AdMob:</strong> May collect anonymous or pseudonymous device identifiers (such as Android Advertising ID) for ad delivery, fraud prevention, and analytics in accordance with Google's Advertising Policies. Pro subscribers enjoy an ad-free experience.</li>
+                <li><strong>Google AdMob:</strong> May collect anonymous or pseudonymous device identifiers (such as Android Advertising ID) for ad delivery, fraud prevention, and analytics in accordance with Google's Advertising Policies. Pro subscribers enjoy an ad-free experience. Developer verification file is hosted at <a href="app-ads.txt" style="color: var(--accent-cyan);">app-ads.txt</a>.</li>
                 <li><strong>Google Play In-App Billing:</strong> Handles secure purchase transactions for Pro subscriptions. Payment details are processed directly by Google Play.</li>
             </ul>
 
@@ -455,14 +390,14 @@
             <h3>5. Children's Privacy</h3>
             <p>Our application is not directed at children under the age of 13. We do not knowingly collect personal information from children.</p>
 
-            <h3>6. Developer Contact & Data Protection Officer</h3>
+            <h3>6. Developer Contact & Support</h3>
             <p id="contact">For any privacy questions, security disclosures, or support requests, please contact:</p>
-            <p><strong>Email:</strong> <a href="mailto:dptechsupport10@gmail.com" style="color: var(--accent-cyan);">dptechsupport10@gmail.com</a></p>
+            <p><strong>Developer Email:</strong> <a href="mailto:dptechsupport10@gmail.com" style="color: var(--accent-cyan);">dptechsupport10@gmail.com</a></p>
         </section>
     </main>
 
     <footer>
-        <p>&copy; 2026 App Locker Pro & Intruder Security Vault. All rights reserved. | <a href="#privacy">Privacy Policy</a> | <a href="#architecture">Architecture</a></p>
+        <p>&copy; 2026 App Locker Pro & Intruder Security Vault. All rights reserved. | <a href="#privacy">Privacy Policy</a> | <a href="app-ads.txt">AdMob app-ads.txt</a></p>
     </footer>
 
 </body>
