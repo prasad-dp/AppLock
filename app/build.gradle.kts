@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.applocker.kyzqpz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "0.0.0.4"
+    versionCode = 5
+    versionName = "0.0.0.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -25,6 +25,11 @@ android {
       val keystorePath = System.getenv("KEYSTORE_PATH")
       if (keystorePath != null && file(keystorePath).exists()) {
         storeFile = file(keystorePath)
+        storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+      } else if (file("${rootDir}/my-upload-key.jks").exists()) {
+        storeFile = file("${rootDir}/my-upload-key.jks")
         storePassword = System.getenv("STORE_PASSWORD") ?: "android"
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
         keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
@@ -50,6 +55,9 @@ android {
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+      ndk {
+        debugSymbolLevel = "FULL"
+      }
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")

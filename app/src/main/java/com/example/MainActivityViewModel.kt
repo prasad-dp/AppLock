@@ -32,6 +32,13 @@ data class GridAppInfo(
     val isLocked: Boolean
 )
 
+@Immutable
+data class AppFilterCounts(
+    val totalCount: Int = 0,
+    val lockedCount: Int = 0,
+    val unlockedCount: Int = 0
+)
+
 sealed interface SetupState {
     object WelcomePatternRequired : SetupState
     object SelectLockType : SetupState
@@ -93,10 +100,56 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Combined stream of installed + search query + lock status + filter mode
     val appGridState: StateFlow<List<GridAppInfo>>
 
+    // Live counts for All, Locked, and Unlocked tabs respecting the search query
+    val appFilterCounts: StateFlow<AppFilterCounts>
+
     init {
         val database = AppDatabase.getInstance(context)
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
         lockedAppsFlow = repository.allLockedAppsStateFlow
+
+        appFilterCounts = combine(_installedApps, lockedAppsFlow, _searchQuery) { installed, lockedList, query ->
+            val lockedSet = HashSet<String>(lockedList.size).apply {
+                for (item in lockedList) add(item.packageName)
+            }
+            val trimmedQuery = query.trim()
+            val hasQuery = trimmedQuery.isNotEmpty()
+
+            val installedSet = HashSet<String>(installed.size)
+            var lockedCount = 0
+            var unlockedCount = 0
+
+            for ((packageName, appName) in installed) {
+                installedSet.add(packageName)
+                if (hasQuery && !appName.contains(trimmedQuery, ignoreCase = true) && !packageName.contains(trimmedQuery, ignoreCase = true)) {
+                    continue
+                }
+                if (lockedSet.contains(packageName)) {
+                    lockedCount++
+                } else {
+                    unlockedCount++
+                }
+            }
+
+            for (lockedApp in lockedList) {
+                if (!installedSet.contains(lockedApp.packageName)) {
+                    if (hasQuery && !lockedApp.appName.contains(trimmedQuery, ignoreCase = true) && !lockedApp.packageName.contains(trimmedQuery, ignoreCase = true)) {
+                        continue
+                    }
+                    lockedCount++
+                }
+            }
+
+            AppFilterCounts(
+                totalCount = lockedCount + unlockedCount,
+                lockedCount = lockedCount,
+                unlockedCount = unlockedCount
+            )
+        }.flowOn(Dispatchers.Default).stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AppFilterCounts()
+        )
 
         appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode) { installed, lockedList, query, filter ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
@@ -160,6 +213,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         )
 
         loadInstalledApps()
+        performAutoCleanupIfNeeded()
     }
 
     private fun loadInstalledApps() {
@@ -209,7 +263,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 sensitiveKeywords.any { lowerName.contains(it) || lowerPkg.contains(it) }
             }
             toLock.forEach { (pkg, _) ->
-                com.example.service.AppLockSession.lockApp(pkg)
+                com.example.service.AppLockSession.lockApp(pkg, force = true)
             }
             repository.lockApps(toLock)
         }
@@ -225,7 +279,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             if (shouldLock) {
                 // Ensure immediate lock protection: purge any active unlock token immediately
-                com.example.service.AppLockSession.lockApp(packageName)
+                com.example.service.AppLockSession.lockApp(packageName, force = true)
                 repository.lockApp(packageName, appName)
             } else {
                 repository.unlockApp(packageName)
@@ -418,10 +472,14 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun performAutoCleanupIfNeeded() {
         if (!prefs.isAutoCleanupEnabled) return
         viewModelScope.launch {
-            val alerts = intruderAlertsFlow.value
-            val cutoffTimestamp = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L)
-            val expiredAlerts = alerts.filter { it.timestamp < cutoffTimestamp }
-            expiredAlerts.forEach { repository.deleteIntruderAlert(it) }
+            try {
+                val alerts = repository.allIntruderAlertsFlow.first()
+                val cutoffTimestamp = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L)
+                val expiredAlerts = alerts.filter { it.timestamp < cutoffTimestamp }
+                expiredAlerts.forEach { repository.deleteIntruderAlert(it) }
+            } catch (e: Exception) {
+                // Ignore any DB race conditions on startup
+            }
         }
     }
 

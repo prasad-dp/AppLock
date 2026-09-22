@@ -57,7 +57,13 @@ class UnlockActivity : FragmentActivity() {
         // Security check: if pattern is not configured, unlock session immediately to prevent lockers soft-locks
         if (!prefs.hasPatternSet()) {
             initialPackage?.let { AppLockSession.unlockApp(it) }
-            finish()
+            finishAndRemoveTask()
+            return
+        }
+
+        // Loop Prevention: If the app is already unlocked or was recently unlocked, dismiss immediately
+        if (initialPackage != null && (AppLockSession.isUnlocked(initialPackage) || AppLockSession.isRecentlyUnlocked(initialPackage, 3000L))) {
+            finishAndRemoveTask()
             return
         }
 
@@ -80,7 +86,7 @@ class UnlockActivity : FragmentActivity() {
                         onSuccess = {
                             targetPackageState.value?.let { AppLockSession.unlockApp(it) }
                             Toast.makeText(this, "Application Unlocked", Toast.LENGTH_SHORT).show()
-                            finish()
+                            finishAndRemoveTask()
                             @Suppress("DEPRECATION")
                             overridePendingTransition(0, 0)
                         },
@@ -101,7 +107,13 @@ class UnlockActivity : FragmentActivity() {
 
         if (packageArg != null && !prefs.hasPatternSet()) {
             AppLockSession.unlockApp(packageArg)
-            finish()
+            finishAndRemoveTask()
+            return
+        }
+
+        // Loop Prevention: If the app is already unlocked or was recently unlocked, dismiss immediately
+        if (packageArg != null && (AppLockSession.isUnlocked(packageArg) || AppLockSession.isRecentlyUnlocked(packageArg, 3000L))) {
+            finishAndRemoveTask()
             return
         }
     }
@@ -113,7 +125,7 @@ class UnlockActivity : FragmentActivity() {
             AppLockSession.activeUnlockingPackage = null
         }
         if (!isFinishing) {
-            finish()
+            finishAndRemoveTask()
             @Suppress("DEPRECATION")
             overridePendingTransition(0, 0)
         }
@@ -150,7 +162,7 @@ class UnlockActivity : FragmentActivity() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         startActivity(homeIntent)
-        finish()
+        finishAndRemoveTask()
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
     }

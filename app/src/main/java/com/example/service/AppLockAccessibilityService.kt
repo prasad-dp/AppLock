@@ -15,6 +15,7 @@ import com.example.UnlockActivity
 import com.example.data.AppDatabase
 import com.example.data.AppRepository
 import com.example.data.LockPreferences
+import com.example.util.AppLockPackageHelper
 import kotlinx.coroutines.*
 
 class AppLockAccessibilityService : AccessibilityService() {
@@ -83,9 +84,10 @@ class AppLockAccessibilityService : AccessibilityService() {
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
 
         val pkgName = event.packageName?.toString() ?: return
-        val isTransient = isSystemOrTransientPackage(pkgName)
 
-        if (isTransient) {
+        // 1. If this is our own app or UnlockActivity
+        if (pkgName == packageName) {
+            isUnlockActivityInForeground = true
             val now = System.currentTimeMillis()
             for (unlockedApp in AppLockSession.getUnlockedAppsCopy()) {
                 lastSeenForegroundTime[unlockedApp] = now
@@ -94,81 +96,89 @@ class AppLockAccessibilityService : AccessibilityService() {
             return
         }
 
+        // 2. Check if this is a transient system overlay, soft keyboard, or IME window
+        val isTransient = AppLockPackageHelper.isSystemOrTransientPackage(this, pkgName) ||
+                AppLockPackageHelper.isTransientAccessibilityWindow(event)
+
+        if (isTransient) {
+            // User is interacting with keyboard, biometric, status bar, or system prompt.
+            // Keep unlocked apps active so they don't expire during typing or system dialogs!
+            val now = System.currentTimeMillis()
+            for (unlockedApp in AppLockSession.getUnlockedAppsCopy()) {
+                lastSeenForegroundTime[unlockedApp] = now
+                AppLockSession.updateActiveTime(unlockedApp)
+            }
+            return
+        }
+
+        // We are on a non-transient, external app window
+        isUnlockActivityInForeground = false
         lastForegroundPackage = pkgName
         lastSeenForegroundTime[pkgName] = System.currentTimeMillis()
         AppLockSession.updateActiveTime(pkgName)
 
-        // Check relock for other unlocked apps
+        // 3. Auto-relock check for other unlocked apps
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
         for (unlockedApp in currentUnlockedApps) {
             if (unlockedApp != pkgName) {
+                // If the app was just unlocked within the grace period, do NOT relock
+                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 2500L)) {
+                    lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
+                    AppLockSession.updateActiveTime(unlockedApp)
+                    continue
+                }
+
                 val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
                 val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
 
                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                 val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                 val relockThresholdMs = when (relockPolicy) {
-                    "immediately" -> 0L
+                    "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
                     "15_sec" -> 15_000L
                     "30_sec" -> 30_000L
                     "1_min" -> 60_000L
                     "5_min" -> 300_000L
-                    else -> 0L
+                    else -> 1500L
                 }
 
                 if (outOfForegroundDuration >= relockThresholdMs) {
-                    AppLockSession.lockApp(unlockedApp)
+                    AppLockSession.lockApp(unlockedApp, force = true)
                     lastSeenForegroundTime.remove(unlockedApp)
+                    Log.d(TAG, "Accessibility: Auto-relocked app $unlockedApp after ${outOfForegroundDuration}ms (Policy: $relockPolicy)")
                 }
             }
         }
 
-        if (pkgName == packageName) {
-            isUnlockActivityInForeground = true
-            return // Don't lock our own app
-        } else {
-            isUnlockActivityInForeground = false
-        }
-
+        // 4. Reset activeUnlockingPackage ONLY if user switched to a genuine other user app or home launcher
         if (AppLockSession.activeUnlockingPackage != null && pkgName != AppLockSession.activeUnlockingPackage) {
             AppLockSession.activeUnlockingPackage = null
         }
 
-        if (lockedPackages.contains(pkgName)) {
+        // 5. Intercept locked app if not unlocked (Only on genuine window state change, never during window destruction/closure)
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && lockedPackages.contains(pkgName)) {
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
+            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 3000L)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
             // If the unlock screen is already in the foreground, do NOT re-trigger launch (prevents input interruption)
             val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800)
 
-            if (!isUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
-                Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
-                launchUnlockScreen(pkgName)
+            if (!isUnlocked && !isRecentlyUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
+                if (!AppLockSession.shouldThrottleLaunch(pkgName)) {
+                    Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
+                    launchUnlockScreen(pkgName)
+                } else {
+                    Log.w(TAG, "Launch throttled by Circuit Breaker: Preventing duplicate loop on $pkgName")
+                }
             }
         }
     }
 
-    private fun isSystemOrTransientPackage(pkg: String?): Boolean {
-        if (pkg == null) return true
-        if (pkg == packageName) return true
-        val lower = pkg.lowercase()
-        return lower == "android" ||
-                lower == "com.android.systemui" ||
-                lower == "com.google.android.gms" ||
-                lower == "com.google.android.packageinstaller" ||
-                lower.contains("permissioncontroller") ||
-                lower.contains("biometric") ||
-                lower.contains("inputmethod") ||
-                lower.contains("keyboard") ||
-                lower.contains("fingerprint") ||
-                lower.contains("keyguard") ||
-                lower.contains("systemui") ||
-                lower.contains("credentials") ||
-                lower.contains("confirm_device_credential") ||
-                lower.contains("autofill")
-    }
-
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
+        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 3000L)) {
+            return
+        }
         AppLockSession.activeUnlockingPackage = targetPackage
         lastLaunchTime = System.currentTimeMillis()
         val intent = Intent(this, UnlockActivity::class.java).apply {

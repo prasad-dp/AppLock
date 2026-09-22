@@ -39,7 +39,7 @@ roborazzi = "1.59.0"
 firebaseBom = "34.12.0"
 secretsGradlePlugin = "2.0.1"
 securityCrypto = "1.1.0-alpha06"
-playBilling = "7.1.1"
+playBilling = "8.0.0"
 
 [libraries]
 play-billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "playBilling" }

@@ -507,6 +507,16 @@ fun PatternWizardView(
         }
     }
 
+    val scrollState = rememberScrollState()
+    val isSelectLockType = state == SetupState.SelectLockType
+    val isPasswordMode = state is SetupState.SetFirstPassword || state is SetupState.ConfirmPassword
+
+    LaunchedEffect(state) {
+        if (isPasswordMode) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -518,11 +528,11 @@ fun PatternWizardView(
                     )
                 )
             )
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .imePadding()
-            .padding(24.dp),
+            .padding(horizontal = if (isPasswordMode) 16.dp else 24.dp, vertical = if (isPasswordMode) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = if (isPasswordMode) Arrangement.spacedBy(8.dp, Alignment.CenterVertically) else Arrangement.SpaceBetween
     ) {
         Row(
             modifier = Modifier
@@ -554,10 +564,8 @@ fun PatternWizardView(
         }
 
         // Shield / Lock graphics
-        val isSelectLockType = state == SetupState.SelectLockType
-        val isPasswordMode = state is SetupState.SetFirstPassword || state is SetupState.ConfirmPassword
-        val iconBoxSize = if (isPasswordMode) 52.dp else if (isSelectLockType) 76.dp else 72.dp
-        val iconInnerSize = if (isPasswordMode) 28.dp else if (isSelectLockType) 38.dp else 36.dp
+        val iconBoxSize = if (isPasswordMode) 38.dp else if (isSelectLockType) 76.dp else 72.dp
+        val iconInnerSize = if (isPasswordMode) 20.dp else if (isSelectLockType) 38.dp else 36.dp
 
         Box(
             modifier = Modifier
@@ -575,7 +583,7 @@ fun PatternWizardView(
                     width = 1.5.dp,
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = if (isPasswordMode) 0.4f else 0.6f),
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         )
                     ),
@@ -608,13 +616,13 @@ fun PatternWizardView(
                     SetupState.SetupSuccess -> "Setup Successful"
                     else -> ""
                 },
-                style = MaterialTheme.typography.headlineMedium,
+                style = if (isPasswordMode) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (isPasswordMode) 4.dp else 8.dp))
 
             val isErrorText = (state is SetupState.SetFirstPattern && state.errorMessage != null) ||
                     (state is SetupState.ConfirmPattern && state.errorMessage != null) ||
@@ -635,10 +643,16 @@ fun PatternWizardView(
 
         // Draw Pattern / PIN Keyboard / Setup Selection Container
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .padding(vertical = 16.dp),
+            modifier = if (isPasswordMode) {
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .padding(vertical = 16.dp)
+            },
             contentAlignment = Alignment.Center
         ) {
             when (state) {
@@ -1133,6 +1147,7 @@ fun DashboardView(
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val appFilterCounts by viewModel.appFilterCounts.collectAsStateWithLifecycle()
     val showAdMobInterstitialDialogState by viewModel.showAdMobInterstitialDialog.collectAsStateWithLifecycle()
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -2563,7 +2578,7 @@ fun DashboardView(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${lockedApps.size}",
+                        text = "${allLockedApps.size}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
@@ -2678,7 +2693,7 @@ fun DashboardView(
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 8.dp)
                     ) {
-                        if (lockedApps.isNotEmpty()) {
+                        if (allLockedApps.isNotEmpty() && searchQuery.trim().isEmpty()) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2750,7 +2765,7 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.ALL)
                                 },
-                                label = { Text("All Apps", fontWeight = if (filterMode == AppFilterMode.ALL) FontWeight.SemiBold else FontWeight.Normal) },
+                                label = { Text("All Apps (${appFilterCounts.totalCount})", fontWeight = if (filterMode == AppFilterMode.ALL) FontWeight.SemiBold else FontWeight.Normal) },
                                 shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
@@ -2772,7 +2787,7 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.LOCKED)
                                 },
-                                label = { Text("Locked (${lockedApps.size})", fontWeight = if (filterMode == AppFilterMode.LOCKED) FontWeight.SemiBold else FontWeight.Normal) },
+                                label = { Text("Locked (${appFilterCounts.lockedCount})", fontWeight = if (filterMode == AppFilterMode.LOCKED) FontWeight.SemiBold else FontWeight.Normal) },
                                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) },
                                 shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
@@ -2795,7 +2810,7 @@ fun DashboardView(
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.UNLOCKED)
                                 },
-                                label = { Text("Unlocked", fontWeight = if (filterMode == AppFilterMode.UNLOCKED) FontWeight.SemiBold else FontWeight.Normal) },
+                                label = { Text("Unlocked (${appFilterCounts.unlockedCount})", fontWeight = if (filterMode == AppFilterMode.UNLOCKED) FontWeight.SemiBold else FontWeight.Normal) },
                                 shape = RoundedCornerShape(10.dp),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,

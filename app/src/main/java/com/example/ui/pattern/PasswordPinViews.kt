@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -229,6 +232,7 @@ fun PinPadView(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PasswordUnlockView(
     modifier: Modifier = Modifier,
@@ -240,6 +244,8 @@ fun PasswordUnlockView(
 ) {
     var passwordInput by remember(resetIdentifier) { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     LaunchedEffect(resetIdentifier) {
         passwordInput = ""
@@ -249,15 +255,31 @@ fun PasswordUnlockView(
     val showLengthError = requireValidation && passwordInput.isNotEmpty() && passwordInput.length < 8
 
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         OutlinedTextField(
             value = passwordInput,
-            onValueChange = { passwordInput = it },
+            onValueChange = {
+                passwordInput = it
+                coroutineScope.launch {
+                    bringIntoViewRequester.bringIntoView()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusEvent { focusState ->
+                    if (focusState.isFocused) {
+                        coroutineScope.launch {
+                            delay(150)
+                            bringIntoViewRequester.bringIntoView()
+                        }
+                    }
+                }
                 .testTag("password_input_field"),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             placeholder = { Text(placeholder) },
@@ -298,7 +320,7 @@ fun PasswordUnlockView(
         )
 
         if (showLengthError) {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Password must be at least 8 characters long",
                 color = MaterialTheme.colorScheme.error,
@@ -309,7 +331,7 @@ fun PasswordUnlockView(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Button(
             onClick = {
@@ -320,7 +342,7 @@ fun PasswordUnlockView(
             enabled = passwordInput.isNotBlank() && isLengthValid,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 48.dp)
                 .testTag("submit_password_button"),
             shape = RoundedCornerShape(14.dp)
         ) {

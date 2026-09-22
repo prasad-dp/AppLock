@@ -121,30 +121,16 @@ class BillingManager(
             .build()
 
         billingClient.queryPurchasesAsync(inAppParams) { inAppResult, inAppPurchases ->
-            if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK && inAppPurchases.isNotEmpty()) {
+            if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 for (purchase in inAppPurchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                         foundPremium = true
                         handlePurchase(purchase)
                     }
                 }
-                inAppChecked = true
-                checkFinished()
-            } else {
-                // Fallback: Query purchase history for INAPP across internal, external & production tracks
-                val historyParams = QueryPurchaseHistoryParams.newBuilder()
-                    .setProductType(BillingClient.ProductType.INAPP)
-                    .build()
-                billingClient.queryPurchaseHistoryAsync(historyParams) { historyResult, historyList ->
-                    if (historyResult.responseCode == BillingClient.BillingResponseCode.OK && !historyList.isNullOrEmpty()) {
-                        Log.d(TAG, "Found historical in-app purchase for account. Restoring Pro status.")
-                        foundPremium = true
-                        updatePremiumState(true)
-                    }
-                    inAppChecked = true
-                    checkFinished()
-                }
             }
+            inAppChecked = true
+            checkFinished()
         }
 
         // 2. Query SUBS active purchases
@@ -153,29 +139,16 @@ class BillingManager(
             .build()
 
         billingClient.queryPurchasesAsync(subsParams) { subsResult, subsPurchases ->
-            if (subsResult.responseCode == BillingClient.BillingResponseCode.OK && subsPurchases.isNotEmpty()) {
+            if (subsResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 for (purchase in subsPurchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                         foundPremium = true
                         handlePurchase(purchase)
                     }
                 }
-                subsChecked = true
-                checkFinished()
-            } else {
-                val subsHistoryParams = QueryPurchaseHistoryParams.newBuilder()
-                    .setProductType(BillingClient.ProductType.SUBS)
-                    .build()
-                billingClient.queryPurchaseHistoryAsync(subsHistoryParams) { subsHistoryResult, subsHistoryList ->
-                    if (subsHistoryResult.responseCode == BillingClient.BillingResponseCode.OK && !subsHistoryList.isNullOrEmpty()) {
-                        Log.d(TAG, "Found historical subscription purchase for account. Restoring Pro status.")
-                        foundPremium = true
-                        updatePremiumState(true)
-                    }
-                    subsChecked = true
-                    checkFinished()
-                }
             }
+            subsChecked = true
+            checkFinished()
         }
     }
 
@@ -193,17 +166,20 @@ class BillingManager(
             .setProductList(productList)
             .build()
 
-        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
-                val detailsMap = mutableMapOf<String, ProductDetails>()
-                for (details in productDetailsList) {
-                    detailsMap[details.productId] = details
-                    val price = details.oneTimePurchaseOfferDetails?.formattedPrice
-                    if (price != null && _formattedPrice.value == null) {
-                        _formattedPrice.value = price
+        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsResult ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                val productDetailsList = productDetailsResult.productDetailsList
+                if (!productDetailsList.isNullOrEmpty()) {
+                    val detailsMap = mutableMapOf<String, ProductDetails>()
+                    for (details in productDetailsList) {
+                        detailsMap[details.productId] = details
+                        val price = details.oneTimePurchaseOfferDetails?.formattedPrice
+                        if (price != null && _formattedPrice.value == null) {
+                            _formattedPrice.value = price
+                        }
                     }
+                    productDetailsMap = detailsMap
                 }
-                productDetailsMap = detailsMap
             }
         }
     }
