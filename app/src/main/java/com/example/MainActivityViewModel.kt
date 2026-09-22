@@ -103,10 +103,15 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Live counts for All, Locked, and Unlocked tabs respecting the search query
     val appFilterCounts: StateFlow<AppFilterCounts>
 
+    // Reactive mapping of per-app custom relock timeouts
+    private val _perAppTimeouts = MutableStateFlow<Map<String, String>>(emptyMap())
+    val perAppTimeouts: StateFlow<Map<String, String>> = _perAppTimeouts.asStateFlow()
+
     init {
         val database = AppDatabase.getInstance(context)
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
         lockedAppsFlow = repository.allLockedAppsStateFlow
+        _perAppTimeouts.value = prefs.getAllPerAppRelockTimeouts()
 
         appFilterCounts = combine(_installedApps, lockedAppsFlow) { installed, lockedList ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
@@ -239,6 +244,21 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun setFilterMode(mode: AppFilterMode) {
         _filterMode.value = mode
+    }
+
+    fun getPerAppRelockTimeout(packageName: String): String? {
+        return _perAppTimeouts.value[packageName] ?: prefs.getPerAppRelockTimeout(packageName)
+    }
+
+    fun setPerAppRelockTimeout(packageName: String, timeout: String?) {
+        prefs.setPerAppRelockTimeout(packageName, timeout)
+        val updated = _perAppTimeouts.value.toMutableMap()
+        if (timeout.isNullOrEmpty() || timeout == "global") {
+            updated.remove(packageName)
+        } else {
+            updated[packageName] = timeout
+        }
+        _perAppTimeouts.value = updated
     }
 
     fun lockRecommendedApps() {

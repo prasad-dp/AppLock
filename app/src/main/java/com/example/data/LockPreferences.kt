@@ -144,6 +144,18 @@ class LockPreferences(context: Context) {
         return prefs.getString("per_app_relock_timeout_$packageName", null)
     }
 
+    fun getAllPerAppRelockTimeouts(): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        val prefix = "per_app_relock_timeout_"
+        for ((key, value) in prefs.all) {
+            if (key.startsWith(prefix) && value is String && value.isNotEmpty()) {
+                val pkg = key.removePrefix(prefix)
+                result[pkg] = value
+            }
+        }
+        return result
+    }
+
     fun setPerAppRelockTimeout(packageName: String, value: String?) {
         if (value.isNullOrEmpty() || value == "global") {
             prefs.edit().remove("per_app_relock_timeout_$packageName").apply()

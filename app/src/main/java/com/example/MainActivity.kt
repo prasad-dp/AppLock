@@ -1122,6 +1122,7 @@ fun DashboardView(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isLoadingApps by viewModel.isLoadingApps.collectAsStateWithLifecycle()
     val filterMode by viewModel.filterMode.collectAsStateWithLifecycle()
+    val perAppTimeouts by viewModel.perAppTimeouts.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showFullSettingsScreen by remember { mutableStateOf(false) }
@@ -1274,13 +1275,13 @@ fun DashboardView(
         PerAppRelockDialog(
             appInfo = targetApp,
             globalTimeout = reLockTimeoutState,
-            currentPerAppTimeout = prefs.getPerAppRelockTimeout(targetApp.packageName),
+            currentPerAppTimeout = viewModel.getPerAppRelockTimeout(targetApp.packageName),
             onDismiss = {
                 showPerAppRelockDialog = false
                 perAppRelockTargetApp = null
             },
             onSave = { selectedTimeout ->
-                prefs.setPerAppRelockTimeout(targetApp.packageName, selectedTimeout)
+                viewModel.setPerAppRelockTimeout(targetApp.packageName, selectedTimeout)
                 showPerAppRelockDialog = false
                 perAppRelockTargetApp = null
                 val label = when (selectedTimeout) {
@@ -3027,9 +3028,10 @@ fun DashboardView(
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     )
                                 }
+                                val currentPerAppTimeout = if (isPremiumUser) perAppTimeouts[appInfo.packageName] else null
                                 AppRowItem(
                                     appInfo = appInfo,
-                                    prefs = prefs,
+                                    perAppTimeout = currentPerAppTimeout,
                                     isPremiumUser = isPremiumUser,
                                     onLockToggled = onLockToggledRemembered,
                                     onPerAppRelockClick = { targetApp ->
@@ -3818,7 +3820,7 @@ fun PerAppRelockDialog(
         else -> "30 Seconds"
     }
 
-    var selectedOption by remember { mutableStateOf(currentPerAppTimeout ?: "global") }
+    var selectedOption by remember(currentPerAppTimeout) { mutableStateOf(currentPerAppTimeout ?: "global") }
 
     val options = listOf(
         "global" to "Use Global Setting ($globalLabel)",
@@ -3902,7 +3904,7 @@ fun PerAppRelockDialog(
                 },
                 modifier = Modifier.testTag("save_per_app_relock_button")
             ) {
-                Text("Save")
+                Text("Done")
             }
         },
         dismissButton = {
@@ -3916,21 +3918,17 @@ fun PerAppRelockDialog(
 @Composable
 fun AppRowItem(
     appInfo: GridAppInfo,
-    prefs: LockPreferences,
+    perAppTimeout: String?,
     isPremiumUser: Boolean,
     onLockToggled: (GridAppInfo, Boolean) -> Unit,
     onPerAppRelockClick: (GridAppInfo) -> Unit
 ) {
     val context = LocalContext.current
-    var perAppTimeout by remember(appInfo.packageName, isPremiumUser) {
-        mutableStateOf(if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null)
-    }
     var appIcon by remember(appInfo.packageName) { 
         mutableStateOf<android.graphics.drawable.Drawable?>(AppIconCache.get(appInfo.packageName)) 
     }
 
-    LaunchedEffect(appInfo.packageName, isPremiumUser) {
-        perAppTimeout = if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null
+    LaunchedEffect(appInfo.packageName) {
         if (appIcon != null) return@LaunchedEffect
         
         val pm = context.packageManager
@@ -3997,21 +3995,6 @@ fun AppRowItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (appInfo.isLocked) {
-                    val badgeLabel = when (perAppTimeout) {
-                        "immediately" -> "Instant 0ms"
-                        "15_sec" -> "15s custom"
-                        "30_sec" -> "30s custom"
-                        "1_min" -> "1m custom"
-                        "5_min" -> "5m custom"
-                        else -> "Standard relock"
-                    }
-                    Text(
-                        text = badgeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
             if (appInfo.isLocked) {
@@ -4033,8 +4016,8 @@ fun AppRowItem(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = "Custom Relock Timer",
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Relock Timer",
                             tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(15.dp)
                         )
@@ -4053,7 +4036,7 @@ fun AppRowItem(
                                     "30_sec" -> "30s"
                                     "1_min" -> "1m"
                                     "5_min" -> "5m"
-                                    else -> "Default"
+                                    else -> "Global"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
