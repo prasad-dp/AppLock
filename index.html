@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App Locker & Intruder Security Vault - Official Site & Privacy Policy</title>
-    <meta name="description" content="Enterprise-grade Android app locker with 0ms Instant Interception, hardware-backed AES-256 GCM encryption, silent front-camera intruder snapshots, and biometric vault protection.">
-    <meta name="theme-color" content="#0F172A">
+    <title>App Locker - Privacy Guard & Security Vault</title>
+    <meta name="description" content="Protect your privacy with App Locker. Featuring 0ms Instant Interception, hardware-backed AES-256 encryption, silent intruder snapshots, and biometric security.">
+    <meta name="theme-color" content="#070A12">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #0B0F19;
-            --card-bg: #131B2E;
-            --card-border: #1E293B;
+            --bg-dark: #070A12;
+            --card-bg: rgba(18, 25, 43, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
             --primary-blue: #3B82F6;
             --accent-cyan: #06B6D4;
+            --accent-indigo: #6366F1;
             --accent-green: #10B981;
             --text-main: #F8FAFC;
             --text-muted: #94A3B8;
@@ -38,14 +39,71 @@
             color: var(--text-main);
             line-height: 1.6;
             overflow-x: hidden;
+            position: relative;
         }
 
+        /* Ambient Glow Background Orbs */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.35;
+            animation: floatOrb 18s ease-in-out infinite alternate;
+        }
+
+        .orb-1 {
+            width: 550px;
+            height: 550px;
+            background: radial-gradient(circle, #2563EB, transparent 70%);
+            top: -100px;
+            left: -100px;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #06B6D4, transparent 70%);
+            top: 30%;
+            right: -100px;
+            animation-duration: 22s;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, #4F46E5, transparent 70%);
+            bottom: 5%;
+            left: 15%;
+            animation-duration: 26s;
+            animation-delay: -10s;
+        }
+
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(40px, 60px) scale(1.1); }
+            100% { transform: translate(-30px, -40px) scale(0.95); }
+        }
+
+        /* Header Navigation */
         header {
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(16px);
-            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(7, 10, 18, 0.75);
             border-bottom: 1px solid var(--card-border);
             padding: 16px 24px;
         }
@@ -69,9 +127,22 @@
             letter-spacing: -0.02em;
         }
 
-        .brand-logo span.badge {
+        .brand-logo .shield-icon {
+            width: 36px;
+            height: 36px;
             background: linear-gradient(135deg, #3B82F6, #06B6D4);
-            color: #fff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+            font-size: 1.1rem;
+        }
+
+        .brand-logo span.badge {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            color: #60A5FA;
             font-size: 0.7rem;
             padding: 2px 8px;
             border-radius: 9999px;
@@ -81,7 +152,7 @@
 
         .nav-links {
             display: flex;
-            gap: 24px;
+            gap: 28px;
             align-items: center;
         }
 
@@ -90,59 +161,70 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 0.95rem;
-            transition: color 0.2s;
+            transition: color 0.2s ease;
         }
 
-        .nav-links a:hover, .nav-links a.active {
+        .nav-links a:hover {
             color: var(--accent-cyan);
         }
 
         .btn-download {
             background: linear-gradient(135deg, #2563EB, #06B6D4);
             color: #ffffff !important;
-            padding: 10px 20px;
+            padding: 10px 22px;
             border-radius: 12px;
             font-weight: 700 !important;
-            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 18px rgba(37, 99, 235, 0.4);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .btn-download:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6);
         }
 
+        /* Hero Section */
         .hero {
-            padding: 80px 24px 60px;
+            padding: 90px 24px 70px;
             max-width: 1200px;
             margin: 0 auto;
             text-align: center;
             position: relative;
+            z-index: 1;
         }
 
         .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 16px;
+            padding: 6px 18px;
             border-radius: 9999px;
-            background: rgba(59, 130, 246, 0.12);
+            background: rgba(59, 130, 246, 0.1);
             border: 1px solid rgba(59, 130, 246, 0.3);
             color: var(--accent-cyan);
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 24px;
+            backdrop-filter: blur(8px);
         }
 
         .hero h1 {
-            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-size: clamp(2.4rem, 5.5vw, 4.2rem);
             font-weight: 800;
-            line-height: 1.15;
+            line-height: 1.12;
             letter-spacing: -0.03em;
-            margin-bottom: 20px;
-            background: linear-gradient(180deg, #FFFFFF 30%, #94A3B8 100%);
+            margin-bottom: 24px;
+            background: linear-gradient(180deg, #FFFFFF 40%, #94A3B8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero h1 span.gradient-text {
+            background: linear-gradient(135deg, #60A5FA 20%, #22D3EE 80%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -150,8 +232,9 @@
         .hero p.lead {
             font-size: 1.2rem;
             color: var(--text-muted);
-            max-width: 760px;
+            max-width: 720px;
             margin: 0 auto 36px;
+            line-height: 1.65;
         }
 
         .hero-cta {
@@ -159,42 +242,256 @@
             justify-content: center;
             gap: 16px;
             flex-wrap: wrap;
+            margin-bottom: 60px;
         }
 
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 12px 26px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Metrics / Trust Banner */
+        .trust-strip {
+            max-width: 1000px;
+            margin: 0 auto 60px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .trust-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            transition: transform 0.2s ease;
+        }
+
+        .trust-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .trust-val {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38BDF8, #818CF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+
+        .trust-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Interactive Simulator / Demo Mockup */
+        .demo-section {
+            max-width: 900px;
+            margin: 20px auto 80px;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .demo-wrapper {
+            background: linear-gradient(180deg, rgba(19, 27, 46, 0.9) 0%, rgba(11, 15, 25, 0.9) 100%);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 40px;
+            box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(59, 130, 246, 0.15);
+            backdrop-filter: blur(20px);
+        }
+
+        .demo-nav {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-muted);
+            padding: 8px 20px;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .demo-btn.active, .demo-btn:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: #3B82F6;
+            color: #FFFFFF;
+        }
+
+        .demo-card {
+            display: none;
+            animation: fadeIn 0.35s ease forwards;
+        }
+
+        .demo-card.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mockup-frame {
+            max-width: 380px;
+            margin: 0 auto;
+            background: #0B0F19;
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 36px;
+            padding: 24px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .phone-status-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            margin-bottom: 24px;
+            padding: 0 8px;
+        }
+
+        .phone-content {
+            text-align: center;
+        }
+
+        .phone-app-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(6, 182, 212, 0.2));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .pin-dots {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin: 24px 0;
+        }
+
+        .pin-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--card-border);
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .pin-dot.filled {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-width: 240px;
+            margin: 0 auto;
+        }
+
+        .key-btn {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .key-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3B82F6;
+            transform: scale(1.05);
+        }
+
+        /* Features Grid */
         .features-grid {
             max-width: 1200px;
-            margin: 60px auto;
+            margin: 40px auto 90px;
             padding: 0 24px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 24px;
+            position: relative;
+            z-index: 1;
         }
 
         .feature-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: 32px;
+            border-radius: 24px;
+            padding: 34px;
             position: relative;
-            transition: transform 0.2s, border-color 0.2s;
+            backdrop-filter: blur(16px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .feature-card:hover {
-            transform: translateY(-4px);
-            border-color: #3B82F6;
+            transform: translateY(-6px);
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: 0 16px 36px -10px rgba(59, 130, 246, 0.2);
         }
 
         .feature-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: rgba(59, 130, 246, 0.15);
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            background: rgba(59, 130, 246, 0.12);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.6rem;
-            margin-bottom: 20px;
+            font-size: 1.7rem;
+            margin-bottom: 22px;
             border: 1px solid rgba(59, 130, 246, 0.25);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
         }
 
         .feature-card h3 {
@@ -207,23 +504,28 @@
         .feature-card p {
             color: var(--text-muted);
             font-size: 0.95rem;
-            line-height: 1.6;
+            line-height: 1.65;
         }
 
+        /* Privacy Policy Section */
         .privacy-section {
-            max-width: 900px;
-            margin: 80px auto;
-            padding: 40px 32px;
+            max-width: 960px;
+            margin: 60px auto 100px;
+            padding: 48px 40px;
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 24px;
+            border-radius: 28px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            z-index: 1;
         }
 
         .privacy-section h2 {
-            font-size: 2rem;
+            font-size: 2.2rem;
             color: #ffffff;
             margin-bottom: 8px;
             font-weight: 800;
+            letter-spacing: -0.02em;
         }
 
         .privacy-section p.updated {
@@ -232,117 +534,278 @@
             margin-bottom: 32px;
         }
 
+        .privacy-callout {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 4px solid #3B82F6;
+            padding: 18px 24px;
+            border-radius: 0 14px 14px 0;
+            margin-bottom: 36px;
+            color: #E2E8F0;
+        }
+
         .privacy-section h3 {
             font-size: 1.25rem;
             color: var(--accent-cyan);
-            margin: 28px 0 12px;
+            margin: 32px 0 14px;
             font-weight: 700;
         }
 
         .privacy-section p {
             color: var(--text-muted);
             margin-bottom: 16px;
+            font-size: 0.98rem;
         }
 
         .privacy-section ul {
             padding-left: 24px;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             color: var(--text-muted);
         }
 
         .privacy-section li {
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            font-size: 0.98rem;
         }
 
         code {
             background: rgba(15, 23, 42, 0.8);
             border: 1px solid var(--card-border);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
             color: var(--accent-cyan);
         }
 
+        /* Footer */
         footer {
             border-top: 1px solid var(--card-border);
-            padding: 40px 24px;
+            padding: 48px 24px;
             text-align: center;
             color: var(--text-sub);
             font-size: 0.9rem;
+            background: rgba(7, 10, 18, 0.9);
+            position: relative;
+            z-index: 1;
         }
 
         footer a {
             color: var(--accent-cyan);
             text-decoration: none;
-            margin: 0 8px;
+            margin: 0 10px;
+            transition: color 0.2s ease;
         }
 
         footer a:hover {
+            color: #FFFFFF;
             text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            .hero {
+                padding: 60px 16px 40px;
+            }
+            .privacy-section {
+                padding: 32px 20px;
+            }
+            .demo-wrapper {
+                padding: 24px 16px;
+            }
         }
     </style>
 </head>
 <body>
 
+    <!-- Ambient Glowing Background Elements -->
+    <div class="ambient-glow">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Navigation Header -->
     <header>
         <div class="nav-container">
             <a href="#" class="brand-logo">
-                🛡️ App Locker <span class="badge">v1.0.1</span>
+                <div class="shield-icon">🛡️</div>
+                <span>App Locker</span>
+                <span class="badge">v1.0.1</span>
             </a>
             <div class="nav-links">
                 <a href="#features">Features</a>
+                <a href="#demo">Preview</a>
                 <a href="#privacy">Privacy Policy</a>
                 <a href="#contact">Contact</a>
-                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download">Get on Play Store</a>
+                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download">
+                    Get on Google Play
+                </a>
             </div>
         </div>
     </header>
 
     <main>
+        <!-- Hero Section -->
         <section class="hero">
-            <div class="hero-badge">⚡ 0ms Zero-Delay Window Interception & Hardware KeyStore AES-256</div>
-            <h1>The Ultimate Shield for Your Android Apps & Privacy</h1>
-            <p class="lead">Protect WhatsApp, Banking, Photos, and System Settings. Silently capture front-camera intruder snapshots with hardware-backed encryption and zero-latency window locking.</p>
+            <div class="hero-badge">⚡ 0ms Zero-Latency Shield & On-Device Cryptography</div>
+            <h1>The Ultimate Shield for Your <span class="gradient-text">Apps & Privacy</span></h1>
+            <p class="lead">Protect WhatsApp, Banking, Photos, and System Settings. Silently capture front-camera intruder snapshots with hardware-backed AES-256 encryption and zero-latency window locking.</p>
             
             <div class="hero-cta">
-                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download" style="font-size: 1.05rem; padding: 14px 28px;">
+                <a href="https://play.google.com/store/apps/details?id=com.aistudio.applocker.kyzqpz" target="_blank" class="btn-download" style="font-size: 1.05rem; padding: 14px 30px;">
                     Download on Google Play
                 </a>
-                <a href="#privacy" class="btn-download" style="background: transparent; border: 1px solid var(--card-border); box-shadow: none;">
+                <a href="#privacy" class="btn-secondary">
                     Read Privacy Policy
                 </a>
             </div>
         </section>
 
+        <!-- Trust & Security Metrics Strip -->
+        <section class="trust-strip">
+            <div class="trust-card">
+                <div class="trust-val">0ms</div>
+                <div class="trust-label">Instant Lock Interception</div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-val">100%</div>
+                <div class="trust-label">Local On-Device Processing</div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-val">256-bit</div>
+                <div class="trust-label">KeyStore AES-GCM Encryption</div>
+            </div>
+            <div class="trust-card">
+                <div class="trust-val">0 Bytes</div>
+                <div class="trust-label">Cloud Uploads or Tracking</div>
+            </div>
+        </section>
+
+        <!-- Interactive Lock Simulator -->
+        <section class="demo-section" id="demo">
+            <div class="demo-wrapper">
+                <div class="demo-nav">
+                    <button class="demo-btn active" onclick="switchDemo('pin')">4-Digit PIN Lock</button>
+                    <button class="demo-btn" onclick="switchDemo('pattern')">Pattern Shield</button>
+                    <button class="demo-btn" onclick="switchDemo('intruder')">Silent Intruder Alert</button>
+                </div>
+
+                <!-- PIN Demo Card -->
+                <div class="demo-card active" id="demo-pin">
+                    <div class="mockup-frame">
+                        <div class="phone-status-bar">
+                            <span>09:41</span>
+                            <span>5G • 100%</span>
+                        </div>
+                        <div class="phone-content">
+                            <div class="phone-app-icon">💬</div>
+                            <h4 style="font-size: 1.1rem; margin-bottom: 4px;">WhatsApp</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">Enter 4-Digit Security PIN</p>
+                            <div class="pin-dots">
+                                <div class="pin-dot filled"></div>
+                                <div class="pin-dot filled"></div>
+                                <div class="pin-dot"></div>
+                                <div class="pin-dot"></div>
+                            </div>
+                            <div class="keypad-grid">
+                                <div class="key-btn">1</div>
+                                <div class="key-btn">2</div>
+                                <div class="key-btn">3</div>
+                                <div class="key-btn">4</div>
+                                <div class="key-btn">5</div>
+                                <div class="key-btn">6</div>
+                                <div class="key-btn">7</div>
+                                <div class="key-btn">8</div>
+                                <div class="key-btn">9</div>
+                                <div class="key-btn" style="font-size: 1.4rem;">👆</div>
+                                <div class="key-btn">0</div>
+                                <div class="key-btn" style="font-size: 1.1rem;">⌫</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pattern Demo Card -->
+                <div class="demo-card" id="demo-pattern">
+                    <div class="mockup-frame">
+                        <div class="phone-status-bar">
+                            <span>09:41</span>
+                            <span>5G • 100%</span>
+                        </div>
+                        <div class="phone-content">
+                            <div class="phone-app-icon" style="background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.3);">🏦</div>
+                            <h4 style="font-size: 1.1rem; margin-bottom: 4px;">Banking & Finance</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">Draw Pattern to Unlock</p>
+                            <div style="display: grid; grid-template-columns: repeat(3, 44px); gap: 28px; justify-content: center; margin: 40px auto;">
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: #06B6D4; box-shadow: 0 0 10px #06B6D4; margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: #06B6D4; box-shadow: 0 0 10px #06B6D4; margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: #06B6D4; box-shadow: 0 0 10px #06B6D4; margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: auto;"></div>
+                                <div style="width: 14px; height: 14px; border-radius: 50%; background: #06B6D4; box-shadow: 0 0 10px #06B6D4; margin: auto;"></div>
+                            </div>
+                            <p style="font-size: 0.78rem; color: #10B981; font-weight: 600;">✓ Biometric Bypass Enabled</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Intruder Demo Card -->
+                <div class="demo-card" id="demo-intruder">
+                    <div class="mockup-frame">
+                        <div class="phone-status-bar">
+                            <span>09:41</span>
+                            <span>5G • 100%</span>
+                        </div>
+                        <div class="phone-content">
+                            <div class="phone-app-icon" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.3);">🚨</div>
+                            <h4 style="font-size: 1.1rem; margin-bottom: 4px; color: #F87171;">Intruder Alert Triggered</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">Failed Passcode Attempt Detected</p>
+                            <div style="width: 160px; height: 160px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px dashed rgba(239, 68, 68, 0.4); margin: 24px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                                <span style="font-size: 2.2rem;">📸</span>
+                                <span style="font-size: 0.75rem; color: var(--accent-cyan);">Encrypted In KeyStore</span>
+                            </div>
+                            <p style="font-size: 0.75rem; color: var(--text-sub);">Zero unencrypted raw photos touch storage disk.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Features Grid -->
         <section class="features-grid" id="features">
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
                 <h3>0ms Instant Interception</h3>
-                <p>Intercepts protected app launches at the window creation layer via <code>AccessibilityService</code> before any screen content draws. Eliminates flickers and glimpses completely.</p>
+                <p>Intercepts protected app launches at the window creation layer before screen content draws. Eliminates flickers and glimpses completely.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">📸</div>
                 <h3>Silent Intruder Detector</h3>
-                <p>Google CameraX silently captures a high-definition front-camera snapshot when anyone inputs an incorrect PIN, Pattern, or Password after configurable failed attempts.</p>
+                <p>Silently captures a high-definition front-camera snapshot when anyone inputs an incorrect passcode after configured failed attempts.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🛡️</div>
                 <h3>Hardware-Backed AES-256</h3>
-                <p>Intruder photos are encrypted in memory with 256-bit AES GCM using keys securely stored in the hardware <strong>Android KeyStore</strong>. Zero unencrypted raw files touch disk.</p>
+                <p>Intruder photos are encrypted in memory with 256-bit AES GCM using keys securely stored in the hardware Android KeyStore.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">👁️</div>
                 <h3>Biometric Vault Shield</h3>
-                <p>All intruder snapshot logs remain blurred and locked until verified via device Fingerprint, Face Recognition, or Master Credential.</p>
+                <p>All intruder snapshot logs remain blurred and secured until verified via device Fingerprint, Face Recognition, or Master Credential.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🔄</div>
                 <h3>Smart Double-Lock Advisor</h3>
-                <p>Intelligently detects apps with native biometric locks (WhatsApp, Banking apps, Google Wallet) and prevents infinite authentication loops.</p>
+                <p>Intelligently coordinates with apps having native biometric locks (WhatsApp, Banking apps, Google Wallet) to prevent infinite authentication loops.</p>
             </div>
 
             <div class="feature-card">
@@ -352,53 +815,71 @@
             </div>
         </section>
 
+        <!-- Official Privacy Policy Section -->
         <section class="privacy-section" id="privacy">
             <h2>Official Privacy Policy</h2>
             <p class="updated">Last Updated: August 18, 2026 | Effective Date: August 18, 2026</p>
+
+            <div class="privacy-callout">
+                <strong>Privacy Commitment:</strong> App Locker operates on a strict 100% on-device architecture. Passwords, intruder photos, and app lock lists never leave your device and are never uploaded to any cloud server.
+            </div>
 
             <p>This Privacy Policy applies to the <strong>App Locker & Intruder Security Vault</strong> mobile application (Package ID: <code>com.aistudio.applocker.kyzqpz</code>) developed by the App Locker Security Team.</p>
 
             <h3>1. Zero Remote Storage & Local Data Processing</h3>
             <p>We believe in absolute data privacy. All core security operations execute strictly locally on your Android device:</p>
             <ul>
-                <li><strong>Intruder Photos:</strong> When an intruder enters an incorrect passcode, a front-camera snapshot is captured, immediately encrypted with hardware-backed AES-256 GCM, and saved to private sandboxed app storage. <strong>Intruder photos are never uploaded to any cloud server, third-party database, or external service.</strong></li>
+                <li><strong>Intruder Photos:</strong> When an intruder enters an incorrect passcode, a front-camera snapshot is captured, immediately encrypted with hardware-backed AES-256 GCM, and saved to private sandboxed app storage. Intruder photos are never uploaded to any cloud server or third-party service.</li>
                 <li><strong>Passcodes & Hash Digests:</strong> Passwords, PINs, and Pattern sequences are stored exclusively on-device in salted, encrypted format.</li>
                 <li><strong>Biometric Data:</strong> Fingerprint and Face Unlock authentication is handled directly by Android's native <code>BiometricPrompt</code> API. The app never accesses, stores, or handles raw biometric templates.</li>
-                <li><strong>Installed App Lists:</strong> Application metadata is queried locally to populate your app lock list and is never tracked or shared.</li>
+                <li><strong>Installed App Lists:</strong> Application metadata is queried locally to populate your app lock list and is never tracked, shared, or logged.</li>
             </ul>
 
             <h3>2. Required Android System Permissions & Purpose</h3>
             <ul>
-                <li><strong>Accessibility Service (BIND_ACCESSIBILITY_SERVICE):</strong> Used exclusively to power the 0ms Instant Lock Engine by detecting window state transitions (<code>TYPE_WINDOW_STATE_CHANGED</code>) when a protected app is launched. We do <strong>not</strong> read screen text, intercept user keystrokes, track user inputs, or collect personal data.</li>
-                <li><strong>Usage Access (PACKAGE_USAGE_STATS):</strong> Used by the fallback monitoring service to identify foreground application changes.</li>
-                <li><strong>Display Over Other Apps (SYSTEM_ALERT_WINDOW):</strong> Enables the high-priority lock screen overlay above locked applications.</li>
-                <li><strong>Camera (CAMERA):</strong> Used solely to capture silent intruder photos when failed unlock attempts exceed the user-defined threshold.</li>
-                <li><strong>Biometrics (USE_BIOMETRIC / USE_FINGERPRINT):</strong> Allows one-touch biometric authentication for the owner.</li>
-                <li><strong>Foreground Service (FOREGROUND_SERVICE):</strong> Ensures continuous, uninterrupted background protection.</li>
+                <li><strong>Accessibility Service (<code>BIND_ACCESSIBILITY_SERVICE</code>):</strong> Used exclusively to power the 0ms Instant Lock Engine by detecting window state transitions when a protected app is launched. We strictly do <strong>not</strong> read screen text, intercept user keystrokes, track user inputs, or collect personal data.</li>
+                <li><strong>Usage Access (<code>PACKAGE_USAGE_STATS</code>):</strong> Used as a fallback foreground monitoring mechanism when accessibility service is disabled.</li>
+                <li><strong>Display Over Other Apps (<code>SYSTEM_ALERT_WINDOW</code>):</strong> Enables rendering the lock overlay interface immediately above protected apps.</li>
+                <li><strong>Camera (<code>CAMERA</code>):</strong> Used solely to capture silent intruder photos when failed unlock attempts exceed the user-defined threshold.</li>
+                <li><strong>Biometrics (<code>USE_BIOMETRIC</code> / <code>USE_FINGERPRINT</code>):</strong> Authenticates the authorized user via device hardware sensors.</li>
+                <li><strong>Foreground Service (<code>FOREGROUND_SERVICE</code>):</strong> Maintains continuous background protection so apps remain locked reliably.</li>
             </ul>
 
             <h3>3. Third-Party Services & Monetization</h3>
             <p>Our app incorporates Google Mobile Ads (AdMob) and Google Play Billing:</p>
             <ul>
-                <li><strong>Google AdMob:</strong> May collect anonymous or pseudonymous device identifiers (such as Android Advertising ID) for ad delivery, fraud prevention, and analytics in accordance with Google's Advertising Policies. Pro subscribers enjoy an ad-free experience. Developer verification file is hosted at <a href="app-ads.txt" style="color: var(--accent-cyan);">app-ads.txt</a>.</li>
-                <li><strong>Google Play In-App Billing:</strong> Handles secure purchase transactions for Pro subscriptions. Payment details are processed directly by Google Play.</li>
+                <li><strong>Google AdMob:</strong> May collect anonymous or pseudonymous device identifiers (such as Android Advertising ID) for ad delivery, fraud prevention, and analytics in accordance with Google's Advertising Policies. Developer verification file is hosted at <a href="app-ads.txt" style="color: var(--accent-cyan);">app-ads.txt</a>.</li>
+                <li><strong>Google Play In-App Billing:</strong> Handles secure purchase transactions for optional upgrades. Payment details are processed directly by Google Play.</li>
             </ul>
 
             <h3>4. Data Deletion & Multi-Pass Shredding</h3>
-            <p>You maintain full control over your data. All intruder alerts and photos can be deleted at any time from the Intruder Logs tab. Deletion triggers a 3-pass forensic shredder that overwrites physical storage sectors with random noise and zeros. Uninstalling the app permanently purges all encrypted logs from the device.</p>
+            <p>You maintain full control over your data. All intruder alerts and photos can be deleted at any time from within the app. Deletion triggers a 3-pass forensic shredder that overwrites physical storage sectors with random noise and zeros. Uninstalling the app permanently purges all encrypted logs from the device.</p>
 
             <h3>5. Children's Privacy</h3>
             <p>Our application is not directed at children under the age of 13. We do not knowingly collect personal information from children.</p>
 
             <h3>6. Developer Contact & Support</h3>
             <p id="contact">For any privacy questions, security disclosures, or support requests, please contact:</p>
-            <p><strong>Developer Email:</strong> <a href="mailto:dptechsupport10@gmail.com" style="color: var(--accent-cyan);">dptechsupport10@gmail.com</a></p>
+            <p><strong>Developer Email:</strong> <a href="mailto:dptechsupport10@gmail.com" style="color: var(--accent-cyan); font-weight: 600;">dptechsupport10@gmail.com</a></p>
         </section>
     </main>
 
+    <!-- Footer -->
     <footer>
         <p>&copy; 2026 App Locker & Intruder Security Vault. All rights reserved. | <a href="#privacy">Privacy Policy</a> | <a href="app-ads.txt">AdMob app-ads.txt</a></p>
     </footer>
 
+    <!-- Interactive Simulator Script -->
+    <script>
+        function switchDemo(type) {
+            document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.demo-card').forEach(c => c.classList.remove('active'));
+            
+            const selectedBtn = event.currentTarget;
+            const targetCard = document.getElementById('demo-' + type);
+            if (selectedBtn) selectedBtn.classList.add('active');
+            if (targetCard) targetCard.classList.add('active');
+        }
+    </script>
 </body>
 </html>
