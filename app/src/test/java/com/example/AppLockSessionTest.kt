@@ -134,4 +134,55 @@ class AppLockSessionTest {
             AppLockSession.shouldThrottleLaunch(testPkg)
         )
     }
+
+    @Test
+    fun testGoToHomeTransitionProtection() {
+        val testPkg = "com.snapchat.android"
+
+        // Initially not exiting to home
+        assertFalse(AppLockSession.isExitingToHome(testPkg))
+
+        // Mark go to home from Snapchat
+        AppLockSession.markGoToHome(testPkg)
+        assertTrue("Should be exiting to home for Snapchat", AppLockSession.isExitingToHome(testPkg))
+        assertTrue("Should also be exiting to home generally", AppLockSession.isExitingToHome(null))
+
+        // Different package check
+        assertFalse("Should not match exiting to home for a different package", AppLockSession.isExitingToHome("com.instagram.android"))
+
+        // Clear go to home when landing on Launcher
+        AppLockSession.clearGoToHome()
+        assertFalse("Should no longer be exiting to home after landing on launcher", AppLockSession.isExitingToHome(testPkg))
+    }
+
+    @Test
+    fun testGenuineAppEntryNavigation() {
+        val launcherPkg = "com.sec.android.app.launcher"
+        val whatsAppPkg = "com.whatsapp"
+
+        // 1. Initial transition from Launcher into WhatsApp is a GENUINE entry
+        AppLockSession.setCurrentForeground(launcherPkg)
+        assertTrue(
+            "Transitioning from Launcher into WhatsApp must be detected as genuine app entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
+
+        // 2. Set current foreground to WhatsApp
+        AppLockSession.setCurrentForeground(whatsAppPkg)
+
+        // 3. Navigation inside WhatsApp (activity changes, back presses) must NOT be genuine new entry
+        assertFalse(
+            "Internal activity changes or back press inside WhatsApp must NOT be flagged as genuine new entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
+
+        // 4. Pressing back to exit to Launcher
+        AppLockSession.setCurrentForeground(launcherPkg)
+
+        // 5. Re-entering WhatsApp from Launcher is again a genuine new entry
+        assertTrue(
+            "Re-entering WhatsApp from Launcher after exiting must be detected as genuine entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
+    }
 }

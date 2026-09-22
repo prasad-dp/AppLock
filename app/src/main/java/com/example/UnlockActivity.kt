@@ -121,6 +121,7 @@ class UnlockActivity : FragmentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         val pkg = targetPackageState.value
+        AppLockSession.markGoToHome(pkg)
         if (pkg != null && !AppLockSession.isUnlocked(pkg)) {
             AppLockSession.activeUnlockingPackage = null
         }
@@ -156,6 +157,8 @@ class UnlockActivity : FragmentActivity() {
     }
 
     private fun goToHome() {
+        val pkg = targetPackageState.value
+        AppLockSession.markGoToHome(pkg)
         AppLockSession.activeUnlockingPackage = null
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)

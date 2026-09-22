@@ -164,4 +164,55 @@ object AppLockPackageHelper {
         }
         return false
     }
+
+    /**
+     * Verifies whether the target package is ACTUALLY the active foreground application window.
+     * Prevents lock screen popups during Recents swiping, app destruction, snapshot removal, or background cleanup.
+     */
+    fun isAppTargetInActiveForeground(
+        service: android.accessibilityservice.AccessibilityService,
+        targetPackage: String
+    ): Boolean {
+        if (targetPackage.isEmpty()) return false
+        if (targetPackage == service.packageName) return false
+
+        // 1. Check active root node package
+        val activeRootPkg = try {
+            service.rootInActiveWindow?.packageName?.toString()
+        } catch (_: Exception) { null }
+
+        if (!activeRootPkg.isNullOrEmpty()) {
+            if (activeRootPkg == targetPackage) {
+                return true
+            }
+            if (isLauncherPackage(service, activeRootPkg) || isSystemOrTransientPackage(service, activeRootPkg)) {
+                // Active foreground window is Launcher, SystemUI, or Recents -> target app is NOT in foreground!
+                return false
+            }
+            // Active window belongs to a different app entirely
+            if (activeRootPkg != service.packageName && activeRootPkg != targetPackage) {
+                return false
+            }
+        }
+
+        // 2. Inspect active interactive windows
+        try {
+            val windows = service.windows
+            if (!windows.isNullOrEmpty()) {
+                for (window in windows) {
+                    if (window.isFocused || window.isActive) {
+                        val windowPkg = window.root?.packageName?.toString() ?: continue
+                        if (windowPkg == targetPackage) {
+                            return true
+                        }
+                        if (isLauncherPackage(service, windowPkg) || isSystemOrTransientPackage(service, windowPkg)) {
+                            return false
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        return activeRootPkg == null || activeRootPkg == targetPackage
+    }
 }
