@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.service.AppLockSession
 import com.example.util.AppLockPackageHelper
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -20,6 +21,11 @@ class AppLockSessionTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        AppLockSession.clearSession()
+    }
+
+    @After
+    fun tearDown() {
         AppLockSession.clearSession()
     }
 

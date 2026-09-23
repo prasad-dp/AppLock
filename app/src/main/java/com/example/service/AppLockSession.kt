@@ -20,17 +20,22 @@ object AppLockSession {
      * If the user was already inside targetPackage, returns false to prevent re-triggering
      * lock overlays during internal activity navigation, back-button presses, or activity destruction.
      */
-    fun isGenuineAppEntry(targetPackage: String, previousApp: String? = currentForegroundApp): Boolean {
-        if (previousApp == null) return true
-        if (previousApp == targetPackage && isUnlocked(targetPackage)) {
-            return false // User was already inside this app and it is unlocked
+    fun isGenuineAppEntry(targetPackage: String, previousApp: String? = null): Boolean {
+        synchronized(unlockedApps) {
+            val prev = previousApp ?: currentForegroundApp
+            if (prev == null) return true
+            if (prev == targetPackage) {
+                return false // User was already inside this app
+            }
+            return true
         }
-        return true
     }
 
     fun setCurrentForeground(packageName: String?) {
-        if (!packageName.isNullOrEmpty() && packageName != "com.example.applocker") {
-            currentForegroundApp = packageName
+        synchronized(unlockedApps) {
+            if (!packageName.isNullOrEmpty() && packageName != "com.example.applocker" && !packageName.startsWith("com.aistudio.applocker")) {
+                currentForegroundApp = packageName
+            }
         }
     }
 
@@ -44,8 +49,6 @@ object AppLockSession {
         synchronized(unlockedApps) {
             lastHomeTransitionTime = System.currentTimeMillis()
             lastHomeExitedPackage = packageName
-            currentForegroundApp = null
-            _activeUnlockingPackage = null
         }
     }
 
@@ -53,7 +56,7 @@ object AppLockSession {
         synchronized(unlockedApps) {
             if (lastHomeTransitionTime == 0L) return false
             val elapsed = System.currentTimeMillis() - lastHomeTransitionTime
-            if (elapsed > 600L) {
+            if (elapsed > 2500L) {
                 lastHomeTransitionTime = 0L
                 lastHomeExitedPackage = null
                 return false
@@ -72,31 +75,9 @@ object AppLockSession {
         }
     }
 
-    // Track the package we are actively unlocking with a 2-second timeout to prevent deadlocks
+    // Track the package we are actively unlocking so we do not launch multiple overlay activities
     @Volatile
-    private var _activeUnlockingPackage: String? = null
-    @Volatile
-    private var _activeUnlockingTime: Long = 0L
-
-    var activeUnlockingPackage: String?
-        get() {
-            if (System.currentTimeMillis() - _activeUnlockingTime > 2000L) {
-                _activeUnlockingPackage = null
-            }
-            return _activeUnlockingPackage
-        }
-        set(value) {
-            _activeUnlockingPackage = value
-            _activeUnlockingTime = if (value != null) System.currentTimeMillis() else 0L
-        }
-
-    fun isUnlockingNow(pkg: String): Boolean {
-        if (System.currentTimeMillis() - _activeUnlockingTime > 2000L) {
-            _activeUnlockingPackage = null
-            return false
-        }
-        return _activeUnlockingPackage == pkg
-    }
+    var activeUnlockingPackage: String? = null
 
     // Track state of locker service
     private val _isServiceRunning = MutableStateFlow(false)
@@ -108,9 +89,7 @@ object AppLockSession {
 
     fun isUnlocked(packageName: String): Boolean {
         synchronized(unlockedApps) {
-            if (packageName in unlockedApps) return true
-            val family = com.example.util.AppLockPackageHelper.getPackageFamily(packageName)
-            return family.any { it in unlockedApps }
+            return packageName in unlockedApps
         }
     }
 
@@ -128,12 +107,8 @@ object AppLockSession {
 
     fun updateActiveTime(packageName: String) {
         synchronized(unlockedApps) {
-            val family = com.example.util.AppLockPackageHelper.getPackageFamily(packageName)
-            val now = System.currentTimeMillis()
-            for (pkg in family) {
-                if (pkg in unlockedApps) {
-                    lastActiveTimes[pkg] = now
-                }
+            if (packageName in unlockedApps) {
+                lastActiveTimes[packageName] = System.currentTimeMillis()
             }
         }
     }
@@ -141,13 +116,10 @@ object AppLockSession {
     fun unlockApp(packageName: String) {
         val now = System.currentTimeMillis()
         synchronized(unlockedApps) {
-            val family = com.example.util.AppLockPackageHelper.getPackageFamily(packageName)
-            for (pkg in family) {
-                unlockedApps.add(pkg)
-                unlockTimes[pkg] = now
-                lastUnlockTimes[pkg] = now
-                lastActiveTimes[pkg] = now
-            }
+            unlockedApps.add(packageName)
+            unlockTimes[packageName] = now
+            lastUnlockTimes[packageName] = now
+            lastActiveTimes[packageName] = now
         }
         if (activeUnlockingPackage == packageName) {
             activeUnlockingPackage = null
@@ -156,16 +128,8 @@ object AppLockSession {
 
     fun isRecentlyUnlocked(packageName: String, gracePeriodMs: Long = 2500L): Boolean {
         synchronized(unlockedApps) {
-            val family = com.example.util.AppLockPackageHelper.getPackageFamily(packageName)
-            for (pkg in family) {
-                if (pkg in unlockedApps) {
-                    val unlockTime = lastUnlockTimes[pkg] ?: unlockTimes[pkg] ?: continue
-                    if ((System.currentTimeMillis() - unlockTime) < gracePeriodMs) {
-                        return true
-                    }
-                }
-            }
-            return false
+            val unlockTime = lastUnlockTimes[packageName] ?: unlockTimes[packageName] ?: return false
+            return (System.currentTimeMillis() - unlockTime) < gracePeriodMs
         }
     }
 
@@ -178,13 +142,9 @@ object AppLockSession {
             if (!force && isRecentlyUnlocked(packageName)) {
                 return
             }
-            val family = com.example.util.AppLockPackageHelper.getPackageFamily(packageName)
-            for (pkg in family) {
-                unlockedApps.remove(pkg)
-                unlockTimes.remove(pkg)
-                lastUnlockTimes.remove(pkg)
-                lastActiveTimes.remove(pkg)
-            }
+            unlockedApps.remove(packageName)
+            unlockTimes.remove(packageName)
+            lastActiveTimes.remove(packageName)
         }
     }
 
@@ -193,8 +153,8 @@ object AppLockSession {
     private val loopCooldownUntil = mutableMapOf<String, Long>()
 
     /**
-     * Circuit breaker check to prevent duplicate lock screen launches.
-     * Returns true if the app is unlocked or under circuit breaker cooldown.
+     * Circuit breaker to prevent rapid duplicate lock screen loops.
+     * Throttles launches if the app is already unlocked, recently unlocked, or launched repeatedly.
      */
     fun shouldThrottleLaunch(packageName: String): Boolean {
         val now = System.currentTimeMillis()
@@ -204,31 +164,31 @@ object AppLockSession {
                 return true
             }
 
-            // 2. If the app is under an active circuit breaker cooldown
+            // 2. If app was unlocked within the last 3000ms, NEVER launch unlock screen
+            val unlockTime = lastUnlockTimes[packageName] ?: unlockTimes[packageName] ?: 0L
+            if (unlockTime > 0L && (now - unlockTime < 3000L)) {
+                return true
+            }
+
+            // 3. If the app is under an active circuit breaker cooldown
             val cooldown = loopCooldownUntil[packageName] ?: 0L
             if (now < cooldown) {
                 return true
             }
 
-            return false
-        }
-    }
-
-    /**
-     * Records an actual lock screen launch event.
-     * Trips circuit breaker for 1.5s only if launched more than 3 times in 2 seconds.
-     */
-    fun recordLaunchAttempt(packageName: String) {
-        val now = System.currentTimeMillis()
-        synchronized(unlockedApps) {
+            // 4. Check launch frequency in a rolling 4-second window
             val timestamps = launchHistory.getOrPut(packageName) { mutableListOf() }
-            timestamps.removeAll { now - it > 2000L }
-            timestamps.add(now)
+            timestamps.removeAll { now - it > 4000L }
 
-            if (timestamps.size >= 3) {
-                loopCooldownUntil[packageName] = now + 1500L
+            // If launched more than 2 times in the last 4 seconds, trip the circuit breaker for 3 seconds
+            if (timestamps.size >= 2) {
+                loopCooldownUntil[packageName] = now + 3000L
                 timestamps.clear()
+                return true
             }
+
+            timestamps.add(now)
+            return false
         }
     }
 
