@@ -146,7 +146,10 @@ class MainActivity : FragmentActivity() {
             var isDarkMode by remember { mutableStateOf(prefs.isDarkMode) }
 
             MyApplicationTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) { innerPadding ->
                     LockerMainScreen(
                         isDarkMode = isDarkMode,
                         onDarkModeChange = { value ->
@@ -536,8 +539,7 @@ fun PatternWizardView(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding(),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2092,7 +2094,6 @@ fun DashboardView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2416,7 +2417,6 @@ fun DashboardView(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
-                .statusBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Row(
@@ -2624,134 +2624,6 @@ fun DashboardView(
             }
         }
 
-        // System Permission Guidance Banner if Usage Access or Overlay Permission is missing
-        if (!hasUsagePermission || !hasOverlayPermission) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clickable {
-                        if (!hasUsagePermission) {
-                            try {
-                                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            } catch (e: Exception) {
-                                context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            }
-                        } else if (!hasOverlayPermission) {
-                            try {
-                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            }
-                        }
-                    }
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Permission Alert",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (!hasUsagePermission) "Usage Access Required" else "Display Overlay Permission Required",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Text(
-                            text = if (!hasUsagePermission) "Tap to grant Usage Access in Settings so App Locker can intercept app launches."
-                                   else "Tap to allow App Locker to draw lock screen over protected apps.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            if (!hasUsagePermission) {
-                                try {
-                                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                } catch (e: Exception) {
-                                    context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                }
-                            } else if (!hasOverlayPermission) {
-                                try {
-                                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text("Grant", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-
-        // Quick Test Lock Screen Action Banner
-        Surface(
-            onClick = {
-                val target = if (allLockedApps.isNotEmpty()) allLockedApps.first().packageName else "com.android.chrome"
-                val intent = Intent(context, UnlockActivity::class.java).apply {
-                    putExtra("EXTRA_PACKAGE_NAME", target)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            },
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .testTag("test_lock_overlay_button")
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Test Lock Screen",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Test Lock Screen Overlay",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Tap to simulate and test lock overlay instantly",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Run Lock Screen Test",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-        }
-
         // MATERIAL 3 TAB ROW NAVIGATION
         TabRow(
             selectedTabIndex = selectedTabIndex.coerceIn(0, 2),
@@ -2879,79 +2751,49 @@ fun DashboardView(
                             )
                         )
 
-                        // FILTER CHIPS ROW
+                        // COMPACT FILTER SEGMENTED ROW
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            FilterChip(
-                                selected = filterMode == AppFilterMode.ALL,
+                            CompactFilterPill(
+                                label = "All",
+                                count = appFilterCounts.totalCount,
+                                isSelected = filterMode == AppFilterMode.ALL,
                                 onClick = {
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.ALL)
                                 },
-                                label = { Text("All Apps (${appFilterCounts.totalCount})", fontWeight = if (filterMode == AppFilterMode.ALL) FontWeight.SemiBold else FontWeight.Normal) },
-                                shape = RoundedCornerShape(10.dp),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = filterMode == AppFilterMode.ALL,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    selectedBorderColor = MaterialTheme.colorScheme.primary
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
+                                modifier = Modifier.weight(1f),
+                                testTag = "filter_chip_all"
                             )
-                            FilterChip(
-                                selected = filterMode == AppFilterMode.LOCKED,
+                            CompactFilterPill(
+                                label = "Locked",
+                                count = appFilterCounts.lockedCount,
+                                icon = Icons.Default.Lock,
+                                isSelected = filterMode == AppFilterMode.LOCKED,
                                 onClick = {
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.LOCKED)
                                 },
-                                label = { Text("Locked (${appFilterCounts.lockedCount})", fontWeight = if (filterMode == AppFilterMode.LOCKED) FontWeight.SemiBold else FontWeight.Normal) },
-                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                                shape = RoundedCornerShape(10.dp),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = filterMode == AppFilterMode.LOCKED,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    selectedBorderColor = MaterialTheme.colorScheme.primary
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
+                                modifier = Modifier.weight(1f),
+                                testTag = "filter_chip_locked"
                             )
-                            FilterChip(
-                                selected = filterMode == AppFilterMode.UNLOCKED,
+                            CompactFilterPill(
+                                label = "Unlocked",
+                                count = appFilterCounts.unlockedCount,
+                                isSelected = filterMode == AppFilterMode.UNLOCKED,
                                 onClick = {
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     viewModel.setFilterMode(AppFilterMode.UNLOCKED)
                                 },
-                                label = { Text("Unlocked (${appFilterCounts.unlockedCount})", fontWeight = if (filterMode == AppFilterMode.UNLOCKED) FontWeight.SemiBold else FontWeight.Normal) },
-                                shape = RoundedCornerShape(10.dp),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = filterMode == AppFilterMode.UNLOCKED,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    selectedBorderColor = MaterialTheme.colorScheme.primary
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
+                                modifier = Modifier.weight(1f),
+                                testTag = "filter_chip_unlocked"
                             )
                         }
 
@@ -4041,6 +3883,70 @@ fun PerAppRelockDialog(
             }
         }
     )
+}
+
+@Composable
+private fun CompactFilterPill(
+    label: String,
+    count: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    testTag: String = ""
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = modifier
+            .height(36.dp)
+            .testTag(testTag)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp),
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Surface(
+                shape = CircleShape,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Text(
+                    text = "$count",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                    maxLines = 1
+                )
+            }
+        }
+    }
 }
 
 @Composable

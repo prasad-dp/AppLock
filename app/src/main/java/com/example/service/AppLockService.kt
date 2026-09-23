@@ -30,9 +30,8 @@ class AppLockService : Service() {
 
     // Reusable objects for zero-allocation background polling
     private val reusableEvent = UsageEvents.Event()
-    private val persistentPackageLastState = mutableMapOf<String, Int>()
-    private val persistentPackageLastTime = mutableMapOf<String, Long>()
-    private var isFirstQuery = true
+    private val reusablePackageStates = mutableMapOf<String, Int>()
+    private val reusablePackageLastTime = mutableMapOf<String, Long>()
     
     private val screenLockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -57,6 +56,17 @@ class AppLockService : Service() {
         // Initialize Room Repo
         val database = AppDatabase.getInstance(this)
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
+
+        // Immediately load locked packages from database to guarantee protection on start
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val initialList = repository.getAllLockedApps().filter { it.isLocked }.map { it.packageName }
+                lockedPackages.addAll(initialList)
+                Log.d(TAG, "Service initial locked packages loaded: ${lockedPackages.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load initial locked packages", e)
+            }
+        }
 
         // Cache and dynamically track locked packages in real-time
         serviceScope.launch {
@@ -132,76 +142,67 @@ class AppLockService : Service() {
                             AppLockSession.updateActiveTime(unlockedApp)
                         }
                     } else if (currentApp != null) {
-                        lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
-                        AppLockSession.updateActiveTime(currentApp)
-                    }
-
-                    // Auto-relock any unlocked app that is no longer in the foreground
-                    val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
-                    for (unlockedApp in currentUnlockedApps) {
-                        if (unlockedApp != currentApp && !isTransient) {
-                            // If the app was just unlocked within the grace period, do NOT relock
-                            if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 2500L)) {
-                                lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
-                                AppLockSession.updateActiveTime(unlockedApp)
-                                continue
-                            }
-
-                            val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
-                            val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
-
-                            val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
-                            val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
-                            val relockThresholdMs = when (relockPolicy) {
-                                "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
-                                "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
-                                "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
-                                "1_min" -> 60_000L // Re-lock 1 minute after leaving app
-                                "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
-                                else -> 1500L
-                            }
-
-                            if (outOfForegroundDuration >= relockThresholdMs) {
-                                AppLockSession.lockApp(unlockedApp, force = true)
-                                lastSeenForegroundTime.remove(unlockedApp)
-                                Log.d(TAG, "Auto-relocked app: $unlockedApp after $outOfForegroundDuration ms out of foreground (Policy: $relockPolicy)")
-                            }
-                        }
-                    }
-
-                    if (currentApp != null && currentApp != packageName && !isTransient) {
                         if (AppLockPackageHelper.isLauncherPackage(this@AppLockService, currentApp)) {
                             AppLockSession.setCurrentForeground(currentApp)
                             AppLockSession.clearGoToHome()
                             AppLockSession.activeUnlockingPackage = null
                             lastKnownForegroundPackage = null
                         } else {
-                            val previousApp = AppLockSession.currentForegroundApp
-                            AppLockSession.setCurrentForeground(currentApp)
+                            lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
+                            AppLockSession.updateActiveTime(currentApp)
 
-                            // Reset activeUnlockingPackage if user navigated to a different app
-                            if (AppLockSession.activeUnlockingPackage != null && currentApp != AppLockSession.activeUnlockingPackage) {
-                                AppLockSession.activeUnlockingPackage = null
+                            // Check auto-relock for other unlocked apps
+                            val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
+                            for (unlockedApp in currentUnlockedApps) {
+                                if (unlockedApp != currentApp) {
+                                    // If the app was just unlocked within the grace period, do NOT relock
+                                    if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 2500L)) {
+                                        continue
+                                    }
+
+                                    val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
+                                    val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
+
+                                    val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
+                                    val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
+                                    val relockThresholdMs = when (relockPolicy) {
+                                        "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
+                                        "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
+                                        "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
+                                        "1_min" -> 60_000L // Re-lock 1 minute after leaving app
+                                        "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
+                                        else -> 1500L
+                                    }
+
+                                    if (outOfForegroundDuration >= relockThresholdMs) {
+                                        AppLockSession.lockApp(unlockedApp, force = true)
+                                        lastSeenForegroundTime.remove(unlockedApp)
+                                        Log.d(TAG, "Auto-relocked app: $unlockedApp after $outOfForegroundDuration ms out of foreground (Policy: $relockPolicy)")
+                                    }
+                                }
                             }
 
                             // Check if this package or its family alias is locked
                             val isLocked = AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages)
                             if (isLocked) {
-                                // Check if already unlocked in active session or recently unlocked
-                                val isGenuineEntry = AppLockSession.isGenuineAppEntry(currentApp, previousApp)
                                 val isUnlocked = AppLockSession.isUnlocked(currentApp)
-                                val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(currentApp, gracePeriodMs = 3000L)
-                                val isExitingHome = AppLockSession.isExitingToHome(currentApp)
+                                val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(currentApp, gracePeriodMs = 2000L)
                                 val isUnlockingNow = AppLockSession.activeUnlockingPackage == currentApp
+                                val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800L)
 
-                                if (isGenuineEntry && !isUnlocked && !isRecentlyUnlocked && !isExitingHome && !isUnlockingNow) {
-                                    if (!AppLockSession.shouldThrottleLaunch(currentApp)) {
-                                        Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen.")
-                                        launchUnlockScreen(currentApp)
-                                    } else {
-                                        Log.w(TAG, "Polling launch throttled by Circuit Breaker for $currentApp")
-                                    }
+                                if (!isUnlocked && !isRecentlyUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
+                                    Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
+                                    launchUnlockScreen(currentApp)
+                                } else if (isUnlocked) {
+                                    AppLockSession.setCurrentForeground(currentApp)
                                 }
+                            } else {
+                                AppLockSession.setCurrentForeground(currentApp)
+                            }
+
+                            // Reset activeUnlockingPackage if user navigated to a different app
+                            if (AppLockSession.activeUnlockingPackage != null && currentApp != AppLockSession.activeUnlockingPackage) {
+                                AppLockSession.activeUnlockingPackage = null
                             }
                         }
                     } else if (currentApp == packageName) {
@@ -212,11 +213,16 @@ class AppLockService : Service() {
                 }
                 
                 val nextDelay = if (AppLockAccessibilityService.isAccessibilityRunning) {
-                    300L
+                    250L
                 } else if (lockedPackages.isEmpty()) {
                     600L
+                } else if (lastKnownForegroundPackage != currentApp) {
+                    lastKnownForegroundPackage = currentApp
+                    15L
+                } else if (currentApp != null && AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages)) {
+                    20L
                 } else {
-                    150L
+                    40L
                 }
                 delay(nextDelay)
             }
@@ -231,14 +237,14 @@ class AppLockService : Service() {
         // 1. If Accessibility Service is actively running, prefer its 0ms verified foreground window
         if (AppLockAccessibilityService.isAccessibilityRunning) {
             val accPkg = AppLockSession.currentForegroundPackage
-            if (accPkg != null && (System.currentTimeMillis() - AppLockSession.lastForegroundUpdateTime < 3000L)) {
+            if (accPkg != null && (System.currentTimeMillis() - AppLockSession.lastForegroundUpdateTime < 2500L)) {
                 lastKnownForegroundPackage = accPkg
                 return accPkg
             }
         }
 
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - 3500L
+        val startTime = endTime - 4000L
 
         val usageEvents = try {
             usm.queryEvents(startTime, endTime)
@@ -247,84 +253,72 @@ class AppLockService : Service() {
             null
         }
 
-        if (usageEvents != null && usageEvents.hasNextEvent()) {
-            var lastResumedPkg: String? = null
-            var lastResumedTime = 0L
+        reusablePackageStates.clear()
+        reusablePackageLastTime.clear()
 
+        if (usageEvents != null) {
             while (usageEvents.hasNextEvent()) {
                 usageEvents.getNextEvent(reusableEvent)
                 val pkg = reusableEvent.packageName ?: continue
                 val type = reusableEvent.eventType
-                val time = reusableEvent.timeStamp
+                if (type == UsageEvents.Event.ACTIVITY_RESUMED ||
+                    type == UsageEvents.Event.ACTIVITY_PAUSED ||
+                    type == UsageEvents.Event.ACTIVITY_STOPPED ||
+                    type == 1 || type == 2) {
 
-                if (type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) {
-                    if (time >= lastResumedTime) {
-                        lastResumedTime = time
-                        lastResumedPkg = pkg
+                    val prevTime = reusablePackageLastTime[pkg] ?: 0L
+                    if (reusableEvent.timeStamp >= prevTime) {
+                        reusablePackageLastTime[pkg] = reusableEvent.timeStamp
+                        reusablePackageStates[pkg] = type
                     }
-                } else if (pkg == lastKnownForegroundPackage && (type == UsageEvents.Event.ACTIVITY_STOPPED || type == 23 || type == 24)) {
-                    // Previous foreground app was closed/swiped away from recents
-                    lastKnownForegroundPackage = null
                 }
-            }
-
-            if (lastResumedPkg != null) {
-                if (AppLockPackageHelper.isLauncherPackage(this, lastResumedPkg)) {
-                    AppLockSession.clearGoToHome()
-                    lastKnownForegroundPackage = null
-                    return null
-                }
-                if (AppLockPackageHelper.isSystemOrTransientPackage(this, lastResumedPkg)) {
-                    return lastKnownForegroundPackage
-                }
-                if (lastResumedPkg == packageName) {
-                    return packageName
-                }
-
-                // Valid app event detected! Clear home exit state and update last known foreground app
-                AppLockSession.clearGoToHome()
-                lastKnownForegroundPackage = lastResumedPkg
-                return lastResumedPkg
             }
         }
 
-        if (AppLockSession.isExitingToHome()) {
-            lastKnownForegroundPackage = null
-            return null
-        }
-
-        // If no new events in query window, check if lastKnownForegroundPackage is still valid
-        val currentKnown = lastKnownForegroundPackage
-        if (currentKnown != null) {
-            if (AppLockPackageHelper.isLauncherPackage(this, currentKnown) || !isAppProcessInForeground(currentKnown)) {
-                lastKnownForegroundPackage = null
-                return null
+        // Find package whose latest lifecycle state is RESUMED via single-pass scan
+        var topPkg: String? = null
+        var maxTime = 0L
+        for ((pkg, type) in reusablePackageStates) {
+            if (type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) {
+                val time = reusablePackageLastTime[pkg] ?: 0L
+                if (time >= maxTime) {
+                    maxTime = time
+                    topPkg = pkg
+                }
             }
-            return currentKnown
         }
 
-        return null
-    }
+        if (topPkg != null) {
+            lastKnownForegroundPackage = topPkg
+            return topPkg
+        }
 
-    private fun isAppProcessInForeground(packageName: String): Boolean {
-        return try {
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-            val processes = am?.runningAppProcesses ?: return false
-            processes.any { proc ->
-                proc.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
-                        proc.pkgList != null && proc.pkgList.contains(packageName)
+        // Fallback: Query UsageStats with single-pass max evaluation
+        try {
+            val fallbackStart = endTime - 5000L
+            val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, fallbackStart, endTime)
+            if (!stats.isNullOrEmpty()) {
+                var topStat: android.app.usage.UsageStats? = null
+                for (stat in stats) {
+                    if (topStat == null || stat.lastTimeUsed > topStat.lastTimeUsed) {
+                        topStat = stat
+                    }
+                }
+                if (topStat != null && (endTime - topStat.lastTimeUsed) < 5000) {
+                    lastKnownForegroundPackage = topStat.packageName
+                    return topStat.packageName
+                }
             }
-        } catch (_: Exception) {
-            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed fallback usage stats query", e)
         }
+
+        return lastKnownForegroundPackage
     }
 
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
-        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 3000L) || AppLockSession.isExitingToHome(targetPackage)) {
-            return
-        }
-        if (!AppLockSession.isGenuineAppEntry(targetPackage)) {
+        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 2000L)) {
             return
         }
         AppLockSession.activeUnlockingPackage = targetPackage
@@ -341,7 +335,27 @@ class AppLockService : Service() {
         try {
             startActivity(intent, options.toBundle())
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch UnlockActivity for $targetPackage", e)
+            Log.e(TAG, "Failed startActivity launch unlock screen", e)
+            try {
+                val pendingIntent = PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val bgOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ActivityOptions.makeBasic().apply {
+                        setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                    }.toBundle()
+                } else null
+                if (bgOptions != null) {
+                    pendingIntent.send(this, 0, null, null, null, null, bgOptions)
+                } else {
+                    pendingIntent.send()
+                }
+            } catch (ex: Exception) {
+                Log.e(TAG, "Failed fallback pending intent launch", ex)
+            }
         }
     }
 
