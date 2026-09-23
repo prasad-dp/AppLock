@@ -1122,6 +1122,7 @@ fun DashboardView(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isLoadingApps by viewModel.isLoadingApps.collectAsStateWithLifecycle()
     val filterMode by viewModel.filterMode.collectAsStateWithLifecycle()
+    val perAppTimeouts by viewModel.perAppTimeouts.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showFullSettingsScreen by remember { mutableStateOf(false) }
@@ -1149,7 +1150,6 @@ fun DashboardView(
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val appFilterCounts by viewModel.appFilterCounts.collectAsStateWithLifecycle()
     val showAdMobInterstitialDialogState by viewModel.showAdMobInterstitialDialog.collectAsStateWithLifecycle()
-    val perAppTimeouts by viewModel.perAppTimeouts.collectAsStateWithLifecycle()
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -1275,7 +1275,7 @@ fun DashboardView(
         PerAppRelockDialog(
             appInfo = targetApp,
             globalTimeout = reLockTimeoutState,
-            currentPerAppTimeout = perAppTimeouts[targetApp.packageName] ?: prefs.getPerAppRelockTimeout(targetApp.packageName),
+            currentPerAppTimeout = viewModel.getPerAppRelockTimeout(targetApp.packageName),
             onDismiss = {
                 showPerAppRelockDialog = false
                 perAppRelockTargetApp = null
@@ -1994,9 +1994,9 @@ fun DashboardView(
         )
     }
 
-    // Ensure Service starts when permissions are available and service is active
-    LaunchedEffect(hasUsagePermission, hasOverlayPermission, isServiceActiveState) {
-        if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+    // Ensure Service starts whenever shield/service is active
+    LaunchedEffect(isServiceActiveState) {
+        if (isServiceActiveState) {
             val intent = Intent(context, AppLockService::class.java)
             try {
                 ContextCompat.startForegroundService(context, intent)
@@ -2014,8 +2014,7 @@ fun DashboardView(
                 hasUsagePermission = hasUsageStatsPermission(context)
                 hasOverlayPermission = Settings.canDrawOverlays(context)
                 hasAccessibilityPermission = isAccessibilityEnabled(context)
-                // Check if Service should be restarted if permission is now granted
-                if (hasUsagePermission && hasOverlayPermission && isServiceActiveState) {
+                if (isServiceActiveState) {
                     val intent = Intent(context, AppLockService::class.java)
                     try {
                         ContextCompat.startForegroundService(context, intent)
@@ -2625,6 +2624,134 @@ fun DashboardView(
             }
         }
 
+        // System Permission Guidance Banner if Usage Access or Overlay Permission is missing
+        if (!hasUsagePermission || !hasOverlayPermission) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .clickable {
+                        if (!hasUsagePermission) {
+                            try {
+                                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } catch (e: Exception) {
+                                context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        } else if (!hasOverlayPermission) {
+                            try {
+                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        }
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Permission Alert",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (!hasUsagePermission) "Usage Access Required" else "Display Overlay Permission Required",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = if (!hasUsagePermission) "Tap to grant Usage Access in Settings so App Locker can intercept app launches."
+                                   else "Tap to allow App Locker to draw lock screen over protected apps.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            if (!hasUsagePermission) {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                } catch (e: Exception) {
+                                    context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                }
+                            } else if (!hasOverlayPermission) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Grant", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+
+        // Quick Test Lock Screen Action Banner
+        Surface(
+            onClick = {
+                val target = if (allLockedApps.isNotEmpty()) allLockedApps.first().packageName else "com.android.chrome"
+                val intent = Intent(context, UnlockActivity::class.java).apply {
+                    putExtra("EXTRA_PACKAGE_NAME", target)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            },
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .testTag("test_lock_overlay_button")
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Test Lock Screen",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Test Lock Screen Overlay",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = "Tap to simulate and test lock overlay instantly",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Run Lock Screen Test",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
         // MATERIAL 3 TAB ROW NAVIGATION
         TabRow(
             selectedTabIndex = selectedTabIndex.coerceIn(0, 2),
@@ -3021,24 +3148,22 @@ fun DashboardView(
                             }
                         } else {
                             itemsIndexed(appGridState, key = { _, item -> item.packageName }) { index, appInfo ->
-                                if (!isPremiumUser && index > 0 && index % 8 == 0) {
+                                val effectiveIsPremium = isPremiumUser || prefs.isPremiumUser
+                                if (!effectiveIsPremium && index > 0 && index % 8 == 0) {
                                     com.example.ui.components.AdMobNativeCard(
-                                        isPremium = isPremiumUser,
+                                        isPremium = effectiveIsPremium,
                                         onGoPremiumClick = { showGoPremiumDialog = true },
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     )
                                 }
-                                val itemPerAppTimeout = if (isPremiumUser) {
-                                    perAppTimeouts[appInfo.packageName] ?: prefs.getPerAppRelockTimeout(appInfo.packageName)
-                                } else null
+                                val currentPerAppTimeout = if (effectiveIsPremium) (perAppTimeouts[appInfo.packageName] ?: appInfo.perAppTimeout) else null
                                 AppRowItem(
                                     appInfo = appInfo,
-                                    prefs = prefs,
-                                    isPremiumUser = isPremiumUser,
-                                    perAppTimeout = itemPerAppTimeout,
+                                    perAppTimeout = currentPerAppTimeout,
+                                    isPremiumUser = effectiveIsPremium,
                                     onLockToggled = onLockToggledRemembered,
                                     onPerAppRelockClick = { targetApp ->
-                                        if (!isPremiumUser) {
+                                        if (!effectiveIsPremium) {
                                             showGoPremiumDialog = true
                                         } else {
                                             perAppRelockTargetApp = targetApp
@@ -3823,7 +3948,7 @@ fun PerAppRelockDialog(
         else -> "30 Seconds"
     }
 
-    var selectedOption by remember { mutableStateOf(currentPerAppTimeout ?: "global") }
+    var selectedOption by remember(currentPerAppTimeout) { mutableStateOf(currentPerAppTimeout ?: "global") }
 
     val options = listOf(
         "global" to "Use Global Setting ($globalLabel)",
@@ -3907,7 +4032,7 @@ fun PerAppRelockDialog(
                 },
                 modifier = Modifier.testTag("save_per_app_relock_button")
             ) {
-                Text("Save")
+                Text("Done")
             }
         },
         dismissButton = {
@@ -3921,9 +4046,8 @@ fun PerAppRelockDialog(
 @Composable
 fun AppRowItem(
     appInfo: GridAppInfo,
-    prefs: LockPreferences,
-    isPremiumUser: Boolean,
     perAppTimeout: String?,
+    isPremiumUser: Boolean,
     onLockToggled: (GridAppInfo, Boolean) -> Unit,
     onPerAppRelockClick: (GridAppInfo) -> Unit
 ) {
@@ -3999,32 +4123,7 @@ fun AppRowItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (appInfo.isLocked) {
-                    val badgeLabel = when (perAppTimeout) {
-                        "immediately" -> "0s custom"
-                        "15_sec" -> "15s custom"
-                        "30_sec" -> "30s custom"
-                        "1_min" -> "1m custom"
-                        "5_min" -> "5m custom"
-                        else -> "Standard relock"
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = "Relock Policy",
-                            tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = badgeLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+
             }
 
             if (appInfo.isLocked) {
@@ -4047,7 +4146,7 @@ fun AppRowItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Schedule,
-                            contentDescription = "Custom Relock Timer",
+                            contentDescription = "Relock Timer",
                             tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(15.dp)
                         )
@@ -4066,7 +4165,7 @@ fun AppRowItem(
                                     "30_sec" -> "30s"
                                     "1_min" -> "1m"
                                     "5_min" -> "5m"
-                                    else -> "Default"
+                                    else -> "Global"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,

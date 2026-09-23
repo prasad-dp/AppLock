@@ -210,12 +210,12 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
                 ) {
                     LegalHighlightCard(
                         title = "⚖️ Authorized Device Owner Use",
-                        description = "By using this application, you confirm that you are the lawful owner or authorized custodian of this device. App Locker is an anti-theft and privacy protection tool."
+                        description = "By using this application, you confirm that you are the lawful owner or authorized custodian of this device. App Locker Pro is an anti-theft and privacy protection tool."
                     )
 
                     LegalSectionHeader(title = "1. Acceptance of Terms")
                     LegalBodyText(
-                        text = "By installing, accessing, or using App Locker, you agree to be bound by these Terms of Service. If you do not agree to these terms, please uninstall the application."
+                        text = "By installing, accessing, or using App Locker Pro, you agree to be bound by these Terms of Service. If you do not agree to these terms, please uninstall the application."
                     )
 
                     LegalSectionHeader(title = "2. Lawful Security & Personal Privacy")

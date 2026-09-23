@@ -10,6 +10,69 @@ import android.view.inputmethod.InputMethodManager
 
 object AppLockPackageHelper {
 
+    private val CHROME_PACKAGE_FAMILY = setOf(
+        "com.android.chrome",
+        "org.chromium.chrome",
+        "com.chrome.beta",
+        "com.chrome.canary",
+        "com.chrome.dev"
+    )
+
+    private val CAMERA_PACKAGE_FAMILY = setOf(
+        "com.android.camera",
+        "com.android.camera2",
+        "com.google.android.GoogleCamera",
+        "com.sec.android.app.camera",
+        "com.samsung.android.app.camera",
+        "com.oppo.camera",
+        "com.vivo.camera",
+        "com.motorola.cameraone",
+        "com.asus.camera",
+        "com.oneplus.camera",
+        "com.huawei.camera",
+        "com.xiaomi.camera",
+        "com.transsion.camera",
+        "com.realme.camera"
+    )
+
+    private val GALLERY_PACKAGE_FAMILY = setOf(
+        "com.google.android.apps.photos",
+        "com.sec.android.gallery3d",
+        "com.miui.gallery",
+        "com.coloros.gallery",
+        "com.vivo.gallery",
+        "com.huawei.photos",
+        "com.android.gallery3d"
+    )
+
+    /**
+     * Given a target package, returns all known package aliases in the same app family.
+     */
+    fun getPackageFamily(packageName: String): Set<String> {
+        if (packageName.isEmpty()) return emptySet()
+        val lower = packageName.lowercase()
+        if (CHROME_PACKAGE_FAMILY.contains(lower) || lower.contains("chrome")) {
+            return CHROME_PACKAGE_FAMILY + packageName
+        }
+        if (CAMERA_PACKAGE_FAMILY.contains(lower) || lower.contains("camera")) {
+            return CAMERA_PACKAGE_FAMILY + packageName
+        }
+        if (GALLERY_PACKAGE_FAMILY.contains(lower) || lower.contains("gallery") || lower.contains("photos")) {
+            return GALLERY_PACKAGE_FAMILY + packageName
+        }
+        return setOf(packageName)
+    }
+
+    /**
+     * Checks if a package or any of its family aliases is contained in the set of locked packages.
+     */
+    fun isPackageLocked(packageName: String, lockedPackages: Set<String>): Boolean {
+        if (packageName.isEmpty()) return false
+        if (lockedPackages.contains(packageName)) return true
+        val family = getPackageFamily(packageName)
+        return family.any { lockedPackages.contains(it) }
+    }
+
     @Volatile
     private var cachedImePackages: Set<String> = emptySet()
     @Volatile
@@ -163,5 +226,56 @@ object AppLockPackageHelper {
             } catch (_: Exception) {}
         }
         return false
+    }
+
+    /**
+     * Verifies whether the target package is ACTUALLY the active foreground application window.
+     * Prevents lock screen popups during Recents swiping, app destruction, snapshot removal, or background cleanup.
+     */
+    fun isAppTargetInActiveForeground(
+        service: android.accessibilityservice.AccessibilityService,
+        targetPackage: String
+    ): Boolean {
+        if (targetPackage.isEmpty()) return false
+        if (targetPackage == service.packageName) return false
+
+        // 1. Check active root node package
+        val activeRootPkg = try {
+            service.rootInActiveWindow?.packageName?.toString()
+        } catch (_: Exception) { null }
+
+        if (!activeRootPkg.isNullOrEmpty()) {
+            if (activeRootPkg == targetPackage) {
+                return true
+            }
+            if (isLauncherPackage(service, activeRootPkg) || isSystemOrTransientPackage(service, activeRootPkg)) {
+                // Active foreground window is Launcher, SystemUI, or Recents -> target app is NOT in foreground!
+                return false
+            }
+            // Active window belongs to a different app entirely
+            if (activeRootPkg != service.packageName && activeRootPkg != targetPackage) {
+                return false
+            }
+        }
+
+        // 2. Inspect active interactive windows
+        try {
+            val windows = service.windows
+            if (!windows.isNullOrEmpty()) {
+                for (window in windows) {
+                    if (window.isFocused || window.isActive) {
+                        val windowPkg = window.root?.packageName?.toString() ?: continue
+                        if (windowPkg == targetPackage) {
+                            return true
+                        }
+                        if (isLauncherPackage(service, windowPkg) || isSystemOrTransientPackage(service, windowPkg)) {
+                            return false
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        return activeRootPkg == null || activeRootPkg == targetPackage
     }
 }

@@ -29,7 +29,8 @@ enum class AppFilterMode {
 data class GridAppInfo(
     val packageName: String,
     val appName: String,
-    val isLocked: Boolean
+    val isLocked: Boolean,
+    val perAppTimeout: String? = null
 )
 
 @Immutable
@@ -103,27 +104,14 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Live counts for All, Locked, and Unlocked tabs - constant and legit both when searching and idle
     val appFilterCounts: StateFlow<AppFilterCounts>
 
-    // Observable map of custom per-app relock timeouts for immediate UI updates
+    // Reactive mapping of per-app custom relock timeouts for immediate UI updates
     private val _perAppTimeouts = MutableStateFlow<Map<String, String>>(prefs.getAllPerAppRelockTimeouts())
     val perAppTimeouts: StateFlow<Map<String, String>> = _perAppTimeouts.asStateFlow()
-
-    fun setPerAppRelockTimeout(packageName: String, timeout: String?) {
-        prefs.setPerAppRelockTimeout(packageName, timeout)
-        _perAppTimeouts.update { current ->
-            val updated = current.toMutableMap()
-            if (timeout.isNullOrEmpty() || timeout == "global") {
-                updated.remove(packageName)
-            } else {
-                updated[packageName] = timeout
-            }
-            updated
-        }
-    }
-
     init {
         val database = AppDatabase.getInstance(context)
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
         lockedAppsFlow = repository.allLockedAppsStateFlow
+        _perAppTimeouts.value = prefs.getAllPerAppRelockTimeouts()
 
         appFilterCounts = combine(_installedApps, lockedAppsFlow) { installed, lockedList ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
@@ -160,7 +148,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             initialValue = AppFilterCounts()
         )
 
-        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode) { installed, lockedList, query, filter ->
+        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode, _perAppTimeouts) { installed, lockedList, query, filter, timeouts ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
                 for (item in lockedList) add(item.packageName)
             }
@@ -187,7 +175,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                         GridAppInfo(
                             packageName = packageName,
                             appName = appName,
-                            isLocked = isLocked
+                            isLocked = isLocked,
+                            perAppTimeout = if (isLocked) timeouts[packageName] else null
                         )
                     )
                 }
@@ -208,7 +197,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                             GridAppInfo(
                                 packageName = lockedApp.packageName,
                                 appName = lockedApp.appName,
-                                isLocked = true
+                                isLocked = true,
+                                perAppTimeout = timeouts[lockedApp.packageName]
                             )
                         )
                     }
@@ -274,6 +264,23 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun setFilterMode(mode: AppFilterMode) {
         _filterMode.value = mode
+    }
+
+    fun getPerAppRelockTimeout(packageName: String): String? {
+        return _perAppTimeouts.value[packageName] ?: prefs.getPerAppRelockTimeout(packageName)
+    }
+
+    fun setPerAppRelockTimeout(packageName: String, timeout: String?) {
+        prefs.setPerAppRelockTimeout(packageName, timeout)
+        _perAppTimeouts.update { current ->
+            val updated = current.toMutableMap()
+            if (timeout.isNullOrEmpty() || timeout == "global") {
+                updated.remove(packageName)
+            } else {
+                updated[packageName] = timeout
+            }
+            updated
+        }
     }
 
     fun lockRecommendedApps() {

@@ -148,8 +148,9 @@ class LockPreferences(context: Context) {
         val result = mutableMapOf<String, String>()
         val prefix = "per_app_relock_timeout_"
         for ((key, value) in prefs.all) {
-            if (key.startsWith(prefix) && value is String) {
-                result[key.removePrefix(prefix)] = value
+            if (key.startsWith(prefix) && value is String && value.isNotEmpty()) {
+                val pkg = key.removePrefix(prefix)
+                result[pkg] = value
             }
         }
         return result

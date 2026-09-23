@@ -10,6 +10,71 @@ object AppLockSession {
     private val lastUnlockTimes = mutableMapOf<String, Long>()
     private val lastActiveTimes = mutableMapOf<String, Long>()
     
+    // Track current active foreground app to distinguish genuine new entries from internal navigation/exits
+    @Volatile
+    var currentForegroundApp: String? = null
+
+    /**
+     * Checks whether transitioning to targetPackage is a genuine NEW launch from outside.
+     * Returns true ONLY if the previous foreground app was NOT targetPackage.
+     * If the user was already inside targetPackage, returns false to prevent re-triggering
+     * lock overlays during internal activity navigation, back-button presses, or activity destruction.
+     */
+    fun isGenuineAppEntry(targetPackage: String, previousApp: String? = null): Boolean {
+        synchronized(unlockedApps) {
+            val prev = previousApp ?: currentForegroundApp
+            if (prev == null) return true
+            if (prev == targetPackage) {
+                return false // User was already inside this app
+            }
+            return true
+        }
+    }
+
+    fun setCurrentForeground(packageName: String?) {
+        synchronized(unlockedApps) {
+            if (!packageName.isNullOrEmpty() && packageName != "com.example.applocker" && !packageName.startsWith("com.aistudio.applocker")) {
+                currentForegroundApp = packageName
+            }
+        }
+    }
+
+    // Track Home navigation transitions to prevent duplicate lock screen popups during app exit
+    @Volatile
+    private var lastHomeTransitionTime = 0L
+    @Volatile
+    private var lastHomeExitedPackage: String? = null
+
+    fun markGoToHome(packageName: String?) {
+        synchronized(unlockedApps) {
+            lastHomeTransitionTime = System.currentTimeMillis()
+            lastHomeExitedPackage = packageName
+        }
+    }
+
+    fun isExitingToHome(packageName: String? = null): Boolean {
+        synchronized(unlockedApps) {
+            if (lastHomeTransitionTime == 0L) return false
+            val elapsed = System.currentTimeMillis() - lastHomeTransitionTime
+            if (elapsed > 2500L) {
+                lastHomeTransitionTime = 0L
+                lastHomeExitedPackage = null
+                return false
+            }
+            if (packageName != null && lastHomeExitedPackage != null && packageName != lastHomeExitedPackage) {
+                return false
+            }
+            return true
+        }
+    }
+
+    fun clearGoToHome() {
+        synchronized(unlockedApps) {
+            lastHomeTransitionTime = 0L
+            lastHomeExitedPackage = null
+        }
+    }
+
     // Track the package we are actively unlocking so we do not launch multiple overlay activities
     @Volatile
     var activeUnlockingPackage: String? = null
@@ -115,7 +180,7 @@ object AppLockSession {
 
             // 2. If app was unlocked within the last 3000ms, NEVER launch unlock screen
             val unlockTime = lastUnlockTimes[packageName] ?: unlockTimes[packageName] ?: 0L
-            if (now - unlockTime < 3000L) {
+            if (unlockTime > 0L && (now - unlockTime < 3000L)) {
                 return true
             }
 
@@ -149,6 +214,9 @@ object AppLockSession {
             lastActiveTimes.clear()
             launchHistory.clear()
             loopCooldownUntil.clear()
+            lastHomeTransitionTime = 0L
+            lastHomeExitedPackage = null
+            currentForegroundApp = null
         }
         activeUnlockingPackage = null
         currentForegroundPackage = null

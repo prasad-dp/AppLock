@@ -12,5 +12,4 @@ build/
 local.properties
 .env
 debug.keystore
-site/
 

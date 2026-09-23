@@ -96,7 +96,17 @@ class AppLockAccessibilityService : AccessibilityService() {
             return
         }
 
-        // 2. Check if this is a transient system overlay, soft keyboard, or IME window
+        // 2. Check if this package is a Launcher / Home screen
+        if (AppLockPackageHelper.isLauncherPackage(this, pkgName)) {
+            AppLockSession.setCurrentForeground(pkgName)
+            AppLockSession.clearGoToHome()
+            AppLockSession.activeUnlockingPackage = null
+            isUnlockActivityInForeground = false
+            lastForegroundPackage = null
+            return
+        }
+
+        // 3. Check if this is a transient system overlay, soft keyboard, or IME window
         val isTransient = AppLockPackageHelper.isSystemOrTransientPackage(this, pkgName) ||
                 AppLockPackageHelper.isTransientAccessibilityWindow(event)
 
@@ -112,6 +122,9 @@ class AppLockAccessibilityService : AccessibilityService() {
         }
 
         // We are on a non-transient, external app window
+        val previousApp = AppLockSession.currentForegroundApp
+        AppLockSession.setCurrentForeground(pkgName)
+
         isUnlockActivityInForeground = false
         lastForegroundPackage = pkgName
         lastSeenForegroundTime[pkgName] = System.currentTimeMillis()
@@ -157,7 +170,7 @@ class AppLockAccessibilityService : AccessibilityService() {
         }
 
         // 5. Intercept locked app if not unlocked (Only on genuine window state change, never during window destruction/closure)
-        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && lockedPackages.contains(pkgName)) {
+        if ((type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_WINDOWS_CHANGED) && AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)) {
             // Guard: Check if the current interactive root window is already the Home Launcher or System UI.
             // If the user just pressed back or closed the app, the active window is the Launcher, so do NOT intercept!
             val activeRootPkg = try { rootInActiveWindow?.packageName?.toString() } catch (_: Exception) { null }
@@ -165,19 +178,17 @@ class AppLockAccessibilityService : AccessibilityService() {
                 Log.d(TAG, "Active root window is $activeRootPkg. Suppressing lock intercept for closing app $pkgName")
                 return
             }
-
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
-            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 3000L)
+            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 2000L)
+            val isExitingHome = AppLockSession.isExitingToHome(pkgName)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
-            // If the unlock screen is already in the foreground, do NOT re-trigger launch (prevents input interruption)
-            val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800)
+            val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime < 1200L)
 
-            if (!isUnlocked && !isRecentlyUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
-                if (!AppLockSession.shouldThrottleLaunch(pkgName)) {
+            if (!isUnlocked && !isRecentlyUnlocked && !isExitingHome && !isLaunchBlocked) {
+                val now = System.currentTimeMillis()
+                if (now - lastLaunchTime > 800L || AppLockSession.activeUnlockingPackage != pkgName) {
                     Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
                     launchUnlockScreen(pkgName)
-                } else {
-                    Log.w(TAG, "Launch throttled by Circuit Breaker: Preventing duplicate loop on $pkgName")
                 }
             }
         }
@@ -185,7 +196,7 @@ class AppLockAccessibilityService : AccessibilityService() {
 
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
-        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 3000L)) {
+        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 2000L) || AppLockSession.isExitingToHome(targetPackage)) {
             return
         }
         AppLockSession.activeUnlockingPackage = targetPackage
@@ -198,30 +209,11 @@ class AppLockAccessibilityService : AccessibilityService() {
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
-
         val options = ActivityOptions.makeCustomAnimation(this, 0, 0)
         try {
             startActivity(intent, options.toBundle())
         } catch (e: Exception) {
-            Log.e(TAG, "Failed instant startActivity unlock screen", e)
-            try {
-                val pendingIntent = PendingIntent.getActivity(
-                    this,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    val bgOptions = ActivityOptions.makeBasic().apply {
-                        setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-                    }.toBundle()
-                    pendingIntent.send(this, 0, null, null, null, null, bgOptions)
-                } else {
-                    pendingIntent.send()
-                }
-            } catch (ex: Exception) {
-                Log.e(TAG, "Failed fallback pending intent launch", ex)
-            }
+            Log.e(TAG, "Failed to launch UnlockActivity for $targetPackage", e)
         }
     }
 

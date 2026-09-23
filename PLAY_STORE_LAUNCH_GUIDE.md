@@ -1,6 +1,6 @@
 # 🚀 Complete Google Play Store Launch Guide
 
-This guide walks you through every step to publish **App Locker & Intruder Security Vault** (`com.aistudio.applocker.kyzqpz`) to the Google Play Store (Internal Testing, Closed Testing, and Production).
+This guide walks you through every step to publish **App Locker Pro & Intruder Security Vault** (`com.aistudio.applocker.kyzqpz`) to the Google Play Store (Internal Testing, Closed Testing, and Production).
 
 ---
 
@@ -39,7 +39,7 @@ All required assets are generated and organized in the repository:
 1. Go to [Google Play Console](https://play.google.com/console).
 2. Click **Create app**.
 3. Fill in:
-   - **App name:** `App Locker: Intruder Vault`
+   - **App name:** `App Locker Pro: Intruder Vault`
    - **Default language:** English (United States)
    - **App or game:** App
    - **Free or paid:** Free (uses In-App Purchases & Ads)
@@ -49,7 +49,7 @@ All required assets are generated and organized in the repository:
 
 ### Step 2: Set Up Store Listing & Graphics
 Navigate to **Grow -> Store presence -> Main store listing**:
-- **App Name:** `App Locker: Intruder Vault`
+- **App Name:** `App Locker Pro: Intruder Vault`
 - **Short description:** `Lock apps instantly, capture silent intruder selfies & encrypt security logs.`
 - **Full description:** Copy the pre-formatted text from `store_assets/PLAY_STORE_LISTING.md`.
 - **App Icon:** Upload `store_assets/play_store_512x512_icon.png`.

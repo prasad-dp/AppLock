@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.service.AppLockSession
 import com.example.util.AppLockPackageHelper
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -20,6 +21,11 @@ class AppLockSessionTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        AppLockSession.clearSession()
+    }
+
+    @After
+    fun tearDown() {
         AppLockSession.clearSession()
     }
 
@@ -136,7 +142,7 @@ class AppLockSessionTest {
     }
 
     @Test
-    fun testForegroundPackageTracking() {
+fun testForegroundPackageTracking() {
         assertNull(AppLockSession.currentForegroundPackage)
         assertEquals(0L, AppLockSession.lastForegroundUpdateTime)
 
@@ -173,5 +179,56 @@ class AppLockSessionTest {
         prefs.setPerAppRelockTimeout(testPkg, null)
         assertNull(prefs.getPerAppRelockTimeout(testPkg))
         assertNull(prefs.getAllPerAppRelockTimeouts()[testPkg])
+    }
+
+    @Test
+    fun testGoToHomeTransitionProtection() {
+        val testPkg = "com.snapchat.android"
+
+        // Initially not exiting to home
+        assertFalse(AppLockSession.isExitingToHome(testPkg))
+
+        // Mark go to home from Snapchat
+        AppLockSession.markGoToHome(testPkg)
+        assertTrue("Should be exiting to home for Snapchat", AppLockSession.isExitingToHome(testPkg))
+        assertTrue("Should also be exiting to home generally", AppLockSession.isExitingToHome(null))
+
+        // Different package check
+        assertFalse("Should not match exiting to home for a different package", AppLockSession.isExitingToHome("com.instagram.android"))
+
+        // Clear go to home when landing on Launcher
+        AppLockSession.clearGoToHome()
+        assertFalse("Should no longer be exiting to home after landing on launcher", AppLockSession.isExitingToHome(testPkg))
+    }
+
+    @Test
+    fun testGenuineAppEntryNavigation() {
+        val launcherPkg = "com.sec.android.app.launcher"
+        val whatsAppPkg = "com.whatsapp"
+
+        // 1. Initial transition from Launcher into WhatsApp is a GENUINE entry
+        AppLockSession.setCurrentForeground(launcherPkg)
+        assertTrue(
+            "Transitioning from Launcher into WhatsApp must be detected as genuine app entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
+
+        // 2. Set current foreground to WhatsApp
+        AppLockSession.setCurrentForeground(whatsAppPkg)
+
+        // 3. Navigation inside WhatsApp (activity changes, back presses) must NOT be genuine new entry
+        assertFalse(
+            "Internal activity changes or back press inside WhatsApp must NOT be flagged as genuine new entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
+
+        // 4. Pressing back to exit to Launcher
+        AppLockSession.setCurrentForeground(launcherPkg)
+
+        // 5. Re-entering WhatsApp from Launcher is again a genuine new entry
+        assertTrue(
+            "Re-entering WhatsApp from Launcher after exiting must be detected as genuine entry",
+            AppLockSession.isGenuineAppEntry(whatsAppPkg)
+        )
     }
 }

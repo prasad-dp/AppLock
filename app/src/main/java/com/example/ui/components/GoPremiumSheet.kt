@@ -213,6 +213,7 @@ fun GoPremiumDialog(
                                 }
                             } else {
                                 prefs.isPremiumUser = true
+                                billingManager?.updatePremiumState(true)
                                 onPremiumPurchased()
                                 Toast.makeText(
                                     context,
@@ -270,6 +271,7 @@ fun GoPremiumDialog(
                                     }
                                 } else {
                                     prefs.isPremiumUser = true
+                                    billingManager?.updatePremiumState(true)
                                     Toast.makeText(context, "Previous purchase restored successfully from Google Play!", Toast.LENGTH_SHORT).show()
                                     onPremiumPurchased()
                                     onDismiss()
