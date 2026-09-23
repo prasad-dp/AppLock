@@ -14,6 +14,20 @@ object AppLockSession {
     @Volatile
     var activeUnlockingPackage: String? = null
 
+    // Track active foreground package verified by system window events
+    @Volatile
+    var currentForegroundPackage: String? = null
+        private set
+
+    @Volatile
+    var lastForegroundUpdateTime: Long = 0L
+        private set
+
+    fun updateForegroundPackage(packageName: String?) {
+        currentForegroundPackage = packageName
+        lastForegroundUpdateTime = System.currentTimeMillis()
+    }
+
     // Track state of locker service
     private val _isServiceRunning = MutableStateFlow(false)
     val isServiceRunning: StateFlow<Boolean> = _isServiceRunning
@@ -137,6 +151,8 @@ object AppLockSession {
             loopCooldownUntil.clear()
         }
         activeUnlockingPackage = null
+        currentForegroundPackage = null
+        lastForegroundUpdateTime = 0L
     }
 
     fun getUnlockedAppsCopy(): List<String> {

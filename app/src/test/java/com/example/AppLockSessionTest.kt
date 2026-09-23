@@ -134,4 +134,44 @@ class AppLockSessionTest {
             AppLockSession.shouldThrottleLaunch(testPkg)
         )
     }
+
+    @Test
+    fun testForegroundPackageTracking() {
+        assertNull(AppLockSession.currentForegroundPackage)
+        assertEquals(0L, AppLockSession.lastForegroundUpdateTime)
+
+        AppLockSession.updateForegroundPackage("com.snapchat.android")
+        assertEquals("com.snapchat.android", AppLockSession.currentForegroundPackage)
+        assertTrue(AppLockSession.lastForegroundUpdateTime > 0L)
+
+        AppLockSession.clearSession()
+        assertNull(AppLockSession.currentForegroundPackage)
+        assertEquals(0L, AppLockSession.lastForegroundUpdateTime)
+    }
+
+    @Test
+    fun testLauncherPackageDetection() {
+        assertTrue(AppLockPackageHelper.isLauncherPackage(context, "com.google.android.apps.nexuslauncher"))
+        assertTrue(AppLockPackageHelper.isLauncherPackage(context, "com.sec.android.app.launcher"))
+        assertTrue(AppLockPackageHelper.isLauncherPackage(context, "com.miui.home"))
+        assertFalse(AppLockPackageHelper.isLauncherPackage(context, "com.snapchat.android"))
+        assertFalse(AppLockPackageHelper.isLauncherPackage(context, "com.grofers.customerapp"))
+    }
+
+    @Test
+    fun testPerAppRelockPreferencesMap() {
+        val prefs = com.example.data.LockPreferences(context)
+        val testPkg = "com.android.chrome"
+
+        prefs.setPerAppRelockTimeout(testPkg, "30_sec")
+        assertEquals("30_sec", prefs.getPerAppRelockTimeout(testPkg))
+
+        val allTimeouts = prefs.getAllPerAppRelockTimeouts()
+        assertEquals("30_sec", allTimeouts[testPkg])
+
+        // Setting to null or global clears it
+        prefs.setPerAppRelockTimeout(testPkg, null)
+        assertNull(prefs.getPerAppRelockTimeout(testPkg))
+        assertNull(prefs.getAllPerAppRelockTimeouts()[testPkg])
+    }
 }

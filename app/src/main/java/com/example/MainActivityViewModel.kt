@@ -100,30 +100,42 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     // Combined stream of installed + search query + lock status + filter mode
     val appGridState: StateFlow<List<GridAppInfo>>
 
-    // Live counts for All, Locked, and Unlocked tabs respecting the search query
+    // Live counts for All, Locked, and Unlocked tabs - constant and legit both when searching and idle
     val appFilterCounts: StateFlow<AppFilterCounts>
+
+    // Observable map of custom per-app relock timeouts for immediate UI updates
+    private val _perAppTimeouts = MutableStateFlow<Map<String, String>>(prefs.getAllPerAppRelockTimeouts())
+    val perAppTimeouts: StateFlow<Map<String, String>> = _perAppTimeouts.asStateFlow()
+
+    fun setPerAppRelockTimeout(packageName: String, timeout: String?) {
+        prefs.setPerAppRelockTimeout(packageName, timeout)
+        _perAppTimeouts.update { current ->
+            val updated = current.toMutableMap()
+            if (timeout.isNullOrEmpty() || timeout == "global") {
+                updated.remove(packageName)
+            } else {
+                updated[packageName] = timeout
+            }
+            updated
+        }
+    }
 
     init {
         val database = AppDatabase.getInstance(context)
         repository = AppRepository(database.lockedAppDao(), database.intruderAlertDao())
         lockedAppsFlow = repository.allLockedAppsStateFlow
 
-        appFilterCounts = combine(_installedApps, lockedAppsFlow, _searchQuery) { installed, lockedList, query ->
+        appFilterCounts = combine(_installedApps, lockedAppsFlow) { installed, lockedList ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
                 for (item in lockedList) add(item.packageName)
             }
-            val trimmedQuery = query.trim()
-            val hasQuery = trimmedQuery.isNotEmpty()
 
             val installedSet = HashSet<String>(installed.size)
             var lockedCount = 0
             var unlockedCount = 0
 
-            for ((packageName, appName) in installed) {
+            for ((packageName, _) in installed) {
                 installedSet.add(packageName)
-                if (hasQuery && !appName.contains(trimmedQuery, ignoreCase = true) && !packageName.contains(trimmedQuery, ignoreCase = true)) {
-                    continue
-                }
                 if (lockedSet.contains(packageName)) {
                     lockedCount++
                 } else {
@@ -133,9 +145,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
             for (lockedApp in lockedList) {
                 if (!installedSet.contains(lockedApp.packageName)) {
-                    if (hasQuery && !lockedApp.appName.contains(trimmedQuery, ignoreCase = true) && !lockedApp.packageName.contains(trimmedQuery, ignoreCase = true)) {
-                        continue
-                    }
                     lockedCount++
                 }
             }
@@ -238,6 +247,24 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
             _installedApps.value = appsList
             _isLoadingApps.value = false
+
+            // Auto-clean any uninstalled apps that still exist in the Room locked apps database
+            withContext(Dispatchers.IO) {
+                try {
+                    val lockedList = repository.getAllLockedApps()
+                    val pm = context.packageManager
+                    for (lockedApp in lockedList) {
+                        try {
+                            pm.getPackageInfo(lockedApp.packageName, 0)
+                        } catch (e: PackageManager.NameNotFoundException) {
+                            // Package was uninstalled from the device, remove it from Room DB
+                            repository.unlockApp(lockedApp.packageName)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore transient exceptions
+                }
+            }
         }
     }
 

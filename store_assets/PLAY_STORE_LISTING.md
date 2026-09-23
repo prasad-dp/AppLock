@@ -66,14 +66,14 @@ App Locker uses the Android Accessibility Service (BIND_ACCESSIBILITY_SERVICE) e
 |---|---|---|---|
 | **App Icon** | 512 x 512 px | 32-bit PNG | `store_assets/play_store_512x512_icon.png` |
 | **Feature Graphic** | 1024 x 500 px | 32-bit PNG | `store_assets/play_store_1024x500_feature_graphic.png` |
-| **Screenshot 1 (0ms Interception)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_1_instant_lock.png` |
-| **Screenshot 2 (Intruder Camera)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_2_intruder_selfie.png` |
-| **Screenshot 3 (Biometric Vault)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_3_biometric_vault.png` |
-| **Screenshot 4 (AES-256 KeyStore)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_4_hardware_encryption.png` |
-| **Screenshot 5 (PIN/Pattern/Pass)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_5_lock_modes.png` |
-| **Screenshot 6 (Double-Lock Advisor)**| 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_6_double_lock_advisor.png` |
-| **Screenshot 7 (Forensic Shredder)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_7_forensic_shredder.png` |
-| **Screenshot 8 (Command Center Hub)** | 1080 x 1920 px (9:16) | 32-bit PNG | `store_assets/screenshots/playstore_phone_screenshot_8_security_hub.png` |
+| **Screenshot 1 (0ms Interception)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_1_instant_lock.png` |
+| **Screenshot 2 (Intruder Camera)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_2_intruder_selfie.png` |
+| **Screenshot 3 (Biometric Vault)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_3_biometric_vault.png` |
+| **Screenshot 4 (AES-256 KeyStore)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_4_hardware_encryption.png` |
+| **Screenshot 5 (PIN/Pattern/Pass)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_5_lock_modes.png` |
+| **Screenshot 6 (Double-Lock Advisor)**| 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_6_double_lock_advisor.png` |
+| **Screenshot 7 (Forensic Shredder)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_7_forensic_shredder.png` |
+| **Screenshot 8 (Command Center Hub)** | 1080 x 1920 px (9:16) | 24-bit RGB PNG | `store_assets/screenshots/playstore_phone_screenshot_8_security_hub.png` |
 | **Privacy Policy HTML** | Public Web Page | HTML | `store_assets/PRIVACY_POLICY.html` & `index.html` |
 | **Monetization & Ads Config** | IAB Standard | TXT | `store_assets/monetization.txt` & `app-ads.txt` |
 | **Release Artifact** | Signed Bundle | `.aab` | `store_assets/app-release.aab` |

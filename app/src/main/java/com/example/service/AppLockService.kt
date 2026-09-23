@@ -30,8 +30,9 @@ class AppLockService : Service() {
 
     // Reusable objects for zero-allocation background polling
     private val reusableEvent = UsageEvents.Event()
-    private val reusablePackageStates = mutableMapOf<String, Int>()
-    private val reusablePackageLastTime = mutableMapOf<String, Long>()
+    private val persistentPackageLastState = mutableMapOf<String, Int>()
+    private val persistentPackageLastTime = mutableMapOf<String, Long>()
+    private var isFirstQuery = true
     
     private val screenLockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -228,8 +229,19 @@ class AppLockService : Service() {
     }
 
     private fun getForegroundPackageName(usm: UsageStatsManager): String? {
+        // 1. If Accessibility Service is actively running, prefer its 0ms verified foreground window
+        if (AppLockAccessibilityService.isAccessibilityRunning) {
+            val accPkg = AppLockSession.currentForegroundPackage
+            if (accPkg != null && (System.currentTimeMillis() - AppLockSession.lastForegroundUpdateTime < 3000L)) {
+                lastKnownForegroundPackage = accPkg
+                return accPkg
+            }
+        }
+
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - 4000L
+        val lookback = if (isFirstQuery) 30_000L else 5000L
+        isFirstQuery = false
+        val startTime = endTime - lookback
 
         val usageEvents = try {
             usm.queryEvents(startTime, endTime)
@@ -238,81 +250,65 @@ class AppLockService : Service() {
             null
         } ?: return lastKnownForegroundPackage
 
-        reusablePackageStates.clear()
-        reusablePackageLastTime.clear()
-
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(reusableEvent)
             val pkg = reusableEvent.packageName ?: continue
             val type = reusableEvent.eventType
+            // Standard Android UsageEvents types:
+            // 1 = ACTIVITY_RESUMED, 2 = ACTIVITY_PAUSED, 23 = ACTIVITY_STOPPED, 24 = ACTIVITY_DESTROYED
             if (type == UsageEvents.Event.ACTIVITY_RESUMED ||
                 type == UsageEvents.Event.ACTIVITY_PAUSED ||
                 type == UsageEvents.Event.ACTIVITY_STOPPED ||
-                type == 1 || type == 2) {
+                type == 1 || type == 2 || type == 23 || type == 24) {
 
-                val prevTime = reusablePackageLastTime[pkg] ?: 0L
+                val prevTime = persistentPackageLastTime[pkg] ?: 0L
                 if (reusableEvent.timeStamp >= prevTime) {
-                    reusablePackageLastTime[pkg] = reusableEvent.timeStamp
-                    reusablePackageStates[pkg] = type
+                    persistentPackageLastTime[pkg] = reusableEvent.timeStamp
+                    persistentPackageLastState[pkg] = type
                 }
             }
         }
 
-        // Identify packages whose latest lifecycle state was PAUSED or STOPPED
-        val pausedOrStoppedPackages = HashSet<String>()
-        for ((pkg, type) in reusablePackageStates) {
-            if (type == UsageEvents.Event.ACTIVITY_PAUSED || type == UsageEvents.Event.ACTIVITY_STOPPED || type == 2) {
-                pausedOrStoppedPackages.add(pkg)
-                if (lastKnownForegroundPackage == pkg) {
-                    lastKnownForegroundPackage = null
-                }
-            }
-        }
+        // Clean up persistent records older than 60 seconds to avoid unbound memory
+        val pruneCutoff = endTime - 60_000L
+        persistentPackageLastTime.entries.removeIf { it.value < pruneCutoff }
+        persistentPackageLastState.keys.retainAll(persistentPackageLastTime.keys)
 
-        // Find package whose latest lifecycle state is RESUMED via single-pass scan
-        var topPkg: String? = null
-        var maxTime = 0L
-        for ((pkg, type) in reusablePackageStates) {
+        // Find the package whose most recent state is RESUMED
+        var topResumedPkg: String? = null
+        var maxResumedTime = 0L
+
+        for ((pkg, type) in persistentPackageLastState) {
             if (type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) {
-                val time = reusablePackageLastTime[pkg] ?: 0L
-                if (time >= maxTime) {
-                    maxTime = time
-                    topPkg = pkg
+                val time = persistentPackageLastTime[pkg] ?: 0L
+                if (time > maxResumedTime) {
+                    maxResumedTime = time
+                    topResumedPkg = pkg
                 }
             }
         }
 
-        if (topPkg != null) {
-            lastKnownForegroundPackage = topPkg
-            return topPkg
+        // If the top resumed package is a device Launcher, user is on Home screen
+        if (topResumedPkg != null && AppLockPackageHelper.isLauncherPackage(this, topResumedPkg)) {
+            lastKnownForegroundPackage = topResumedPkg
+            return topResumedPkg
         }
 
-        // Fallback: Query UsageStats with single-pass max evaluation, excluding packages that just paused/stopped
-        try {
-            val fallbackStart = endTime - 5000L
-            val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, fallbackStart, endTime)
-            if (!stats.isNullOrEmpty()) {
-                var topStat: android.app.usage.UsageStats? = null
-                for (stat in stats) {
-                    if (pausedOrStoppedPackages.contains(stat.packageName)) {
-                        continue // Skip packages that just exited/paused
-                    }
-                    if (topStat == null || stat.lastTimeUsed > topStat.lastTimeUsed) {
-                        topStat = stat
-                    }
-                }
-                if (topStat != null && (endTime - topStat.lastTimeUsed) < 5000) {
-                    lastKnownForegroundPackage = topStat.packageName
-                    return topStat.packageName
-                }
+        // If the previous foreground package has paused, stopped, or destroyed, it is no longer in foreground
+        if (lastKnownForegroundPackage != null) {
+            val lastState = persistentPackageLastState[lastKnownForegroundPackage]
+            if (lastState == UsageEvents.Event.ACTIVITY_PAUSED ||
+                lastState == UsageEvents.Event.ACTIVITY_STOPPED ||
+                lastState == 2 || lastState == 23 || lastState == 24) {
+                lastKnownForegroundPackage = null
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed fallback usage stats query", e)
         }
 
-        if (lastKnownForegroundPackage != null && pausedOrStoppedPackages.contains(lastKnownForegroundPackage)) {
-            lastKnownForegroundPackage = null
+        if (topResumedPkg != null) {
+            lastKnownForegroundPackage = topResumedPkg
+            return topResumedPkg
         }
+
         return lastKnownForegroundPackage
     }
 

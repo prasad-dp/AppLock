@@ -1149,6 +1149,7 @@ fun DashboardView(
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val appFilterCounts by viewModel.appFilterCounts.collectAsStateWithLifecycle()
     val showAdMobInterstitialDialogState by viewModel.showAdMobInterstitialDialog.collectAsStateWithLifecycle()
+    val perAppTimeouts by viewModel.perAppTimeouts.collectAsStateWithLifecycle()
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -1274,17 +1275,17 @@ fun DashboardView(
         PerAppRelockDialog(
             appInfo = targetApp,
             globalTimeout = reLockTimeoutState,
-            currentPerAppTimeout = prefs.getPerAppRelockTimeout(targetApp.packageName),
+            currentPerAppTimeout = perAppTimeouts[targetApp.packageName] ?: prefs.getPerAppRelockTimeout(targetApp.packageName),
             onDismiss = {
                 showPerAppRelockDialog = false
                 perAppRelockTargetApp = null
             },
             onSave = { selectedTimeout ->
-                prefs.setPerAppRelockTimeout(targetApp.packageName, selectedTimeout)
+                viewModel.setPerAppRelockTimeout(targetApp.packageName, selectedTimeout)
                 showPerAppRelockDialog = false
                 perAppRelockTargetApp = null
                 val label = when (selectedTimeout) {
-                    "immediately" -> "Immediately"
+                    "immediately" -> "Immediately (0 Seconds)"
                     "15_sec" -> "15 Seconds"
                     "30_sec" -> "30 Seconds"
                     "1_min" -> "1 Minute"
@@ -3027,10 +3028,14 @@ fun DashboardView(
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     )
                                 }
+                                val itemPerAppTimeout = if (isPremiumUser) {
+                                    perAppTimeouts[appInfo.packageName] ?: prefs.getPerAppRelockTimeout(appInfo.packageName)
+                                } else null
                                 AppRowItem(
                                     appInfo = appInfo,
                                     prefs = prefs,
                                     isPremiumUser = isPremiumUser,
+                                    perAppTimeout = itemPerAppTimeout,
                                     onLockToggled = onLockToggledRemembered,
                                     onPerAppRelockClick = { targetApp ->
                                         if (!isPremiumUser) {
@@ -3918,19 +3923,16 @@ fun AppRowItem(
     appInfo: GridAppInfo,
     prefs: LockPreferences,
     isPremiumUser: Boolean,
+    perAppTimeout: String?,
     onLockToggled: (GridAppInfo, Boolean) -> Unit,
     onPerAppRelockClick: (GridAppInfo) -> Unit
 ) {
     val context = LocalContext.current
-    var perAppTimeout by remember(appInfo.packageName, isPremiumUser) {
-        mutableStateOf(if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null)
-    }
     var appIcon by remember(appInfo.packageName) { 
         mutableStateOf<android.graphics.drawable.Drawable?>(AppIconCache.get(appInfo.packageName)) 
     }
 
-    LaunchedEffect(appInfo.packageName, isPremiumUser) {
-        perAppTimeout = if (isPremiumUser) prefs.getPerAppRelockTimeout(appInfo.packageName) else null
+    LaunchedEffect(appInfo.packageName) {
         if (appIcon != null) return@LaunchedEffect
         
         val pm = context.packageManager
@@ -3999,18 +4001,29 @@ fun AppRowItem(
                 )
                 if (appInfo.isLocked) {
                     val badgeLabel = when (perAppTimeout) {
-                        "immediately" -> "Instant 0ms"
+                        "immediately" -> "0s custom"
                         "15_sec" -> "15s custom"
                         "30_sec" -> "30s custom"
                         "1_min" -> "1m custom"
                         "5_min" -> "5m custom"
                         else -> "Standard relock"
                     }
-                    Text(
-                        text = badgeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Relock Policy",
+                            tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = badgeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -4033,7 +4046,7 @@ fun AppRowItem(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Timer,
+                            imageVector = Icons.Default.Schedule,
                             contentDescription = "Custom Relock Timer",
                             tint = if (perAppTimeout != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(15.dp)

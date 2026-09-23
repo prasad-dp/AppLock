@@ -116,6 +116,7 @@ class AppLockAccessibilityService : AccessibilityService() {
         lastForegroundPackage = pkgName
         lastSeenForegroundTime[pkgName] = System.currentTimeMillis()
         AppLockSession.updateActiveTime(pkgName)
+        AppLockSession.updateForegroundPackage(pkgName)
 
         // 3. Auto-relock check for other unlocked apps
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
@@ -157,6 +158,14 @@ class AppLockAccessibilityService : AccessibilityService() {
 
         // 5. Intercept locked app if not unlocked (Only on genuine window state change, never during window destruction/closure)
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && lockedPackages.contains(pkgName)) {
+            // Guard: Check if the current interactive root window is already the Home Launcher or System UI.
+            // If the user just pressed back or closed the app, the active window is the Launcher, so do NOT intercept!
+            val activeRootPkg = try { rootInActiveWindow?.packageName?.toString() } catch (_: Exception) { null }
+            if (activeRootPkg != null && (AppLockPackageHelper.isLauncherPackage(this, activeRootPkg) || activeRootPkg == packageName)) {
+                Log.d(TAG, "Active root window is $activeRootPkg. Suppressing lock intercept for closing app $pkgName")
+                return
+            }
+
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
             val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 3000L)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
