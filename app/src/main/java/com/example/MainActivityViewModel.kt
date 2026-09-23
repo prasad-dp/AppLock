@@ -29,7 +29,8 @@ enum class AppFilterMode {
 data class GridAppInfo(
     val packageName: String,
     val appName: String,
-    val isLocked: Boolean
+    val isLocked: Boolean,
+    val perAppTimeout: String? = null
 )
 
 @Immutable
@@ -148,7 +149,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             initialValue = AppFilterCounts()
         )
 
-        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode) { installed, lockedList, query, filter ->
+        appGridState = combine(_installedApps, lockedAppsFlow, _searchQuery, _filterMode, _perAppTimeouts) { installed, lockedList, query, filter, timeouts ->
             val lockedSet = HashSet<String>(lockedList.size).apply {
                 for (item in lockedList) add(item.packageName)
             }
@@ -175,7 +176,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                         GridAppInfo(
                             packageName = packageName,
                             appName = appName,
-                            isLocked = isLocked
+                            isLocked = isLocked,
+                            perAppTimeout = if (isLocked) timeouts[packageName] else null
                         )
                     )
                 }
@@ -196,7 +198,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                             GridAppInfo(
                                 packageName = lockedApp.packageName,
                                 appName = lockedApp.appName,
-                                isLocked = true
+                                isLocked = true,
+                                perAppTimeout = timeouts[lockedApp.packageName]
                             )
                         )
                     }

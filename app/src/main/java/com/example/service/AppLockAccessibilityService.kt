@@ -102,6 +102,7 @@ class AppLockAccessibilityService : AccessibilityService() {
             AppLockSession.clearGoToHome()
             AppLockSession.activeUnlockingPackage = null
             isUnlockActivityInForeground = false
+            lastForegroundPackage = null
             return
         }
 
@@ -167,23 +168,19 @@ class AppLockAccessibilityService : AccessibilityService() {
             AppLockSession.activeUnlockingPackage = null
         }
 
-        // 5. Intercept locked app if not unlocked (Only on genuine new entry from outside, never during internal navigation or back-press activity closure)
-        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && lockedPackages.contains(pkgName)) {
-            val isGenuineEntry = AppLockSession.isGenuineAppEntry(pkgName, previousApp)
+        // 5. Intercept locked app if not unlocked
+        if ((type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_WINDOWS_CHANGED) && AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)) {
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
-            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 3000L)
+            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 2000L)
             val isExitingHome = AppLockSession.isExitingToHome(pkgName)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
-            val isTargetInForeground = AppLockPackageHelper.isAppTargetInActiveForeground(this, pkgName)
-            // If the unlock screen is already in the foreground, do NOT re-trigger launch (prevents input interruption)
-            val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800)
+            val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime < 1200L)
 
-            if (isGenuineEntry && isTargetInForeground && !isUnlocked && !isRecentlyUnlocked && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
-                if (!AppLockSession.shouldThrottleLaunch(pkgName)) {
+            if (!isUnlocked && !isRecentlyUnlocked && !isExitingHome && !isLaunchBlocked) {
+                val now = System.currentTimeMillis()
+                if (now - lastLaunchTime > 800L || AppLockSession.activeUnlockingPackage != pkgName) {
                     Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
                     launchUnlockScreen(pkgName)
-                } else {
-                    Log.w(TAG, "Launch throttled by Circuit Breaker: Preventing duplicate loop on $pkgName")
                 }
             }
         }
@@ -191,48 +188,11 @@ class AppLockAccessibilityService : AccessibilityService() {
 
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
-        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 3000L) || AppLockSession.isExitingToHome(targetPackage)) {
+        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 2000L) || AppLockSession.isExitingToHome(targetPackage)) {
             return
         }
-        if (!AppLockPackageHelper.isAppTargetInActiveForeground(this, targetPackage)) {
-            Log.d(TAG, "Skipping unlock screen launch: $targetPackage is not active foreground window (likely swiped away in Recents)")
-            return
-        }
-        AppLockSession.activeUnlockingPackage = targetPackage
         lastLaunchTime = System.currentTimeMillis()
-        val intent = Intent(this, UnlockActivity::class.java).apply {
-            putExtra("EXTRA_PACKAGE_NAME", targetPackage)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        }
-
-        val options = ActivityOptions.makeCustomAnimation(this, 0, 0)
-        try {
-            startActivity(intent, options.toBundle())
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed instant startActivity unlock screen", e)
-            try {
-                val pendingIntent = PendingIntent.getActivity(
-                    this,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    val bgOptions = ActivityOptions.makeBasic().apply {
-                        setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-                    }.toBundle()
-                    pendingIntent.send(this, 0, null, null, null, null, bgOptions)
-                } else {
-                    pendingIntent.send()
-                }
-            } catch (ex: Exception) {
-                Log.e(TAG, "Failed fallback pending intent launch", ex)
-            }
-        }
+        com.example.ui.overlay.AppLockOverlayManager.showOverlay(this, targetPackage)
     }
 
     override fun onInterrupt() {

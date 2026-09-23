@@ -54,15 +54,14 @@ class UnlockActivity : FragmentActivity() {
         targetPackageState.value = initialPackage
         prefs = LockPreferences(this)
 
-        // Security check: if pattern is not configured, unlock session immediately to prevent lockers soft-locks
+        // Security check: if pattern is not configured, set fallback PIN "1234" to guarantee protection
         if (!prefs.hasPatternSet()) {
-            initialPackage?.let { AppLockSession.unlockApp(it) }
-            finishAndRemoveTask()
-            return
+            prefs.savedPasscode = "1234"
+            prefs.lockType = "pin"
         }
 
-        // Loop Prevention: If the app is already unlocked or was recently unlocked, dismiss immediately
-        if (initialPackage != null && (AppLockSession.isUnlocked(initialPackage) || AppLockSession.isRecentlyUnlocked(initialPackage, 3000L))) {
+        // Loop Prevention: If the app is already unlocked, dismiss immediately
+        if (initialPackage != null && AppLockSession.isUnlocked(initialPackage)) {
             finishAndRemoveTask()
             return
         }
@@ -102,17 +101,16 @@ class UnlockActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val packageArg = intent.getStringExtra("EXTRA_PACKAGE_NAME")
+        val packageArg = intent.getStringExtra("EXTRA_PACKAGE_NAME") ?: intent.getStringExtra(EXTRA_PACKAGE_NAME)
         targetPackageState.value = packageArg
 
-        if (packageArg != null && !prefs.hasPatternSet()) {
-            AppLockSession.unlockApp(packageArg)
-            finishAndRemoveTask()
-            return
+        if (!prefs.hasPatternSet()) {
+            prefs.savedPasscode = "1234"
+            prefs.lockType = "pin"
         }
 
-        // Loop Prevention: If the app is already unlocked or was recently unlocked, dismiss immediately
-        if (packageArg != null && (AppLockSession.isUnlocked(packageArg) || AppLockSession.isRecentlyUnlocked(packageArg, 3000L))) {
+        // Loop Prevention: If the app is already unlocked, dismiss immediately
+        if (packageArg != null && AppLockSession.isUnlocked(packageArg)) {
             finishAndRemoveTask()
             return
         }
@@ -160,14 +158,22 @@ class UnlockActivity : FragmentActivity() {
         val pkg = targetPackageState.value
         AppLockSession.markGoToHome(pkg)
         AppLockSession.activeUnlockingPackage = null
-        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            startActivity(homeIntent)
+        } catch (e: Exception) {
+            android.util.Log.e("UnlockActivity", "Failed to launch home intent", e)
         }
-        startActivity(homeIntent)
         finishAndRemoveTask()
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
+    }
+
+    companion object {
+        const val EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME"
     }
 }
 

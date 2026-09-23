@@ -10,6 +10,69 @@ import android.view.inputmethod.InputMethodManager
 
 object AppLockPackageHelper {
 
+    private val CHROME_PACKAGE_FAMILY = setOf(
+        "com.android.chrome",
+        "org.chromium.chrome",
+        "com.chrome.beta",
+        "com.chrome.canary",
+        "com.chrome.dev"
+    )
+
+    private val CAMERA_PACKAGE_FAMILY = setOf(
+        "com.android.camera",
+        "com.android.camera2",
+        "com.google.android.GoogleCamera",
+        "com.sec.android.app.camera",
+        "com.samsung.android.app.camera",
+        "com.oppo.camera",
+        "com.vivo.camera",
+        "com.motorola.cameraone",
+        "com.asus.camera",
+        "com.oneplus.camera",
+        "com.huawei.camera",
+        "com.xiaomi.camera",
+        "com.transsion.camera",
+        "com.realme.camera"
+    )
+
+    private val GALLERY_PACKAGE_FAMILY = setOf(
+        "com.google.android.apps.photos",
+        "com.sec.android.gallery3d",
+        "com.miui.gallery",
+        "com.coloros.gallery",
+        "com.vivo.gallery",
+        "com.huawei.photos",
+        "com.android.gallery3d"
+    )
+
+    /**
+     * Given a target package, returns all known package aliases in the same app family.
+     */
+    fun getPackageFamily(packageName: String): Set<String> {
+        if (packageName.isEmpty()) return emptySet()
+        val lower = packageName.lowercase()
+        if (CHROME_PACKAGE_FAMILY.contains(lower) || lower.contains("chrome")) {
+            return CHROME_PACKAGE_FAMILY + packageName
+        }
+        if (CAMERA_PACKAGE_FAMILY.contains(lower) || lower.contains("camera")) {
+            return CAMERA_PACKAGE_FAMILY + packageName
+        }
+        if (GALLERY_PACKAGE_FAMILY.contains(lower) || lower.contains("gallery") || lower.contains("photos")) {
+            return GALLERY_PACKAGE_FAMILY + packageName
+        }
+        return setOf(packageName)
+    }
+
+    /**
+     * Checks if a package or any of its family aliases is contained in the set of locked packages.
+     */
+    fun isPackageLocked(packageName: String, lockedPackages: Set<String>): Boolean {
+        if (packageName.isEmpty()) return false
+        if (lockedPackages.contains(packageName)) return true
+        val family = getPackageFamily(packageName)
+        return family.any { lockedPackages.contains(it) }
+    }
+
     @Volatile
     private var cachedImePackages: Set<String> = emptySet()
     @Volatile

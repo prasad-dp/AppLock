@@ -293,7 +293,7 @@ class BillingManager(
         }
     }
 
-    private fun updatePremiumState(isPremiumUser: Boolean) {
+    fun updatePremiumState(isPremiumUser: Boolean) {
         prefs.isPremiumUser = isPremiumUser
         _isPremium.value = isPremiumUser
     }

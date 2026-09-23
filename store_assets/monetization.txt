@@ -1,5 +1,5 @@
 ================================================================================
-          APP LOCKER & INTRUDER SECURITY VAULT - MONETIZATION CONFIG
+          APP LOCKER PRO & INTRUDER SECURITY VAULT - MONETIZATION CONFIG
 ================================================================================
 Package Name: com.aistudio.applocker.kyzqpz
 Version: 1.0.1 (versionCode: 2)
@@ -10,7 +10,7 @@ Document Status: Production Launch Ready
 --------------------------------------------------------------------------------
 1. MONETIZATION OVERVIEW & HYBRID MODEL
 --------------------------------------------------------------------------------
-APP LOCKER operates on a high-retention Hybrid Freemium Model:
+App Locker Pro operates on a high-retention Hybrid Freemium Model:
 1. Free Tier (Ad-Supported):
    - Access to Core App Locking (PIN, Pattern, Password, Biometrics).
    - Up to 10 Locked Apps simultaneously.
