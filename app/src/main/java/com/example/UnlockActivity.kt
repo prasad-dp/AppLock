@@ -83,7 +83,16 @@ class UnlockActivity : FragmentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding),
                         onSuccess = {
-                            targetPackageState.value?.let { AppLockSession.unlockApp(it) }
+                            val targetPkg = targetPackageState.value
+                            if (targetPkg != null) {
+                                AppLockSession.unlockApp(targetPkg)
+                                val isFromNotification = intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
+                                if (isFromNotification) {
+                                    com.example.service.AppLockNotificationListenerService.onAppUnlocked(this, targetPkg)
+                                } else {
+                                    com.example.service.AppLockNotificationListenerService.clearMaskedNotifications(this, targetPkg)
+                                }
+                            }
                             Toast.makeText(this, "Application Unlocked", Toast.LENGTH_SHORT).show()
                             finishAndRemoveTask()
                             @Suppress("DEPRECATION")

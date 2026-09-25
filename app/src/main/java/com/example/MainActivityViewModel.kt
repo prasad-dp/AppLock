@@ -503,6 +503,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun isNotificationPrivacyEnabled(): Boolean = prefs.isNotificationPrivacyEnabled
+
+    fun setNotificationPrivacyEnabled(enabled: Boolean) {
+        prefs.isNotificationPrivacyEnabled = enabled
+    }
+
+    fun getNotificationPrivacyMode(): String = prefs.notificationPrivacyMode
+
+    fun setNotificationPrivacyMode(mode: String) {
+        prefs.notificationPrivacyMode = mode
+    }
+
     fun performAutoCleanupIfNeeded() {
         if (!prefs.isAutoCleanupEnabled) return
         viewModelScope.launch {

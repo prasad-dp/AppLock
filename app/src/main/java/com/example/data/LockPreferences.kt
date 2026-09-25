@@ -15,6 +15,12 @@ class LockPreferences(context: Context) {
         private const val KEY_BIOMETRIC_ENABLED = "biometric_auth_enabled"
         private const val KEY_SERVICE_ACTIVE = "locker_service_active"
         private const val KEY_INTRUDER_DETECTION_ENABLED = "intruder_detection"
+        private const val KEY_NOTIF_PRIVACY_ENABLED = "notification_privacy_enabled"
+        private const val KEY_NOTIF_PRIVACY_MODE = "notification_privacy_mode"
+
+        const val NOTIF_MODE_STRICT = "strict" // Strict Shield: Hide Sender & Message (e.g. WhatsApp: 1 new message)
+        const val NOTIF_MODE_HIDE_CONTENT = "hide_content" // Hide Content Only: Show Sender (e.g. John: Message hidden)
+        const val NOTIF_MODE_BLOCK = "block" // Stealth: Completely suppress until opened
 
         @Volatile
         private var sharedPrefsInstance: SharedPreferences? = null
@@ -69,6 +75,14 @@ class LockPreferences(context: Context) {
     var isIntruderDetectionEnabled: Boolean
         get() = prefs.getBoolean(KEY_INTRUDER_DETECTION_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_INTRUDER_DETECTION_ENABLED, value).apply()
+
+    var isNotificationPrivacyEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NOTIF_PRIVACY_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIF_PRIVACY_ENABLED, value).apply()
+
+    var notificationPrivacyMode: String
+        get() = prefs.getString(KEY_NOTIF_PRIVACY_MODE, NOTIF_MODE_STRICT) ?: NOTIF_MODE_STRICT
+        set(value) = prefs.edit().putString(KEY_NOTIF_PRIVACY_MODE, value).apply()
 
     var isAutoCleanupEnabled: Boolean
         get() = prefs.getBoolean("auto_cleanup_logs_enabled", false)

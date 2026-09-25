@@ -1148,6 +1148,9 @@ fun DashboardView(
     var showPurgeAllDataConfirmDialog by remember { mutableStateOf(false) }
     var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
+    var isNotificationPrivacyEnabledState by remember { mutableStateOf(viewModel.isNotificationPrivacyEnabled()) }
+    var notificationPrivacyModeState by remember { mutableStateOf(viewModel.getNotificationPrivacyMode()) }
+    var showNotifListenerPermissionDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val appFilterCounts by viewModel.appFilterCounts.collectAsStateWithLifecycle()
@@ -1858,8 +1861,11 @@ fun DashboardView(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
+                            val targetAppName = remember(alert.attemptedPackage) {
+                                com.example.util.AppLockPackageHelper.getAppLabel(context, alert.attemptedPackage)
+                            }
                             Text(
-                                text = "Target: ${alert.attemptedPackage ?: "App Locker"}",
+                                text = "Target: $targetAppName",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
@@ -1916,6 +1922,50 @@ fun DashboardView(
     if (showTermsOfServiceDialog) {
         com.example.ui.components.TermsOfServiceDialog(
             onDismiss = { showTermsOfServiceDialog = false }
+        )
+    }
+
+    if (showNotifListenerPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotifListenerPermissionDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.NotificationsActive,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Notification Access Required",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "To hide sensitive messages, OTPs, and contacts from locked apps on your lock screen, Android requires \"Notification Access\" permission.\n\nPlease enable App Locker in the following system settings screen.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showNotifListenerPermissionDialog = false
+                        isNotificationPrivacyEnabledState = true
+                        viewModel.setNotificationPrivacyEnabled(true)
+                        context.startActivity(PermissionUtils.getNotificationListenerSettingsIntent())
+                    }
+                ) {
+                    Text("Grant Access")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotifListenerPermissionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -2271,7 +2321,208 @@ fun DashboardView(
                     }
                 }
 
-                // 2. Privacy, Data & Compliance
+                // 2. Notification Privacy & Shield
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("notification_privacy_card")
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isNotificationPrivacyEnabledState) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                                        contentDescription = null,
+                                        tint = if (isNotificationPrivacyEnabledState) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Notification Privacy",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Switch(
+                                    checked = isNotificationPrivacyEnabledState,
+                                    onCheckedChange = { isEnabled ->
+                                        if (isEnabled && !PermissionUtils.hasNotificationListenerPermission(context)) {
+                                            showNotifListenerPermissionDialog = true
+                                        } else {
+                                            isNotificationPrivacyEnabledState = isEnabled
+                                            viewModel.setNotificationPrivacyEnabled(isEnabled)
+                                            Toast.makeText(
+                                                context,
+                                                if (isEnabled) "Notification Privacy Enabled" else "Notification Privacy Disabled",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    },
+                                    modifier = Modifier.testTag("notification_privacy_switch")
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Mask sensitive messages, OTPs, and contacts from locked apps so nobody can read incoming notifications on your lock screen.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (isNotificationPrivacyEnabledState) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Privacy Shield Level",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Mode 1: Strict Shield (Recommended)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_STRICT
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_STRICT)
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = notificationPrivacyModeState == com.example.data.LockPreferences.NOTIF_MODE_STRICT,
+                                        onClick = {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_STRICT
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_STRICT)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column {
+                                        Text(
+                                            text = "Strict Shield (Recommended)",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Hides both Sender & Message (e.g. \"WhatsApp: 1 new message\")",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                // Mode 2: Hide Content Only
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT)
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = notificationPrivacyModeState == com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT,
+                                        onClick = {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column {
+                                        Text(
+                                            text = "Hide Content Only",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Shows Sender contact, hides message text (e.g. \"John: Message hidden\")",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                // Mode 3: Stealth Block
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_BLOCK
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_BLOCK)
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = notificationPrivacyModeState == com.example.data.LockPreferences.NOTIF_MODE_BLOCK,
+                                        onClick = {
+                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_BLOCK
+                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_BLOCK)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column {
+                                        Text(
+                                            text = "Stealth Mode (Zero Alert)",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Completely blocks notifications while app is locked until opened",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Note: If apps like WhatsApp already have internal fingerprint lock or privacy settings, App Locker intelligently manages notifications to avoid double alerts.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Privacy, Data & Compliance
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -3696,8 +3947,9 @@ fun triggerVaultBiometricAuth(
 fun shareIntruderSnapshot(context: android.content.Context, alert: IntruderAlert) {
     try {
         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(alert.timestamp))
-        val appName = alert.attemptedPackage ?: "App Locker"
-        val shareText = "🚨 Intruder Alert Snapshot!\nTarget App: $appName\nTime: $dateStr\nAuthentication Method: ${alert.lockType.uppercase(java.util.Locale.US)}"
+        val rawAppName = com.example.util.AppLockPackageHelper.getAppLabel(context, alert.attemptedPackage)
+        val appName = com.example.util.AppLockPackageHelper.sanitizeAppLabel(rawAppName)
+        val shareText = "🚨 Intruder Alert Snapshot\nTarget Application: $appName\nTime: $dateStr\nAttempted Authentication: ${alert.lockType.uppercase(java.util.Locale.US)}"
 
         var photoFile = if (alert.photoPath.isNotEmpty()) java.io.File(alert.photoPath) else null
         if (photoFile != null && !photoFile.exists()) {
@@ -4115,18 +4367,12 @@ fun IntruderAlertItem(
 ) {
     val context = LocalContext.current
     var attemptedAppName by remember(alert.attemptedPackage) {
-        mutableStateOf(alert.attemptedPackage ?: "App Locker Settings")
+        mutableStateOf(com.example.util.AppLockPackageHelper.getAppLabel(context, alert.attemptedPackage))
     }
     LaunchedEffect(alert.attemptedPackage) {
         if (!alert.attemptedPackage.isNullOrEmpty()) {
             val name = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val pm = context.packageManager
-                    val info = pm.getApplicationInfo(alert.attemptedPackage, 0)
-                    pm.getApplicationLabel(info).toString()
-                } catch (e: Exception) {
-                    alert.attemptedPackage
-                }
+                com.example.util.AppLockPackageHelper.getAppLabel(context, alert.attemptedPackage)
             }
             attemptedAppName = name
         } else {

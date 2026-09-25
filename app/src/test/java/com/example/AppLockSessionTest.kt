@@ -231,4 +231,69 @@ fun testForegroundPackageTracking() {
             AppLockSession.isGenuineAppEntry(whatsAppPkg)
         )
     }
+
+    @Test
+    fun testGetAppLabel() {
+        assertEquals("App Locker", AppLockPackageHelper.getAppLabel(context, null))
+        assertEquals("App Locker", AppLockPackageHelper.getAppLabel(context, ""))
+
+        // High profile / Indian brand resolution
+        val abhibusLabel = AppLockPackageHelper.getAppLabel(context, "com.abhibus.action")
+        assertFalse("App label should not contain dots causing URL hyperlinks", abhibusLabel.contains("."))
+        assertEquals("AbhiBus", abhibusLabel)
+
+        val amazonLabel = AppLockPackageHelper.getAppLabel(context, "in.amazon.mShop.android.shopping")
+        assertFalse("App label should not contain dots causing URL hyperlinks", amazonLabel.contains("."))
+        assertEquals("Amazon", amazonLabel)
+
+        val phonePeLabel = AppLockPackageHelper.getAppLabel(context, "com.phonepe.app")
+        assertFalse("App label should not contain dots causing URL hyperlinks", phonePeLabel.contains("."))
+        assertEquals("PhonePe", phonePeLabel)
+
+        val whatsAppLabel = AppLockPackageHelper.getAppLabel(context, "com.whatsapp")
+        assertEquals("WhatsApp", whatsAppLabel)
+
+        // Complex unknown package: resolves brand name while discarding domain prefix ("com") and generic suffix ("action")
+        val complexBrandLabel = AppLockPackageHelper.getAppLabel(context, "com.samplebrand.action")
+        assertFalse("App label should not contain dots causing URL hyperlinks", complexBrandLabel.contains("."))
+        assertEquals("Samplebrand", complexBrandLabel)
+
+        // Multi-word camelCase unknown package with multiple generic suffixes
+        val multiWordLabel = AppLockPackageHelper.getAppLabel(context, "in.smartMobility.client.shopping")
+        assertFalse("App label should not contain dots causing URL hyperlinks", multiWordLabel.contains("."))
+        assertEquals("Smart Mobility", multiWordLabel)
+
+        // Label sanitization: strips domain extensions and guarantees dotless non-clickable text
+        val sanitizedDomain = AppLockPackageHelper.sanitizeAppLabel("Booking.com - Hotel Bookings")
+        assertFalse("Sanitized label must not contain dots", sanitizedDomain.contains("."))
+        assertEquals("Booking", sanitizedDomain)
+    }
+
+    @Test
+    fun testNotificationPrivacyPreferences() {
+        val prefs = com.example.data.LockPreferences(context)
+
+        // Default should be false
+        prefs.isNotificationPrivacyEnabled = false
+        assertFalse(prefs.isNotificationPrivacyEnabled)
+
+        prefs.isNotificationPrivacyEnabled = true
+        assertTrue(prefs.isNotificationPrivacyEnabled)
+
+        // Test privacy modes
+        assertEquals(com.example.data.LockPreferences.NOTIF_MODE_STRICT, prefs.notificationPrivacyMode)
+
+        prefs.notificationPrivacyMode = com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT
+        assertEquals(com.example.data.LockPreferences.NOTIF_MODE_HIDE_CONTENT, prefs.notificationPrivacyMode)
+
+        prefs.notificationPrivacyMode = com.example.data.LockPreferences.NOTIF_MODE_BLOCK
+        assertEquals(com.example.data.LockPreferences.NOTIF_MODE_BLOCK, prefs.notificationPrivacyMode)
+    }
+
+    @Test
+    fun testNotificationListenerSettingsIntent() {
+        val intent = com.example.util.PermissionUtils.getNotificationListenerSettingsIntent()
+        assertEquals(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS, intent.action)
+        assertTrue((intent.flags and android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0)
+    }
 }

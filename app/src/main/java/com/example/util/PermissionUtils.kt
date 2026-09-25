@@ -3,6 +3,7 @@ package com.example.util
 import android.Manifest
 import android.app.AppOpsManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
@@ -68,6 +69,23 @@ object PermissionUtils {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else {
             true
+        }
+    }
+
+    /**
+     * Checks if notification listener access is enabled for App Locker to protect notifications.
+     */
+    fun hasNotificationListenerPermission(context: Context): Boolean {
+        val enabledListeners = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context)
+        return enabledListeners.contains(context.packageName)
+    }
+
+    /**
+     * Creates an intent directing the user to Android's Special App Access -> Notification Access settings.
+     */
+    fun getNotificationListenerSettingsIntent(): Intent {
+        return Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
 }

@@ -278,4 +278,188 @@ object AppLockPackageHelper {
 
         return activeRootPkg == null || activeRootPkg == targetPackage
     }
+
+    private val DOMAIN_PREFIXES = setOf(
+        "com", "org", "net", "edu", "gov", "mil", "int", "in", "us", "uk", "co", "io", "ai",
+        "app", "dev", "de", "fr", "jp", "cn", "ru", "br", "au", "ca", "ch", "it", "nl", "se",
+        "no", "es", "kr", "za", "sg", "my", "nz", "ae", "sa"
+    )
+
+    private val GENERIC_WRAPPER_TOKENS = setOf(
+        "android", "app", "apps", "application", "action", "actions", "client", "clients",
+        "mobile", "mob", "service", "services", "mshop", "shopping", "shop", "store", "user",
+        "customer", "main", "ui", "view", "core", "base", "internal", "media", "mediaclient",
+        "frontpage", "consumer", "passenger", "driver", "partner", "pro", "lite", "free",
+        "beta", "alpha", "dev", "prod", "production", "release", "debug", "test", "v1", "v2", "v3",
+        "system", "systemui", "software", "corp", "inc", "ltd", "tech", "technology"
+    )
+
+    private val KNOWN_BRAND_MAP = mapOf(
+        "abhibus" to "AbhiBus",
+        "amazon" to "Amazon",
+        "whatsapp" to "WhatsApp",
+        "instagram" to "Instagram",
+        "telegram" to "Telegram",
+        "facebook" to "Facebook",
+        "katana" to "Facebook",
+        "snapchat" to "Snapchat",
+        "youtube" to "YouTube",
+        "phonepe" to "PhonePe",
+        "paytm" to "Paytm",
+        "flipkart" to "Flipkart",
+        "swiggy" to "Swiggy",
+        "zomato" to "Zomato",
+        "ubercab" to "Uber",
+        "uber" to "Uber",
+        "olacabs" to "Ola",
+        "redbus" to "redBus",
+        "hotstar" to "Hotstar",
+        "netflix" to "Netflix",
+        "spotify" to "Spotify",
+        "truecaller" to "Truecaller",
+        "twitter" to "Twitter",
+        "linkedin" to "LinkedIn",
+        "pinterest" to "Pinterest",
+        "reddit" to "Reddit",
+        "discord" to "Discord",
+        "zepto" to "Zepto",
+        "zeptonow" to "Zepto",
+        "blinkit" to "Blinkit",
+        "grofers" to "Blinkit",
+        "dunzo" to "Dunzo",
+        "myntra" to "Myntra",
+        "ajio" to "AJIO",
+        "nykaa" to "Nykaa",
+        "meesho" to "Meesho",
+        "rapido" to "Rapido",
+        "makemytrip" to "MakeMyTrip",
+        "goibibo" to "Goibibo",
+        "irctc" to "IRCTC",
+        "cleartrip" to "Cleartrip",
+        "ixigo" to "Ixigo",
+        "yatra" to "Yatra",
+        "tataneu" to "Tata Neu",
+        "airtel" to "Airtel",
+        "myjio" to "Jio",
+        "dream11" to "Dream11",
+        "cred" to "CRED",
+        "zerodha" to "Zerodha Kite",
+        "kite" to "Zerodha Kite",
+        "groww" to "Groww",
+        "upstox" to "Upstox",
+        "angelone" to "Angel One",
+        "gmail" to "Gmail",
+        "chrome" to "Chrome",
+        "tiktok" to "TikTok",
+        "viber" to "Viber",
+        "signal" to "Signal",
+        "slack" to "Slack",
+        "teams" to "Microsoft Teams",
+        "outlook" to "Microsoft Outlook",
+        "zoom" to "Zoom"
+    )
+
+    /**
+     * Sanitizes application labels so that no phone linkifiers, SMS gateways, or chat apps
+     * (WhatsApp, Telegram, Signal, iMessage) can ever detect a URL or create a clickable hyperlink.
+     * Strips web domains (.com, .in, etc.), delimiters, colons, slashes, and removes all dots.
+     */
+    fun sanitizeAppLabel(input: String): String {
+        var cleaned = input
+        // Remove web domain suffixes e.g. "Booking.com" -> "Booking", "Amazon.in" -> "Amazon"
+        cleaned = cleaned.replace(Regex("""\.(com|in|org|net|io|co|ai|app|gov|edu|me|tv|info)\b""", RegexOption.IGNORE_CASE), "")
+        // Strip subtitle / descriptor segments (e.g. "AbhiBus - Bus Tickets", "Amazon: Shop Now")
+        val delimiterRegex = Regex("""[\-–—|:•(\[]""")
+        val parts = cleaned.split(delimiterRegex)
+        if (parts.isNotEmpty() && parts[0].trim().isNotBlank()) {
+            cleaned = parts[0].trim()
+        }
+        // Replace all dots, slashes, colons, at-signs with spaces so it can never be linkified
+        cleaned = cleaned.replace('.', ' ')
+            .replace('/', ' ')
+            .replace('\\', ' ')
+            .replace(':', ' ')
+            .replace('@', ' ')
+            .replace('_', ' ')
+        // Collapse whitespace
+        cleaned = cleaned.replace(Regex("""\s+"""), " ").trim()
+        return cleaned.ifBlank { "App Locker" }
+    }
+
+    private fun formatCandidateName(token: String): String {
+        val withSpaces = token.replace(Regex("(?<=[a-z0-9])(?=[A-Z])"), " ")
+            .replace('_', ' ')
+            .replace('-', ' ')
+        val words = withSpaces.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        if (words.isEmpty()) return token
+        return words.joinToString(" ") { word ->
+            word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+    }
+
+    /**
+     * Resolves a clean, brand-accurate, human-friendly application name
+     * (e.g. "AbhiBus", "Amazon", "WhatsApp", "PhonePe") from any package name regardless of complexity,
+     * guaranteeing no dots or URL-like patterns so messaging apps and phone linkifiers will never hyperlink it.
+     */
+    fun getAppLabel(context: Context, packageName: String?): String {
+        if (packageName.isNullOrBlank()) return "App Locker"
+
+        // 1. Try PackageManager to get official installed application label
+        try {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(packageName, 0)
+            val label = pm.getApplicationLabel(info)?.toString()
+            if (!label.isNullOrBlank() && label != packageName) {
+                return sanitizeAppLabel(label)
+            }
+        } catch (_: Exception) {}
+
+        val lower = packageName.lowercase()
+
+        // 2. High-precision compound signatures
+        if (lower.contains("facebook.orca")) return "Messenger"
+        if (lower.contains("whatsapp.w4b") || (lower.contains("whatsapp") && lower.contains("business"))) return "WhatsApp Business"
+        if (lower.contains("paisa") || lower.contains("googlepay") || lower.contains("gpay")) return "Google Pay"
+        if (lower.contains("google.android.gm")) return "Gmail"
+        if (lower.contains("google.android.apps.photos")) return "Google Photos"
+        if (lower.contains("google.android.apps.messaging")) return "Messages"
+        if (lower.contains("googlequicksearchbox")) return "Google"
+
+        // 3. Known brand registry matching
+        for ((brandKey, brandTitle) in KNOWN_BRAND_MAP) {
+            if (lower.contains(brandKey)) {
+                return brandTitle
+            }
+        }
+
+        // 4. Universal heuristic parser for arbitrary / complex package names
+        val rawSegments = packageName.split('.')
+        // Drop leading domain prefixes (e.g. "com", "in", "org", "net", "de", "uk", etc.)
+        val nonDomainSegments = rawSegments.dropWhile { DOMAIN_PREFIXES.contains(it.lowercase()) }
+
+        // Filter out generic wrapper/module tokens (e.g. "android", "app", "action", "shopping", "mshop", "client", "mobile")
+        val brandCandidates = nonDomainSegments.filter {
+            val segLower = it.lowercase()
+            !DOMAIN_PREFIXES.contains(segLower) && !GENERIC_WRAPPER_TOKENS.contains(segLower)
+        }
+
+        val chosenCandidate = when {
+            brandCandidates.isNotEmpty() -> {
+                // In reverse domain notation (e.g. "com.abhibus.action", "in.amazon.mShop.android.shopping"),
+                // the first non-generic token is the distinct company / brand name
+                brandCandidates.first()
+            }
+            nonDomainSegments.isNotEmpty() -> {
+                // If all tokens were deemed generic (e.g. "com.android.calculator2"), take the last non-domain segment
+                nonDomainSegments.last()
+            }
+            else -> {
+                rawSegments.lastOrNull() ?: packageName
+            }
+        }
+
+        val formatted = formatCandidateName(chosenCandidate)
+        return sanitizeAppLabel(formatted)
+    }
 }
