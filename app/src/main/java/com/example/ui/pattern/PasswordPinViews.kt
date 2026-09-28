@@ -968,8 +968,7 @@ fun LockVerifyScreen(
     val initialEndMillis = remember(packageName) { prefs.getLockoutEndTimestamp(packageName) }
     val initialAttempts = remember(packageName) {
         if (initialEndMillis in 1..now) {
-            prefs.setFailedAttempts(packageName, 0)
-            prefs.setLockoutEndTimestamp(packageName, 0L)
+            prefs.clearAllLockouts(packageName)
             0
         } else {
             prefs.getFailedAttempts(packageName)
@@ -979,25 +978,27 @@ fun LockVerifyScreen(
     var lockoutSecondsLeft by remember(packageName) {
         mutableStateOf(if (initialEndMillis > now) (initialEndMillis - now + 999) / 1000 else 0L)
     }
+    var biometricLockoutSecondsLeft by remember {
+        val end = prefs.biometricLockoutEndTimestamp
+        val cur = System.currentTimeMillis()
+        mutableLongStateOf(if (end > cur) (end - cur + 999) / 1000 else 0L)
+    }
     val showFaceScan = false
 
-    LaunchedEffect(packageName) {
-        while (true) {
-            val endMillis = prefs.getLockoutEndTimestamp(packageName)
-            val currentMillis = System.currentTimeMillis()
-            if (endMillis > currentMillis) {
-                lockoutSecondsLeft = (endMillis - currentMillis + 999) / 1000
-            } else {
-                if (endMillis != 0L || lockoutSecondsLeft > 0) {
-                    wrongAttemptsCount = 0 // Reset attempts count upon transition out of lockout cooldown
-                    prefs.setFailedAttempts(packageName, 0)
-                    prefs.setLockoutEndTimestamp(packageName, 0L)
-                }
-                lockoutSecondsLeft = 0
+    var patternState by remember(packageName) { mutableStateOf(PatternState.DRAWING) }
+    var pinAndPasswordAttemptId by remember(packageName) { mutableStateOf(0) }
+    var statusText by remember(packageName, prefs.lockType) { 
+        mutableStateOf(
+            when (prefs.lockType) {
+                "pattern" -> "Draw pattern to unlock"
+                "pin" -> "Enter 4-digit PIN to unlock"
+                "password" -> "Enter password to unlock"
+                else -> "Authenticate to unlock"
             }
-            delay(1000)
-        }
+        ) 
     }
+
+    var userDismissedBiometric by remember(packageName) { mutableStateOf(false) }
 
     val haptic = LocalHapticFeedback.current
     val triggerErrorHaptic = {
@@ -1056,88 +1057,180 @@ fun LockVerifyScreen(
         if (wrongAttemptsCount >= 3) {
             prefs.setLockoutEndTimestamp(packageName, System.currentTimeMillis() + 30_000L)
             lockoutSecondsLeft = 30
-            
-            // Biometric bypass disabled per request
         }
     }
 
-    var patternState by remember(packageName) { mutableStateOf(PatternState.DRAWING) }
-    var pinAndPasswordAttemptId by remember(packageName) { mutableStateOf(0) }
-    var statusText by remember(packageName, prefs.lockType) { 
-        mutableStateOf(
-            when (prefs.lockType) {
-                "pattern" -> "Draw pattern to unlock"
-                "pin" -> "Enter 4-digit PIN to unlock"
-                "password" -> "Enter password to unlock"
-                else -> "Authenticate to unlock"
-            }
-        ) 
-    }
-
-    var userDismissedBiometric by remember(packageName) { mutableStateOf(false) }
-
-    val triggerFingerprintScan = {
+    fun triggerFingerprintScan(isManualClick: Boolean = false) {
         val endMillis = prefs.getLockoutEndTimestamp(packageName)
         if (System.currentTimeMillis() < endMillis) {
             Toast.makeText(context, "Too many wrong attempts. Fingerprint disabled during cooldown.", Toast.LENGTH_SHORT).show()
-        } else {
-            val fa = context.findActivity()
-            if (fa != null && prefs.isBiometricEnabled) {
-                val biometricManager = BiometricManager.from(fa)
-                val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-                if (biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
-                    val executor = ContextCompat.getMainExecutor(fa)
-                    val biometricPrompt = BiometricPrompt(
-                        fa,
+            return
+        }
+        val currentFa = context.findActivity()
+        if (currentFa != null && prefs.isBiometricEnabled) {
+            val biometricManager = BiometricManager.from(currentFa)
+            val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+            val canAuth = biometricManager.canAuthenticate(authenticators)
+            if (canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
+                val executor = ContextCompat.getMainExecutor(currentFa)
+                val biometricPrompt = BiometricPrompt(
+                    currentFa,
+                    executor,
+                    object : BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
+                            if (errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                                errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                                errorCode == BiometricPrompt.ERROR_CANCELED
+                            ) {
+                                userDismissedBiometric = true
+                            } else if (errorCode == BiometricPrompt.ERROR_LOCKOUT) {
+                                prefs.biometricLockoutEndTimestamp = System.currentTimeMillis() + 30_000L
+                                biometricLockoutSecondsLeft = 30
+                                Toast.makeText(currentFa, "Too many wrong fingerprint attempts. Sensor locked for 30s.", Toast.LENGTH_SHORT).show()
+                            } else if (errorCode == BiometricPrompt.ERROR_LOCKOUT_PERMANENT) {
+                                Toast.makeText(currentFa, "Fingerprint locked by system. Verify device lock to reset.", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(currentFa, "Biometric error: $errString", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
+                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
+                            patternState = PatternState.SUCCESS
+                            statusText = "Unlock successful!"
+                            wrongAttemptsCount = 0
+                            prefs.clearAllLockouts(packageName)
+                            prefs.biometricLockoutEndTimestamp = 0L
+                            biometricLockoutSecondsLeft = 0
+                            coroutineScope.launch {
+                                delay(300)
+                                onSuccess()
+                            }
+                        }
+
+                        override fun onAuthenticationFailed() {
+                            super.onAuthenticationFailed()
+                            triggerErrorHaptic()
+                            Toast.makeText(currentFa, "Fingerprint verification failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(if (appLabel.isNotEmpty()) appLabel else "App Lock")
+                    .setSubtitle("Confirm your fingerprint to unlock")
+                    .setNegativeButtonText("Use alternative lock")
+                    .setAllowedAuthenticators(authenticators)
+                    .build()
+
+                try {
+                    biometricPrompt.authenticate(promptInfo)
+                } catch (e: Exception) {
+                    Toast.makeText(currentFa, "Launch error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } else if (canAuth == BiometricPrompt.ERROR_LOCKOUT) {
+                val remaining = if (biometricLockoutSecondsLeft > 0) biometricLockoutSecondsLeft else 30
+                if (isManualClick) {
+                    Toast.makeText(
+                        currentFa,
+                        "Fingerprint sensor is in 30s cooldown ($remaining s left). Please wait or enter PIN.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else if (canAuth == BiometricPrompt.ERROR_LOCKOUT_PERMANENT) {
+                val deviceCredAuthenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                if (isManualClick && biometricManager.canAuthenticate(deviceCredAuthenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
+                    val executor = ContextCompat.getMainExecutor(currentFa)
+                    val resetPrompt = BiometricPrompt(
+                        currentFa,
                         executor,
                         object : BiometricPrompt.AuthenticationCallback() {
-                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                super.onAuthenticationError(errorCode, errString)
-                                if (errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
-                                    errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
-                                    errorCode == BiometricPrompt.ERROR_CANCELED
-                                ) {
-                                    userDismissedBiometric = true
-                                } else if (errorCode != BiometricPrompt.ERROR_LOCKOUT && errorCode != BiometricPrompt.ERROR_LOCKOUT_PERMANENT) {
-                                    Toast.makeText(fa, "Biometric error: $errString", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-
                             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                                 super.onAuthenticationSucceeded(result)
                                 patternState = PatternState.SUCCESS
-                                statusText = "Unlock successful!"
+                                statusText = "Sensor reset & unlock successful!"
                                 wrongAttemptsCount = 0
-                                prefs.setFailedAttempts(packageName, 0)
-                                prefs.setLockoutEndTimestamp(packageName, 0L)
+                                prefs.clearAllLockouts(packageName)
+                                prefs.biometricLockoutEndTimestamp = 0L
+                                biometricLockoutSecondsLeft = 0
+                                Toast.makeText(currentFa, "Fingerprint sensor reset!", Toast.LENGTH_SHORT).show()
                                 coroutineScope.launch {
                                     delay(300)
                                     onSuccess()
                                 }
                             }
 
-                            override fun onAuthenticationFailed() {
-                                super.onAuthenticationFailed()
-                                triggerErrorHaptic()
-                                Toast.makeText(fa, "Fingerprint verification failed", Toast.LENGTH_SHORT).show()
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
+                                    errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+                                    errorCode != BiometricPrompt.ERROR_CANCELED
+                                ) {
+                                    Toast.makeText(currentFa, "Verification error: $errString", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     )
-
-                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                        .setTitle(if (appLabel.isNotEmpty()) appLabel else "App Lock")
-                        .setSubtitle("Confirm your fingerprint to unlock")
-                        .setNegativeButtonText("Use alternative lock")
-                        .setAllowedAuthenticators(authenticators)
+                    val resetInfo = BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Reset Fingerprint Sensor")
+                        .setSubtitle("Confirm device screen lock to re-enable fingerprint")
+                        .setAllowedAuthenticators(deviceCredAuthenticators)
                         .build()
-
                     try {
-                        biometricPrompt.authenticate(promptInfo)
+                        resetPrompt.authenticate(resetInfo)
                     } catch (e: Exception) {
-                        Toast.makeText(fa, "Launch error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(currentFa, "Launch error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
+                } else if (isManualClick) {
+                    Toast.makeText(currentFa, "Fingerprint locked by system. Lock and unlock your phone to reset.", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    LaunchedEffect(packageName) {
+        val fa = context.findActivity()
+        while (true) {
+            val endMillis = prefs.getLockoutEndTimestamp(packageName)
+            val currentMillis = System.currentTimeMillis()
+            if (endMillis > currentMillis) {
+                lockoutSecondsLeft = (endMillis - currentMillis + 999) / 1000
+            } else {
+                if (endMillis != 0L || lockoutSecondsLeft > 0) {
+                    wrongAttemptsCount = 0 // Reset attempts count upon transition out of lockout cooldown
+                    prefs.clearAllLockouts(packageName)
+                }
+                lockoutSecondsLeft = 0
+            }
+
+            // Biometric hardware lockout tracking & auto-recovery
+            if (fa != null && prefs.isBiometricEnabled) {
+                val biometricManager = BiometricManager.from(fa)
+                val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+                val canAuth = biometricManager.canAuthenticate(authenticators)
+                if (canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
+                    val wasLockedOut = biometricLockoutSecondsLeft > 0 || prefs.biometricLockoutEndTimestamp > 0L
+                    biometricLockoutSecondsLeft = 0
+                    prefs.biometricLockoutEndTimestamp = 0L
+                    if (wasLockedOut && !userDismissedBiometric && lockoutSecondsLeft == 0L) {
+                        // Cooldown ended! Auto-trigger biometric prompt now that sensor is ready
+                        triggerFingerprintScan(false)
+                    }
+                } else if (canAuth == BiometricPrompt.ERROR_LOCKOUT) {
+                    val bioEnd = prefs.biometricLockoutEndTimestamp
+                    val nowMs = System.currentTimeMillis()
+                    if (bioEnd > nowMs) {
+                        biometricLockoutSecondsLeft = (bioEnd - nowMs + 999) / 1000
+                    } else {
+                        prefs.biometricLockoutEndTimestamp = nowMs + 30_000L
+                        biometricLockoutSecondsLeft = 30
+                    }
+                } else {
+                    biometricLockoutSecondsLeft = 0
+                }
+            }
+            delay(1000)
         }
     }
 
@@ -1146,7 +1239,7 @@ fun LockVerifyScreen(
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 val endMillis = prefs.getLockoutEndTimestamp(packageName)
                 if (prefs.isBiometricEnabled && !userDismissedBiometric && System.currentTimeMillis() >= endMillis) {
-                    triggerFingerprintScan()
+                    triggerFingerprintScan(false)
                 }
             }
         }
@@ -1360,8 +1453,9 @@ fun LockVerifyScreen(
                                 patternState = PatternState.SUCCESS
                                 statusText = "Unlock successful!"
                                 wrongAttemptsCount = 0
-                                prefs.setFailedAttempts(packageName, 0)
-                                prefs.setLockoutEndTimestamp(packageName, 0L)
+                                prefs.clearAllLockouts(packageName)
+                                prefs.biometricLockoutEndTimestamp = 0L
+                                biometricLockoutSecondsLeft = 0
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1387,7 +1481,7 @@ fun LockVerifyScreen(
                         isBiometricEnabled = prefs.isBiometricEnabled,
                         onBiometricClick = {
                             userDismissedBiometric = false
-                            triggerFingerprintScan()
+                            triggerFingerprintScan(true)
                         },
                         onCancelClick = onCancel,
                         onPinComplete = { pin ->
@@ -1396,8 +1490,9 @@ fun LockVerifyScreen(
                                 patternState = PatternState.SUCCESS
                                 statusText = "PIN verified!"
                                 wrongAttemptsCount = 0
-                                prefs.setFailedAttempts(packageName, 0)
-                                prefs.setLockoutEndTimestamp(packageName, 0L)
+                                prefs.clearAllLockouts(packageName)
+                                prefs.biometricLockoutEndTimestamp = 0L
+                                biometricLockoutSecondsLeft = 0
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1429,8 +1524,9 @@ fun LockVerifyScreen(
                                 patternState = PatternState.SUCCESS
                                 statusText = "Password verified!"
                                 wrongAttemptsCount = 0
-                                prefs.setFailedAttempts(packageName, 0)
-                                prefs.setLockoutEndTimestamp(packageName, 0L)
+                                prefs.clearAllLockouts(packageName)
+                                prefs.biometricLockoutEndTimestamp = 0L
+                                biometricLockoutSecondsLeft = 0
                                 coroutineScope.launch {
                                     delay(400)
                                     onSuccess()
@@ -1488,7 +1584,7 @@ fun LockVerifyScreen(
                     OutlinedButton(
                         onClick = {
                             userDismissedBiometric = false
-                            triggerFingerprintScan()
+                            triggerFingerprintScan(true)
                         },
                         modifier = Modifier.testTag("manual_biometric_trigger_button")
                     ) {
@@ -1500,6 +1596,35 @@ fun LockVerifyScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Fingerprint", fontWeight = FontWeight.SemiBold)
                     }
+                }
+            }
+        }
+
+        // Informative Sensor Cooldown Indicator during active hardware biometric lockout
+        if (biometricLockoutSecondsLeft > 0) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Fingerprint sensor cooling down: ${biometricLockoutSecondsLeft}s",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }

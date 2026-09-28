@@ -63,18 +63,23 @@ class NotificationPrivacyTest {
         title: String,
         text: String,
         id: Int = 1001,
-        key: String = "dummy_key_1"
+        key: String = "dummy_key_1",
+        category: String? = null
     ): StatusBarNotification {
         val extras = Bundle().apply {
             putCharSequence(Notification.EXTRA_TITLE, title)
             putCharSequence(Notification.EXTRA_TEXT, text)
         }
-        val notif = NotificationCompat.Builder(context, "test_channel")
+        val notifBuilder = NotificationCompat.Builder(context, "test_channel")
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .addExtras(extras)
-            .build()
+
+        if (category != null) {
+            notifBuilder.setCategory(category)
+        }
+        val notif = notifBuilder.build()
 
         return StatusBarNotification(
             packageName,
@@ -216,5 +221,56 @@ class NotificationPrivacyTest {
 
         assertEquals("Masked notification must be dismissed on unlock", 0, shadowNotificationManager.allNotifications.size)
         assertEquals("Notification count must be reset to 0", 0, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+    }
+
+    @Test
+    fun testGenericAppInStrictShieldMode() {
+        service.setLockedPackageForTesting("com.application.zomato")
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
+
+        val sbn = createDummySbn(
+            packageName = "com.application.zomato",
+            title = "Special 50% Off Biryani",
+            text = "Order now from Paradise Biryani and save big!"
+        )
+
+        service.onNotificationPosted(sbn)
+
+        val postedNotifications = shadowNotificationManager.allNotifications
+        assertEquals(1, postedNotifications.size)
+
+        val masked = postedNotifications.first()
+        val extras = masked.extras
+
+        // For non-messaging apps, should show "🔒 New notification received"
+        assertEquals("🔒 New notification received", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
+        assertTrue(bigText.contains("Notification details hidden for your privacy"))
+        assertFalse(extras.toString().contains("Biryani"))
+    }
+
+    @Test
+    fun testGenericAppInHideContentOnlyMode() {
+        service.setLockedPackageForTesting("com.rapido.passenger")
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_HIDE_CONTENT
+
+        val sbn = createDummySbn(
+            packageName = "com.rapido.passenger",
+            title = "Captain Assigned",
+            text = "Rahul (KA-01-AB-1234) is arriving in 3 mins. OTP: 4421"
+        )
+
+        service.onNotificationPosted(sbn)
+
+        val postedNotifications = shadowNotificationManager.allNotifications
+        assertEquals(1, postedNotifications.size)
+
+        val masked = postedNotifications.first()
+        val extras = masked.extras
+
+        // In Mode 2 for Rapido, show headline ("Captain Assigned"), mask sensitive text/OTP
+        assertEquals("Captain Assigned", extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals("🔒 Notification details hidden", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertFalse("Sensitive OTP or vehicle plate must not leak", extras.toString().contains("4421"))
     }
 }

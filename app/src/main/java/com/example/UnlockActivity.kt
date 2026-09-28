@@ -62,7 +62,7 @@ class UnlockActivity : FragmentActivity() {
 
         // Loop Prevention: If the app is already unlocked, dismiss immediately
         if (initialPackage != null && AppLockSession.isUnlocked(initialPackage)) {
-            finishAndRemoveTask()
+            finish()
             return
         }
 
@@ -85,16 +85,20 @@ class UnlockActivity : FragmentActivity() {
                         onSuccess = {
                             val targetPkg = targetPackageState.value
                             if (targetPkg != null) {
+                                prefs.clearAllLockouts(targetPkg)
                                 AppLockSession.unlockApp(targetPkg)
+                                AppLockSession.markAppInForeground(targetPkg)
                                 val isFromNotification = intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
                                 if (isFromNotification) {
                                     com.example.service.AppLockNotificationListenerService.onAppUnlocked(this, targetPkg)
                                 } else {
                                     com.example.service.AppLockNotificationListenerService.clearMaskedNotifications(this, targetPkg)
                                 }
+                            } else {
+                                prefs.clearAllLockouts("")
                             }
                             Toast.makeText(this, "Application Unlocked", Toast.LENGTH_SHORT).show()
-                            finishAndRemoveTask()
+                            finish()
                             @Suppress("DEPRECATION")
                             overridePendingTransition(0, 0)
                         },
@@ -120,7 +124,7 @@ class UnlockActivity : FragmentActivity() {
 
         // Loop Prevention: If the app is already unlocked, dismiss immediately
         if (packageArg != null && AppLockSession.isUnlocked(packageArg)) {
-            finishAndRemoveTask()
+            finish()
             return
         }
     }
@@ -133,7 +137,7 @@ class UnlockActivity : FragmentActivity() {
             AppLockSession.activeUnlockingPackage = null
         }
         if (!isFinishing) {
-            finishAndRemoveTask()
+            finish()
             @Suppress("DEPRECATION")
             overridePendingTransition(0, 0)
         }
@@ -176,7 +180,7 @@ class UnlockActivity : FragmentActivity() {
         } catch (e: Exception) {
             android.util.Log.e("UnlockActivity", "Failed to launch home intent", e)
         }
-        finishAndRemoveTask()
+        finish()
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
     }

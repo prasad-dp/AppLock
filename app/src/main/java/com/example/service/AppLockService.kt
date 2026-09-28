@@ -144,13 +144,21 @@ class AppLockService : Service() {
                     } else if (currentApp != null) {
                         val isLauncher = AppLockPackageHelper.isLauncherPackage(this@AppLockService, currentApp)
                         if (isLauncher) {
+                            val previousApp = AppLockSession.currentForegroundApp
+                            if (previousApp != null && previousApp != currentApp) {
+                                AppLockSession.markAppLeftForeground(previousApp)
+                                AppLockSession.markGoToHome(previousApp)
+                            }
                             AppLockSession.setCurrentForeground(currentApp)
-                            AppLockSession.clearGoToHome()
                             AppLockSession.activeUnlockingPackage = null
                             lastKnownForegroundPackage = null
                         } else {
+                            val previousApp = AppLockSession.currentForegroundApp
+                            if (previousApp != null && previousApp != currentApp) {
+                                AppLockSession.markAppLeftForeground(previousApp)
+                            }
+                            AppLockSession.markAppInForeground(currentApp)
                             lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
-                            AppLockSession.updateActiveTime(currentApp)
                         }
 
                         // Check auto-relock for other unlocked apps (runs on launcher as well!)
@@ -158,22 +166,20 @@ class AppLockService : Service() {
                         for (unlockedApp in currentUnlockedApps) {
                             if (unlockedApp != currentApp) {
                                 // If the app was just unlocked within the grace period, do NOT relock
-                                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 1500L)) {
+                                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 5000L)) {
                                     continue
                                 }
 
-                                val lastSeen = lastSeenForegroundTime[unlockedApp] ?: AppLockSession.getLastActiveTime(unlockedApp)
-                                val outOfForegroundDuration = System.currentTimeMillis() - lastSeen
-
+                                val outOfForegroundDuration = AppLockSession.getOutOfForegroundDuration(unlockedApp)
                                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                                 val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                                 val relockThresholdMs = when (relockPolicy) {
-                                    "immediately" -> 1000L // 1.0s safe debounce prevents micro-transition glitches
+                                    "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
                                     "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
                                     "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
                                     "1_min" -> 60_000L // Re-lock 1 minute after leaving app
                                     "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
-                                    else -> 1000L
+                                    else -> 1500L
                                 }
 
                                 if (outOfForegroundDuration >= relockThresholdMs) {
@@ -189,15 +195,17 @@ class AppLockService : Service() {
                             val isLocked = AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages)
                             if (isLocked) {
                                 val isUnlocked = AppLockSession.isUnlocked(currentApp)
-                                val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(currentApp, gracePeriodMs = 2000L)
+                                val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(currentApp, gracePeriodMs = 5000L)
                                 val isUnlockingNow = AppLockSession.activeUnlockingPackage == currentApp
                                 val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800L)
+                                val isGenuineEntry = AppLockSession.isGenuineAppEntry(currentApp)
+                                val isExitingHome = AppLockSession.isExitingToHome(currentApp)
 
-                                if (!isUnlocked && !isRecentlyUnlocked && (!isUnlockingNow || isLaunchBlocked)) {
+                                if (!isUnlocked && !isRecentlyUnlocked && isGenuineEntry && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
                                     Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
                                     launchUnlockScreen(currentApp)
                                 } else if (isUnlocked) {
-                                    AppLockSession.setCurrentForeground(currentApp)
+                                    AppLockSession.markAppInForeground(currentApp)
                                 }
                             } else {
                                 AppLockSession.setCurrentForeground(currentApp)
@@ -321,7 +329,10 @@ class AppLockService : Service() {
 
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
-        if (AppLockSession.isUnlocked(targetPackage) || AppLockSession.isRecentlyUnlocked(targetPackage, 2000L)) {
+        if (AppLockSession.isUnlocked(targetPackage) ||
+            AppLockSession.isRecentlyUnlocked(targetPackage, 5000L) ||
+            AppLockSession.isExitingToHome(targetPackage)
+        ) {
             return
         }
         AppLockSession.activeUnlockingPackage = targetPackage
@@ -330,7 +341,6 @@ class AppLockService : Service() {
             putExtra("EXTRA_PACKAGE_NAME", targetPackage)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }

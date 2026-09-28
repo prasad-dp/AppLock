@@ -14,6 +14,8 @@ object AppLockSession {
     @Volatile
     var currentForegroundApp: String? = null
 
+    private val leftForegroundTimes = mutableMapOf<String, Long>()
+
     /**
      * Checks whether transitioning to targetPackage is a genuine NEW launch from outside.
      * Returns true ONLY if the previous foreground app was NOT targetPackage.
@@ -36,6 +38,32 @@ object AppLockSession {
             if (!packageName.isNullOrEmpty() && packageName != "com.example.applocker" && !packageName.startsWith("com.aistudio.applocker")) {
                 currentForegroundApp = packageName
             }
+        }
+    }
+
+    fun markAppInForeground(packageName: String) {
+        synchronized(unlockedApps) {
+            currentForegroundApp = packageName
+            leftForegroundTimes.remove(packageName)
+            lastActiveTimes[packageName] = System.currentTimeMillis()
+        }
+    }
+
+    fun markAppLeftForeground(packageName: String) {
+        synchronized(unlockedApps) {
+            if (!leftForegroundTimes.containsKey(packageName)) {
+                leftForegroundTimes[packageName] = System.currentTimeMillis()
+            }
+        }
+    }
+
+    fun getOutOfForegroundDuration(packageName: String): Long {
+        synchronized(unlockedApps) {
+            if (currentForegroundApp == packageName) {
+                return 0L
+            }
+            val leftTime = leftForegroundTimes[packageName] ?: return 0L
+            return System.currentTimeMillis() - leftTime
         }
     }
 
@@ -134,13 +162,15 @@ object AppLockSession {
             unlockTimes[packageName] = now
             lastUnlockTimes[packageName] = now
             lastActiveTimes[packageName] = now
+            currentForegroundApp = packageName
+            leftForegroundTimes.remove(packageName)
         }
         if (activeUnlockingPackage == packageName) {
             activeUnlockingPackage = null
         }
     }
 
-    fun isRecentlyUnlocked(packageName: String, gracePeriodMs: Long = 2500L): Boolean {
+    fun isRecentlyUnlocked(packageName: String, gracePeriodMs: Long = 5000L): Boolean {
         synchronized(unlockedApps) {
             val unlockTime = lastUnlockTimes[packageName] ?: unlockTimes[packageName] ?: return false
             return (System.currentTimeMillis() - unlockTime) < gracePeriodMs
@@ -153,12 +183,13 @@ object AppLockSession {
      */
     fun lockApp(packageName: String, force: Boolean = false) {
         synchronized(unlockedApps) {
-            if (!force && isRecentlyUnlocked(packageName)) {
+            if (!force && isRecentlyUnlocked(packageName, gracePeriodMs = 5000L)) {
                 return
             }
             unlockedApps.remove(packageName)
             unlockTimes.remove(packageName)
             lastActiveTimes.remove(packageName)
+            leftForegroundTimes.remove(packageName)
         }
     }
 
@@ -212,6 +243,7 @@ object AppLockSession {
             unlockTimes.clear()
             lastUnlockTimes.clear()
             lastActiveTimes.clear()
+            leftForegroundTimes.clear()
             launchHistory.clear()
             loopCooldownUntil.clear()
             lastHomeTransitionTime = 0L

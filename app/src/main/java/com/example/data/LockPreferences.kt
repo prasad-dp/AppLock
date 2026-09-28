@@ -112,6 +112,10 @@ class LockPreferences(context: Context) {
         get() = prefs.getLong("lockout_end_timestamp", 0L)
         set(value) = prefs.edit().putLong("lockout_end_timestamp", value).apply()
 
+    var biometricLockoutEndTimestamp: Long
+        get() = prefs.getLong("biometric_lockout_end_timestamp", 0L)
+        set(value) = prefs.edit().putLong("biometric_lockout_end_timestamp", value).apply()
+
     fun getLockoutEndTimestamp(packageName: String): Long {
         if (packageName.isEmpty()) {
             return lockoutEndTimestamp
@@ -139,6 +143,15 @@ class LockPreferences(context: Context) {
             prefs.edit().putInt("failed_attempts_count", count).apply()
         } else {
             prefs.edit().putInt("failed_attempts_count_$packageName", count).apply()
+        }
+    }
+
+    fun clearAllLockouts(packageName: String) {
+        setFailedAttempts(packageName, 0)
+        setLockoutEndTimestamp(packageName, 0L)
+        if (packageName.isNotEmpty()) {
+            setFailedAttempts("", 0)
+            setLockoutEndTimestamp("", 0L)
         }
     }
 

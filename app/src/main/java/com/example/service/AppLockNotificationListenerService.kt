@@ -44,7 +44,7 @@ class AppLockNotificationListenerService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "NotifPrivacyService"
-        const val CHANNEL_ID = "applock_notification_protection"
+        const val CHANNEL_ID = "applock_notification_protection_v2"
         const val NOTIF_TAG_PREFIX = "masked_"
 
         private val notificationCountMap = ConcurrentHashMap<String, Int>()
@@ -210,7 +210,10 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         // 8. Resolve app metadata and visual assets
         val appLabel = AppLockPackageHelper.getAppLabel(this, targetPkg)
         val extras = notification.extras
-        val origTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+        val origTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+            ?: extras?.getCharSequence("android.conversationTitle")?.toString()?.trim()
+            ?: extras?.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim()
+            ?: ""
 
         val appIconBitmap = try {
             val drawable = AppIconCache.get(targetPkg) ?: packageManager.getApplicationIcon(targetPkg)
@@ -219,34 +222,65 @@ class AppLockNotificationListenerService : NotificationListenerService() {
             null
         }
 
+        // Detect if the notification is a direct message/chat or generic app update (e.g. Zomato, Rapido, Banking)
+        val isMessaging = category == NotificationCompat.CATEGORY_MESSAGE ||
+                category == Notification.CATEGORY_MESSAGE ||
+                category == NotificationCompat.CATEGORY_EMAIL ||
+                targetPkg.contains("whatsapp", ignoreCase = true) ||
+                targetPkg.contains("telegram", ignoreCase = true) ||
+                targetPkg.contains("signal", ignoreCase = true) ||
+                targetPkg.contains("messenger", ignoreCase = true) ||
+                targetPkg.contains("sms", ignoreCase = true) ||
+                targetPkg.contains("mms", ignoreCase = true)
+
         val displayTitle: String
         val shortContentText: String
         val expandedBigText: String
         val subTextHeader: String
 
         if (mode == LockPreferences.NOTIF_MODE_HIDE_CONTENT && origTitle.isNotBlank() && !origTitle.equals(appLabel, ignoreCase = true)) {
-            // Mode 2: Show Sender Name, Conceal Content
+            // Mode 2: Show Sender/Headline, Conceal Content
             displayTitle = origTitle
             subTextHeader = "$appLabel • Protected"
 
-            if (count > 1) {
-                shortContentText = "🔒 $count new messages • Tap to view"
-                expandedBigText = "🔒 $count new messages from $origTitle.\nTap to authenticate with App Locker and open conversation."
+            if (isMessaging) {
+                if (count > 1) {
+                    shortContentText = "🔒 $count new messages • Tap to view"
+                    expandedBigText = "🔒 $count new messages from $origTitle.\nTap to authenticate with App Locker and open in $appLabel."
+                } else {
+                    shortContentText = "🔒 New message hidden"
+                    expandedBigText = "🔒 New message from $origTitle.\nTap to authenticate with App Locker and open conversation."
+                }
             } else {
-                shortContentText = "🔒 New message hidden"
-                expandedBigText = "🔒 New message from $origTitle.\nTap to authenticate with App Locker and open conversation."
+                if (count > 1) {
+                    shortContentText = "🔒 $count updates • Tap to view"
+                    expandedBigText = "🔒 $count updates from $origTitle.\nTap to authenticate with App Locker and open in $appLabel."
+                } else {
+                    shortContentText = "🔒 Notification details hidden"
+                    expandedBigText = "🔒 Details from $origTitle hidden for your privacy.\nTap to authenticate with App Locker and open in $appLabel."
+                }
             }
         } else {
-            // Mode 1 (Strict Shield): Conceal both Sender Name & Content
+            // Mode 1 (Strict Shield): Conceal both Sender/Headline & Content
             displayTitle = appLabel
             subTextHeader = "Protected"
 
-            if (count > 1) {
-                shortContentText = "🔒 $count new messages received"
-                expandedBigText = "🔒 $count new messages hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+            if (isMessaging) {
+                if (count > 1) {
+                    shortContentText = "🔒 $count new messages received"
+                    expandedBigText = "🔒 $count new messages hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+                } else {
+                    shortContentText = "🔒 New message received"
+                    expandedBigText = "🔒 Sensitive content hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+                }
             } else {
-                shortContentText = "🔒 New message received"
-                expandedBigText = "🔒 Sensitive content hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+                if (count > 1) {
+                    shortContentText = "🔒 $count new notifications received"
+                    expandedBigText = "🔒 $count notifications hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+                } else {
+                    shortContentText = "🔒 New notification received"
+                    expandedBigText = "🔒 Notification details hidden for your privacy.\nTap to authenticate with App Locker and view in $appLabel."
+                }
             }
         }
 
@@ -287,8 +321,8 @@ class AppLockNotificationListenerService : NotificationListenerService() {
             .setWhen(sbn.postTime)
             .setNumber(count)
             .setColor(0xFF006C4C.toInt()) // Security Emerald Accent
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setCategory(if (isMessaging) NotificationCompat.CATEGORY_MESSAGE else NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
 
         if (appIconBitmap != null) {
@@ -313,15 +347,19 @@ class AppLockNotificationListenerService : NotificationListenerService() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Remove legacy channel with low importance if present
+            try {
+                notificationManager.deleteNotificationChannel("applock_notification_protection")
+            } catch (_: Exception) {}
+
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Protected App Notifications",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Privacy-shielded notifications for locked applications"
                 setShowBadge(true)
-                enableVibration(false)
-                setSound(null, null)
+                enableVibration(true)
             }
             notificationManager.createNotificationChannel(channel)
         }

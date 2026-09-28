@@ -1170,6 +1170,14 @@ fun DashboardView(
         }
     }
 
+    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(context, "Notification permission granted", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         // Query and sync Google Play purchases on app start to immediately restore Pro for enrolled testers / users
         viewModel.refreshPurchases()
@@ -1955,6 +1963,9 @@ fun DashboardView(
                         showNotifListenerPermissionDialog = false
                         isNotificationPrivacyEnabledState = true
                         viewModel.setNotificationPrivacyEnabled(true)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !PermissionUtils.hasNotificationPermission(context)) {
+                            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }
                         context.startActivity(PermissionUtils.getNotificationListenerSettingsIntent())
                     }
                 ) {
@@ -2357,16 +2368,21 @@ fun DashboardView(
                                 Switch(
                                     checked = isNotificationPrivacyEnabledState,
                                     onCheckedChange = { isEnabled ->
-                                        if (isEnabled && !PermissionUtils.hasNotificationListenerPermission(context)) {
-                                            showNotifListenerPermissionDialog = true
+                                        if (isEnabled) {
+                                            if (!PermissionUtils.hasNotificationListenerPermission(context)) {
+                                                showNotifListenerPermissionDialog = true
+                                            } else {
+                                                isNotificationPrivacyEnabledState = true
+                                                viewModel.setNotificationPrivacyEnabled(true)
+                                                Toast.makeText(context, "Notification Privacy Enabled", Toast.LENGTH_SHORT).show()
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !PermissionUtils.hasNotificationPermission(context)) {
+                                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                            }
                                         } else {
-                                            isNotificationPrivacyEnabledState = isEnabled
-                                            viewModel.setNotificationPrivacyEnabled(isEnabled)
-                                            Toast.makeText(
-                                                context,
-                                                if (isEnabled) "Notification Privacy Enabled" else "Notification Privacy Disabled",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            isNotificationPrivacyEnabledState = false
+                                            viewModel.setNotificationPrivacyEnabled(false)
+                                            Toast.makeText(context, "Notification Privacy Disabled", Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     modifier = Modifier.testTag("notification_privacy_switch")

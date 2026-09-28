@@ -296,4 +296,41 @@ fun testForegroundPackageTracking() {
         assertEquals(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS, intent.action)
         assertTrue((intent.flags and android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0)
     }
+
+    @Test
+    fun testOutOfForegroundDurationTracking() {
+        val testPkg = "com.whatsapp"
+
+        // Unlock and mark app in foreground
+        AppLockSession.unlockApp(testPkg)
+        AppLockSession.markAppInForeground(testPkg)
+
+        // While inside app, outOfForegroundDuration must be 0
+        assertEquals(0L, AppLockSession.getOutOfForegroundDuration(testPkg))
+
+        // Transition away from app
+        AppLockSession.markAppLeftForeground(testPkg)
+        AppLockSession.setCurrentForeground("com.sec.android.app.launcher")
+
+        // Should now report >= 0 elapsed time
+        assertTrue(AppLockSession.getOutOfForegroundDuration(testPkg) >= 0L)
+
+        // Re-entering app clears departure
+        AppLockSession.markAppInForeground(testPkg)
+        assertEquals(0L, AppLockSession.getOutOfForegroundDuration(testPkg))
+    }
+
+    @Test
+    fun testDoubleLockGracePeriodProtection() {
+        val testPkg = "com.google.android.apps.nbu.paisa.user"
+
+        // Unlock App Locker
+        AppLockSession.unlockApp(testPkg)
+        assertTrue(AppLockSession.isUnlocked(testPkg))
+        assertTrue(AppLockSession.isRecentlyUnlocked(testPkg, 4000L))
+
+        // Non-forced lock while app's own biometric/PIN prompt is showing must NOT lock
+        AppLockSession.lockApp(testPkg, force = false)
+        assertTrue("App must stay unlocked during double-lock internal authentication", AppLockSession.isUnlocked(testPkg))
+    }
 }
