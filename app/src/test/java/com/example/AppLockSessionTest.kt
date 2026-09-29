@@ -332,5 +332,9 @@ fun testForegroundPackageTracking() {
         // Non-forced lock while app's own biometric/PIN prompt is showing must NOT lock
         AppLockSession.lockApp(testPkg, force = false)
         assertTrue("App must stay unlocked during double-lock internal authentication", AppLockSession.isUnlocked(testPkg))
+
+        // Forced lock (e.g. Navigating to Home launcher under immediately setting) must lock instantly
+        AppLockSession.lockApp(testPkg, force = true)
+        assertFalse("App must be locked after forced relock", AppLockSession.isUnlocked(testPkg))
     }
 }

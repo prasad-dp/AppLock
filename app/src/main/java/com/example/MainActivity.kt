@@ -1807,7 +1807,11 @@ fun DashboardView(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.9f)),
+                    .background(Color.Black.copy(alpha = 0.9f))
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) { zoomPhotoAlert = null },
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -1815,7 +1819,13 @@ fun DashboardView(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                         .padding(24.dp)
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) { /* Consume taps on card content so modal doesn't dismiss accidentally */ }
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1828,7 +1838,10 @@ fun DashboardView(
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
-                        IconButton(onClick = { zoomPhotoAlert = null }) {
+                        IconButton(
+                            onClick = { zoomPhotoAlert = null },
+                            modifier = Modifier.testTag("dialog_close_snapshot_top_button")
+                        ) {
                             Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                         }
                     }
@@ -1844,7 +1857,7 @@ fun DashboardView(
                             contentDescription = "Full Intruder Snapshot",
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(360.dp)
+                                .height(340.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -1862,7 +1875,29 @@ fun DashboardView(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Dedicated 'X' Button directly under intruder image
+                    Surface(
+                        onClick = { zoomPhotoAlert = null },
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .size(44.dp)
+                            .testTag("close_under_intruder_image_button")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
@@ -1890,29 +1925,52 @@ fun DashboardView(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = {
-                                    val currentAlert = zoomPhotoAlert
-                                    if (currentAlert != null) {
-                                        if (isPremiumUser) {
-                                            shareIntruderSnapshot(context, currentAlert)
-                                        } else {
-                                            alertTargetForShareAd = currentAlert
-                                        }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("dialog_share_snapshot_button")
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Share Snapshot")
+                                OutlinedButton(
+                                    onClick = { zoomPhotoAlert = null },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("dialog_close_snapshot_button"),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Close",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Close", color = Color.White)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val currentAlert = zoomPhotoAlert
+                                        if (currentAlert != null) {
+                                            if (isPremiumUser) {
+                                                shareIntruderSnapshot(context, currentAlert)
+                                            } else {
+                                                alertTargetForShareAd = currentAlert
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("dialog_share_snapshot_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Share")
+                                }
                             }
                         }
                     }

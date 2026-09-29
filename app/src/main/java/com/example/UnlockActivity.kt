@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 
 class UnlockActivity : FragmentActivity() {
     private val targetPackageState = mutableStateOf<String?>(null)
+    private val isFromNotificationState = mutableStateOf(false)
     private lateinit var prefs: LockPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +53,7 @@ class UnlockActivity : FragmentActivity() {
 
         val initialPackage = intent.getStringExtra("EXTRA_PACKAGE_NAME")
         targetPackageState.value = initialPackage
+        isFromNotificationState.value = intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
         prefs = LockPreferences(this)
 
         // Security check: if pattern is not configured, set fallback PIN "1234" to guarantee protection
@@ -88,7 +90,7 @@ class UnlockActivity : FragmentActivity() {
                                 prefs.clearAllLockouts(targetPkg)
                                 AppLockSession.unlockApp(targetPkg)
                                 AppLockSession.markAppInForeground(targetPkg)
-                                val isFromNotification = intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
+                                val isFromNotification = isFromNotificationState.value || intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
                                 if (isFromNotification) {
                                     com.example.service.AppLockNotificationListenerService.onAppUnlocked(this, targetPkg)
                                 } else {
@@ -116,6 +118,7 @@ class UnlockActivity : FragmentActivity() {
         setIntent(intent)
         val packageArg = intent.getStringExtra("EXTRA_PACKAGE_NAME") ?: intent.getStringExtra(EXTRA_PACKAGE_NAME)
         targetPackageState.value = packageArg
+        isFromNotificationState.value = intent.getBooleanExtra("EXTRA_FROM_NOTIFICATION", false)
 
         if (!prefs.hasPatternSet()) {
             prefs.savedPasscode = "1234"

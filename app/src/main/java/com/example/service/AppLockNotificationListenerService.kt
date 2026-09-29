@@ -1,5 +1,6 @@
 package com.example.service
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -74,27 +75,48 @@ class AppLockNotificationListenerService : NotificationListenerService() {
          * or the specific chat/message intent.
          */
         fun onAppUnlocked(context: Context, packageName: String) {
-            val originalIntent = pendingOriginalIntents[packageName]
+            val originalIntent = pendingOriginalIntents.remove(packageName)
             clearMaskedNotifications(context, packageName)
 
+            var intentSent = false
             if (originalIntent != null) {
                 try {
-                    originalIntent.send()
-                    return
+                    val isActivityIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        originalIntent.isActivity
+                    } else {
+                        true
+                    }
+
+                    val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        ActivityOptions.makeBasic().apply {
+                            setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                        }.toBundle()
+                    } else null
+
+                    if (options != null) {
+                        originalIntent.send(context, 0, null, null, null, null, options)
+                    } else {
+                        originalIntent.send()
+                    }
+                    if (isActivityIntent) {
+                        intentSent = true
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to launch original notification pending intent", e)
                 }
             }
 
-            // Fallback: launch target package main launcher intent
-            try {
-                val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-                if (launchIntent != null) {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(launchIntent)
+            // Always ensure the target app is brought to the foreground if originalIntent was absent, non-activity, or failed
+            if (!intentSent) {
+                try {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                        context.startActivity(launchIntent)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to launch target app $packageName", e)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to launch target app $packageName", e)
             }
         }
 

@@ -147,9 +147,9 @@ class AppLockService : Service() {
                             val previousApp = AppLockSession.currentForegroundApp
                             if (previousApp != null && previousApp != currentApp) {
                                 AppLockSession.markAppLeftForeground(previousApp)
-                                AppLockSession.markGoToHome(previousApp)
                             }
                             AppLockSession.setCurrentForeground(currentApp)
+                            AppLockSession.clearGoToHome()
                             AppLockSession.activeUnlockingPackage = null
                             lastKnownForegroundPackage = null
                         } else {
@@ -165,21 +165,28 @@ class AppLockService : Service() {
                         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
                         for (unlockedApp in currentUnlockedApps) {
                             if (unlockedApp != currentApp) {
-                                // If the app was just unlocked within the grace period, do NOT relock
-                                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 5000L)) {
+                                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
+                                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
+
+                                if (isLauncher && relockPolicy == "immediately") {
+                                    AppLockSession.lockApp(unlockedApp, force = true)
+                                    lastSeenForegroundTime.remove(unlockedApp)
+                                    Log.d(TAG, "Auto-relocked app: $unlockedApp immediately on Home Launcher")
+                                    continue
+                                }
+
+                                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 1500L)) {
                                     continue
                                 }
 
                                 val outOfForegroundDuration = AppLockSession.getOutOfForegroundDuration(unlockedApp)
-                                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
-                                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                                 val relockThresholdMs = when (relockPolicy) {
-                                    "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
+                                    "immediately" -> 0L
                                     "15_sec" -> 15_000L // Re-lock 15 seconds after leaving app
                                     "30_sec" -> 30_000L // Re-lock 30 seconds after leaving app (Default)
                                     "1_min" -> 60_000L // Re-lock 1 minute after leaving app
                                     "5_min" -> 300_000L // Re-lock 5 minutes after leaving app
-                                    else -> 1500L
+                                    else -> 0L
                                 }
 
                                 if (outOfForegroundDuration >= relockThresholdMs) {
@@ -195,13 +202,12 @@ class AppLockService : Service() {
                             val isLocked = AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages)
                             if (isLocked) {
                                 val isUnlocked = AppLockSession.isUnlocked(currentApp)
-                                val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(currentApp, gracePeriodMs = 5000L)
                                 val isUnlockingNow = AppLockSession.activeUnlockingPackage == currentApp
                                 val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800L)
                                 val isGenuineEntry = AppLockSession.isGenuineAppEntry(currentApp)
                                 val isExitingHome = AppLockSession.isExitingToHome(currentApp)
 
-                                if (!isUnlocked && !isRecentlyUnlocked && isGenuineEntry && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
+                                if (!isUnlocked && isGenuineEntry && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
                                     Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
                                     launchUnlockScreen(currentApp)
                                 } else if (isUnlocked) {
@@ -330,7 +336,6 @@ class AppLockService : Service() {
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
-            AppLockSession.isRecentlyUnlocked(targetPackage, 5000L) ||
             AppLockSession.isExitingToHome(targetPackage)
         ) {
             return

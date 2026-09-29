@@ -112,9 +112,9 @@ class AppLockAccessibilityService : AccessibilityService() {
             val previousApp = AppLockSession.currentForegroundApp
             if (previousApp != null && previousApp != pkgName) {
                 AppLockSession.markAppLeftForeground(previousApp)
-                AppLockSession.markGoToHome(previousApp)
             }
             AppLockSession.setCurrentForeground(pkgName)
+            AppLockSession.clearGoToHome()
             AppLockSession.activeUnlockingPackage = null
             isUnlockActivityInForeground = false
             lastForegroundPackage = null
@@ -122,20 +122,27 @@ class AppLockAccessibilityService : AccessibilityService() {
             // Auto-relock check when user is on the Home screen
             val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
             for (unlockedApp in currentUnlockedApps) {
-                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 5000L)) {
+                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
+                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
+
+                if (relockPolicy == "immediately") {
+                    AppLockSession.lockApp(unlockedApp, force = true)
+                    lastSeenForegroundTime.remove(unlockedApp)
+                    Log.d(TAG, "Accessibility: Auto-relocked app $unlockedApp immediately on Home Launcher")
+                    continue
+                }
+
+                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 1500L)) {
                     continue
                 }
 
                 val outOfForegroundDuration = AppLockSession.getOutOfForegroundDuration(unlockedApp)
-                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
-                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                 val relockThresholdMs = when (relockPolicy) {
-                    "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches on Home screen
                     "15_sec" -> 15_000L
                     "30_sec" -> 30_000L
                     "1_min" -> 60_000L
                     "5_min" -> 300_000L
-                    else -> 1500L
+                    else -> 0L
                 }
 
                 if (outOfForegroundDuration >= relockThresholdMs) {
@@ -177,23 +184,30 @@ class AppLockAccessibilityService : AccessibilityService() {
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
         for (unlockedApp in currentUnlockedApps) {
             if (unlockedApp != pkgName) {
+                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
+                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
+
+                if (relockPolicy == "immediately") {
+                    AppLockSession.lockApp(unlockedApp, force = true)
+                    lastSeenForegroundTime.remove(unlockedApp)
+                    Log.d(TAG, "Accessibility: Auto-relocked app $unlockedApp immediately when switching apps")
+                    continue
+                }
+
                 // If the app was just unlocked within the grace period, do NOT relock
-                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 5000L)) {
+                if (AppLockSession.isRecentlyUnlocked(unlockedApp, gracePeriodMs = 1500L)) {
                     lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
                     AppLockSession.updateActiveTime(unlockedApp)
                     continue
                 }
 
                 val outOfForegroundDuration = AppLockSession.getOutOfForegroundDuration(unlockedApp)
-                val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
-                val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
                 val relockThresholdMs = when (relockPolicy) {
-                    "immediately" -> 1500L // 1.5s safe debounce prevents micro-transition glitches
                     "15_sec" -> 15_000L
                     "30_sec" -> 30_000L
                     "1_min" -> 60_000L
                     "5_min" -> 300_000L
-                    else -> 1500L
+                    else -> 0L
                 }
 
                 if (outOfForegroundDuration >= relockThresholdMs) {
@@ -212,7 +226,6 @@ class AppLockAccessibilityService : AccessibilityService() {
         // 5. Intercept locked app if not unlocked
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)) {
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
-            val isRecentlyUnlocked = AppLockSession.isRecentlyUnlocked(pkgName, 5000L)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
             val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800L)
 
@@ -221,7 +234,7 @@ class AppLockAccessibilityService : AccessibilityService() {
             val isExitingHome = AppLockSession.isExitingToHome(pkgName)
             val isInActiveForeground = AppLockPackageHelper.isAppTargetInActiveForeground(this, pkgName)
 
-            if (!isUnlocked && !isRecentlyUnlocked && isGenuineEntry && !isExitingHome && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
+            if (!isUnlocked && isGenuineEntry && !isExitingHome && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
                 Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
                 launchUnlockScreen(pkgName)
             } else if (isUnlocked) {
@@ -235,7 +248,6 @@ class AppLockAccessibilityService : AccessibilityService() {
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
-            AppLockSession.isRecentlyUnlocked(targetPackage, 5000L) ||
             AppLockSession.isExitingToHome(targetPackage) ||
             !AppLockPackageHelper.isAppTargetInActiveForeground(this, targetPackage)
         ) {
