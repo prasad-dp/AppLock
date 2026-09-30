@@ -112,9 +112,10 @@ class AppLockAccessibilityService : AccessibilityService() {
             val previousApp = AppLockSession.currentForegroundApp
             if (previousApp != null && previousApp != pkgName) {
                 AppLockSession.markAppLeftForeground(previousApp)
+                AppLockSession.markGoToHome(previousApp)
             }
             AppLockSession.setCurrentForeground(pkgName)
-            AppLockSession.clearGoToHome()
+            AppLockSession.updateForegroundPackage(pkgName)
             AppLockSession.activeUnlockingPackage = null
             isUnlockActivityInForeground = false
             lastForegroundPackage = null
@@ -173,12 +174,13 @@ class AppLockAccessibilityService : AccessibilityService() {
         val previousApp = AppLockSession.currentForegroundApp
         if (previousApp != null && previousApp != pkgName) {
             AppLockSession.markAppLeftForeground(previousApp)
+            if (AppLockPackageHelper.isLauncherPackage(this, previousApp)) {
+                AppLockSession.clearGoToHome()
+            }
         }
-        AppLockSession.markAppInForeground(pkgName)
         isUnlockActivityInForeground = false
         lastForegroundPackage = pkgName
         lastSeenForegroundTime[pkgName] = System.currentTimeMillis()
-        AppLockSession.updateForegroundPackage(pkgName)
 
         // 3. Auto-relock check for other unlocked apps
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
@@ -224,7 +226,8 @@ class AppLockAccessibilityService : AccessibilityService() {
         }
 
         // 5. Intercept locked app if not unlocked
-        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)) {
+        val isLocked = AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && isLocked) {
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
             val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800L)
@@ -239,9 +242,11 @@ class AppLockAccessibilityService : AccessibilityService() {
                 launchUnlockScreen(pkgName)
             } else if (isUnlocked) {
                 AppLockSession.markAppInForeground(pkgName)
+                AppLockSession.updateForegroundPackage(pkgName)
             }
         } else {
             AppLockSession.setCurrentForeground(pkgName)
+            AppLockSession.updateForegroundPackage(pkgName)
         }
     }
 

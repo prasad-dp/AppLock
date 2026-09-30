@@ -147,17 +147,24 @@ class AppLockService : Service() {
                             val previousApp = AppLockSession.currentForegroundApp
                             if (previousApp != null && previousApp != currentApp) {
                                 AppLockSession.markAppLeftForeground(previousApp)
+                                AppLockSession.markGoToHome(previousApp)
                             }
                             AppLockSession.setCurrentForeground(currentApp)
-                            AppLockSession.clearGoToHome()
+                            AppLockSession.updateForegroundPackage(currentApp)
                             AppLockSession.activeUnlockingPackage = null
                             lastKnownForegroundPackage = null
                         } else {
                             val previousApp = AppLockSession.currentForegroundApp
                             if (previousApp != null && previousApp != currentApp) {
                                 AppLockSession.markAppLeftForeground(previousApp)
+                                if (AppLockPackageHelper.isLauncherPackage(this@AppLockService, previousApp)) {
+                                    AppLockSession.clearGoToHome()
+                                }
                             }
-                            AppLockSession.markAppInForeground(currentApp)
+                            if (!AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages) || AppLockSession.isUnlocked(currentApp)) {
+                                AppLockSession.markAppInForeground(currentApp)
+                                AppLockSession.updateForegroundPackage(currentApp)
+                            }
                             lastSeenForegroundTime[currentApp] = System.currentTimeMillis()
                         }
 
@@ -336,7 +343,8 @@ class AppLockService : Service() {
     @Suppress("DEPRECATION")
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
-            AppLockSession.isExitingToHome(targetPackage)
+            AppLockSession.isExitingToHome(targetPackage) ||
+            (AppLockAccessibilityService.isAccessibilityRunning && AppLockSession.currentForegroundPackage != targetPackage)
         ) {
             return
         }

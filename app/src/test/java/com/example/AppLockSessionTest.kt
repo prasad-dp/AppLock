@@ -337,4 +337,34 @@ fun testForegroundPackageTracking() {
         AppLockSession.lockApp(testPkg, force = true)
         assertFalse("App must be locked after forced relock", AppLockSession.isUnlocked(testPkg))
     }
+
+    @Test
+    fun testWhatsAppExitToHomeAndReentry() {
+        val whatsApp = "com.whatsapp"
+        val launcher = "com.sec.android.app.launcher"
+
+        // 1. WhatsApp in foreground and unlocked
+        AppLockSession.unlockApp(whatsApp)
+        AppLockSession.markAppInForeground(whatsApp)
+        AppLockSession.updateForegroundPackage(whatsApp)
+        assertTrue(AppLockSession.isUnlocked(whatsApp))
+        assertEquals(whatsApp, AppLockSession.currentForegroundApp)
+
+        // 2. User exits WhatsApp to Home screen
+        AppLockSession.markAppLeftForeground(whatsApp)
+        AppLockSession.markGoToHome(whatsApp)
+        AppLockSession.setCurrentForeground(launcher)
+        AppLockSession.updateForegroundPackage(launcher)
+        AppLockSession.lockApp(whatsApp, force = true)
+
+        // Verifications on Home:
+        assertFalse("WhatsApp should be locked on Home under immediate policy", AppLockSession.isUnlocked(whatsApp))
+        assertTrue("WhatsApp must be recognized as exiting to Home to prevent duplicate lock screen on exit", AppLockSession.isExitingToHome(whatsApp))
+        assertEquals(launcher, AppLockSession.currentForegroundPackage)
+
+        // 3. User launches WhatsApp from Home screen
+        assertTrue("Transition from launcher to WhatsApp is a genuine entry", AppLockSession.isGenuineAppEntry(whatsApp, launcher))
+        AppLockSession.clearGoToHome()
+        assertFalse("Exiting to home should be cleared upon re-entering app", AppLockSession.isExitingToHome(whatsApp))
+    }
 }

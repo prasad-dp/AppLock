@@ -48,13 +48,7 @@ fun RewardedAdDialog(
     }
 
     Dialog(
-        onDismissRequest = {
-            if (isFinished) {
-                onRewardGranted()
-            } else {
-                onDismiss()
-            }
-        },
+        onDismissRequest = onDismiss,
         properties = DialogProperties(dismissOnBackPress = isFinished, dismissOnClickOutside = isFinished)
     ) {
         Card(
@@ -91,9 +85,10 @@ fun RewardedAdDialog(
                     }
 
                     if (isFinished) {
-                        IconButton(onClick = {
-                            onRewardGranted()
-                        }) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.testTag("rewarded_ad_close_button")
+                        ) {
                             Icon(imageVector = Icons.Default.Close, contentDescription = "Close Ad")
                         }
                     } else {

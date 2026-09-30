@@ -1149,7 +1149,17 @@ fun DashboardView(
     var perAppRelockTargetApp by remember { mutableStateOf<GridAppInfo?>(null) }
     var showPerAppRelockDialog by remember { mutableStateOf(false) }
     var isNotificationPrivacyEnabledState by remember { mutableStateOf(viewModel.isNotificationPrivacyEnabled()) }
-    var notificationPrivacyModeState by remember { mutableStateOf(viewModel.getNotificationPrivacyMode()) }
+    var notificationPrivacyModeState by remember {
+        mutableStateOf(
+            if (viewModel.getNotificationPrivacyMode() == com.example.data.LockPreferences.NOTIF_MODE_BLOCK) {
+                com.example.data.LockPreferences.NOTIF_MODE_STRICT.also {
+                    viewModel.setNotificationPrivacyMode(it)
+                }
+            } else {
+                viewModel.getNotificationPrivacyMode()
+            }
+        )
+    }
     var showNotifListenerPermissionDialog by remember { mutableStateOf(false) }
     val intruderAlerts by viewModel.intruderAlertsFlow.collectAsStateWithLifecycle()
     val allLockedApps by viewModel.lockedAppsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -2527,40 +2537,6 @@ fun DashboardView(
                                         )
                                         Text(
                                             text = "Shows Sender contact, hides message text (e.g. \"John: Message hidden\")",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                // Mode 3: Stealth Block
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_BLOCK
-                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_BLOCK)
-                                        }
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = notificationPrivacyModeState == com.example.data.LockPreferences.NOTIF_MODE_BLOCK,
-                                        onClick = {
-                                            notificationPrivacyModeState = com.example.data.LockPreferences.NOTIF_MODE_BLOCK
-                                            viewModel.setNotificationPrivacyMode(com.example.data.LockPreferences.NOTIF_MODE_BLOCK)
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Column {
-                                        Text(
-                                            text = "Stealth Mode (Zero Alert)",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "Completely blocks notifications while app is locked until opened",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
