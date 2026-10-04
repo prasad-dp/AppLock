@@ -64,7 +64,8 @@ class NotificationPrivacyTest {
         text: String,
         id: Int = 1001,
         key: String = "dummy_key_1",
-        category: String? = null
+        category: String? = null,
+        isGroupSummary: Boolean = false
     ): StatusBarNotification {
         val extras = Bundle().apply {
             putCharSequence(Notification.EXTRA_TITLE, title)
@@ -78,6 +79,9 @@ class NotificationPrivacyTest {
 
         if (category != null) {
             notifBuilder.setCategory(category)
+        }
+        if (isGroupSummary) {
+            notifBuilder.setGroup("dummy_group").setGroupSummary(true)
         }
         val notif = notifBuilder.build()
 
@@ -272,5 +276,33 @@ class NotificationPrivacyTest {
         assertEquals("Captain Assigned", extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
         assertEquals("🔒 Notification details hidden", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
         assertFalse("Sensitive OTP or vehicle plate must not leak", extras.toString().contains("4421"))
+    }
+
+    @Test
+    fun testGroupSummaryIgnoredForMessageCount() {
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
+
+        // Message 1 from WhatsApp
+        val sbn1 = createDummySbn("com.whatsapp", "Alice", "Hello", id = 101, key = "whatsapp_msg_101")
+        service.onNotificationPosted(sbn1)
+
+        val notif1 = shadowNotificationManager.allNotifications.last()
+        assertEquals("🔒 New message received", notif1.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(1, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+
+        // Group summary posted by WhatsApp for the same 1 message
+        val summarySbn = createDummySbn("com.whatsapp", "WhatsApp", "1 new message", id = 999, key = "whatsapp_summary", isGroupSummary = true)
+        service.onNotificationPosted(summarySbn)
+
+        // Count should STILL be 1, NOT 2!
+        assertEquals("Group summary must not increment notification count", 1, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+
+        // Message 2 from WhatsApp
+        val sbn2 = createDummySbn("com.whatsapp", "Bob", "How are you", id = 102, key = "whatsapp_msg_102")
+        service.onNotificationPosted(sbn2)
+
+        val notif2 = shadowNotificationManager.allNotifications.last()
+        assertEquals("🔒 2 new messages received", notif2.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(2, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
     }
 }

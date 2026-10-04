@@ -35,17 +35,34 @@ object AppLockSession {
 
     fun setCurrentForeground(packageName: String?) {
         synchronized(unlockedApps) {
-            if (!packageName.isNullOrEmpty() && packageName != "com.example.applocker" && !packageName.startsWith("com.aistudio.applocker")) {
+            if (!packageName.isNullOrEmpty() &&
+                packageName != "com.example.applocker" &&
+                !packageName.startsWith("com.aistudio.applocker") &&
+                packageName != "com.android.systemui" &&
+                !packageName.endsWith(".systemui") &&
+                packageName != "android"
+            ) {
                 currentForegroundApp = packageName
             }
         }
     }
+
+    @Volatile
+    var lastExitedPackage: String? = null
+        private set
+    @Volatile
+    var lastExitTime: Long = 0L
+        private set
 
     fun markAppInForeground(packageName: String) {
         synchronized(unlockedApps) {
             currentForegroundApp = packageName
             leftForegroundTimes.remove(packageName)
             lastActiveTimes[packageName] = System.currentTimeMillis()
+            if (lastExitedPackage == packageName) {
+                lastExitedPackage = null
+                lastExitTime = 0L
+            }
         }
     }
 
@@ -54,6 +71,17 @@ object AppLockSession {
             if (!leftForegroundTimes.containsKey(packageName)) {
                 leftForegroundTimes[packageName] = System.currentTimeMillis()
             }
+            lastExitedPackage = packageName
+            lastExitTime = System.currentTimeMillis()
+        }
+    }
+
+    fun isRecentlyExited(packageName: String, debounceMs: Long = 2000L): Boolean {
+        synchronized(unlockedApps) {
+            if (lastExitedPackage == packageName && (System.currentTimeMillis() - lastExitTime < debounceMs)) {
+                return true
+            }
+            return false
         }
     }
 
@@ -71,7 +99,8 @@ object AppLockSession {
     @Volatile
     private var lastHomeTransitionTime = 0L
     @Volatile
-    private var lastHomeExitedPackage: String? = null
+    var lastHomeExitedPackage: String? = null
+        private set
 
     fun markGoToHome(packageName: String?) {
         synchronized(unlockedApps) {
@@ -96,10 +125,12 @@ object AppLockSession {
         }
     }
 
-    fun clearGoToHome() {
+    fun clearGoToHome(forPackage: String? = null) {
         synchronized(unlockedApps) {
-            lastHomeTransitionTime = 0L
-            lastHomeExitedPackage = null
+            if (forPackage == null || forPackage != lastHomeExitedPackage) {
+                lastHomeTransitionTime = 0L
+                lastHomeExitedPackage = null
+            }
         }
     }
 
@@ -248,6 +279,8 @@ object AppLockSession {
             loopCooldownUntil.clear()
             lastHomeTransitionTime = 0L
             lastHomeExitedPackage = null
+            lastExitedPackage = null
+            lastExitTime = 0L
             currentForegroundApp = null
         }
         activeUnlockingPackage = null

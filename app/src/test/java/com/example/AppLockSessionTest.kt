@@ -367,4 +367,45 @@ fun testForegroundPackageTracking() {
         AppLockSession.clearGoToHome()
         assertFalse("Exiting to home should be cleared upon re-entering app", AppLockSession.isExitingToHome(whatsApp))
     }
+
+    @Test
+    fun testBackButtonExitToLauncherNoDuplicateLock() {
+        val testApp = "com.whatsapp"
+        val launcher = "com.google.android.apps.nexuslauncher"
+
+        // 1. User unlocks app
+        AppLockSession.unlockApp(testApp)
+        AppLockSession.markAppInForeground(testApp)
+        assertTrue(AppLockSession.isUnlocked(testApp))
+
+        // 2. User presses Back button to exit the app
+        AppLockSession.markAppLeftForeground(testApp)
+        AppLockSession.markGoToHome(testApp)
+        AppLockSession.setCurrentForeground(launcher)
+        AppLockSession.lockApp(testApp, force = true)
+
+        // Verifications:
+        assertTrue("isRecentlyExited must report true to shield against duplicate lock on Back press", AppLockSession.isRecentlyExited(testApp))
+        assertTrue("isExitingToHome must report true for testApp", AppLockSession.isExitingToHome(testApp))
+
+        // Trailing exit event for testApp arrives while previousApp was launcher:
+        // clearGoToHome(forPackage = testApp) must NOT clear the exit flag for testApp itself!
+        AppLockSession.clearGoToHome(forPackage = testApp)
+        assertTrue("Exit to home must remain intact for the exiting package itself", AppLockSession.isExitingToHome(testApp))
+
+        // But when a different app is opened, clearGoToHome clears it
+        AppLockSession.clearGoToHome(forPackage = "com.android.chrome")
+        assertFalse("Exit to home should be cleared when opening a different app", AppLockSession.isExitingToHome(testApp))
+    }
+
+    @Test
+    fun testSystemUiDoesNotOverwriteForegroundApp() {
+        val testApp = "com.whatsapp"
+        AppLockSession.setCurrentForeground(testApp)
+        assertEquals(testApp, AppLockSession.currentForegroundApp)
+
+        // SystemUI back gesture / nav bar tap should not overwrite currentForegroundApp
+        AppLockSession.setCurrentForeground("com.android.systemui")
+        assertEquals("SystemUI must not overwrite currentForegroundApp", testApp, AppLockSession.currentForegroundApp)
+    }
 }

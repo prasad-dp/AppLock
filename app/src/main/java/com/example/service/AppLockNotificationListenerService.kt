@@ -49,6 +49,7 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         const val NOTIF_TAG_PREFIX = "masked_"
 
         private val notificationCountMap = ConcurrentHashMap<String, Int>()
+        private val activeNotificationKeys = ConcurrentHashMap<String, MutableSet<String>>()
         private val pendingOriginalIntents = ConcurrentHashMap<String, PendingIntent>()
 
         @Volatile
@@ -61,12 +62,22 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         fun clearMaskedNotifications(context: Context, packageName: String) {
             try {
                 notificationCountMap.remove(packageName)
+                activeNotificationKeys.remove(packageName)
                 pendingOriginalIntents.remove(packageName)
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 nm?.cancel(NOTIF_TAG_PREFIX + packageName, packageName.hashCode())
             } catch (e: Exception) {
                 Log.e(TAG, "Error clearing masked notification for $packageName", e)
             }
+        }
+
+        /**
+         * Clears all notification privacy counts and keys (e.g. when changing settings or toggling).
+         */
+        fun resetAllCounts() {
+            notificationCountMap.clear()
+            activeNotificationKeys.clear()
+            pendingOriginalIntents.clear()
         }
 
         /**
@@ -222,11 +233,25 @@ class AppLockNotificationListenerService : NotificationListenerService() {
             pendingOriginalIntents[targetPkg] = notification.contentIntent
         }
 
+        // 8. Filter out group summary notifications (e.g. WhatsApp, Gmail group containers)
+        // Group summaries must be cancelled so sensitive summaries do not leak on screen,
+        // but they should NEVER increment the message count, as individual messages are already received.
+        val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        if (isGroupSummary) {
+            try { cancelNotification(sbn.key) } catch (_: Exception) {}
+            return
+        }
+
         // Cancel original notification containing sensitive text/media
         try { cancelNotification(sbn.key) } catch (_: Exception) {}
 
-        // Track accumulated notification counts per package
-        val count = (notificationCountMap[targetPkg] ?: 0) + 1
+        // Track accumulated notification counts per package using distinct notification keys
+        val notifKey = sbn.key ?: "${targetPkg}_${sbn.tag ?: ""}_${sbn.id}"
+        val activeKeys = activeNotificationKeys.getOrPut(targetPkg) {
+            java.util.Collections.synchronizedSet(mutableSetOf())
+        }
+        activeKeys.add(notifKey)
+        val count = activeKeys.size
         notificationCountMap[targetPkg] = count
 
         // 8. Resolve app metadata and visual assets

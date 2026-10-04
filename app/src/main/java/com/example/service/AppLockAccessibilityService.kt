@@ -175,7 +175,7 @@ class AppLockAccessibilityService : AccessibilityService() {
         if (previousApp != null && previousApp != pkgName) {
             AppLockSession.markAppLeftForeground(previousApp)
             if (AppLockPackageHelper.isLauncherPackage(this, previousApp)) {
-                AppLockSession.clearGoToHome()
+                AppLockSession.clearGoToHome(forPackage = pkgName)
             }
         }
         isUnlockActivityInForeground = false
@@ -235,9 +235,11 @@ class AppLockAccessibilityService : AccessibilityService() {
             // CRITICAL DUPLICATE LOCK PREVENTION GUARDS:
             val isGenuineEntry = AppLockSession.isGenuineAppEntry(pkgName, previousApp)
             val isExitingHome = AppLockSession.isExitingToHome(pkgName)
+            val isRecentlyExited = AppLockSession.isRecentlyExited(pkgName, 1500L)
+            val shouldThrottle = AppLockSession.shouldThrottleLaunch(pkgName)
             val isInActiveForeground = AppLockPackageHelper.isAppTargetInActiveForeground(this, pkgName)
 
-            if (!isUnlocked && isGenuineEntry && !isExitingHome && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
+            if (!isUnlocked && isGenuineEntry && !isExitingHome && !isRecentlyExited && !shouldThrottle && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
                 Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
                 launchUnlockScreen(pkgName)
             } else if (isUnlocked) {
@@ -254,6 +256,8 @@ class AppLockAccessibilityService : AccessibilityService() {
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
             AppLockSession.isExitingToHome(targetPackage) ||
+            AppLockSession.isRecentlyExited(targetPackage, 1500L) ||
+            AppLockSession.shouldThrottleLaunch(targetPackage) ||
             !AppLockPackageHelper.isAppTargetInActiveForeground(this, targetPackage)
         ) {
             return

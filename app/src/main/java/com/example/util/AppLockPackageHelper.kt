@@ -239,7 +239,7 @@ object AppLockPackageHelper {
         if (targetPackage.isEmpty()) return false
         if (targetPackage == service.packageName) return false
 
-        // 1. If active root window is targetPackage, it is definitely in foreground
+        // 1. Inspect the active root window first
         val activeRootPkg = try {
             service.rootInActiveWindow?.packageName?.toString()
         } catch (_: Exception) { null }
@@ -248,37 +248,49 @@ object AppLockPackageHelper {
             return true
         }
 
-        // 2. Inspect active interactive windows to check if targetPackage has an active/focused window
+        // If the active root is Launcher, target app is definitely NOT in foreground (user pressed Home or Back to exit)
+        if (!activeRootPkg.isNullOrEmpty() && isLauncherPackage(service, activeRootPkg)) {
+            return false
+        }
+
+        // If the active root is SystemUI, Keyguard, or Recents overview, target app is NOT in foreground
+        if (!activeRootPkg.isNullOrEmpty() && isSystemOrTransientPackage(service, activeRootPkg)) {
+            return false
+        }
+
+        // If the active root belongs to another distinct user application (e.g. Chrome while target is WhatsApp)
+        if (!activeRootPkg.isNullOrEmpty() &&
+            activeRootPkg != service.packageName &&
+            activeRootPkg != targetPackage
+        ) {
+            return false
+        }
+
+        // 2. If activeRootPkg is null (e.g. transient transition), inspect interactive windows carefully.
+        // A window only qualifies if it is genuinely focused or active.
         try {
             val windows = service.windows
             if (!windows.isNullOrEmpty()) {
+                var targetHasFocusedOrActiveWindow = false
                 for (window in windows) {
                     val windowPkg = window.root?.packageName?.toString() ?: continue
-                    if (windowPkg == targetPackage) {
-                        return true
+                    if (isLauncherPackage(service, windowPkg) && (window.isFocused || window.isActive)) {
+                        return false
                     }
+                    if (windowPkg != service.packageName && windowPkg != targetPackage && !isSystemOrTransientPackage(service, windowPkg) && (window.isFocused || window.isActive)) {
+                        return false
+                    }
+                    if (windowPkg == targetPackage && (window.isFocused || window.isActive)) {
+                        targetHasFocusedOrActiveWindow = true
+                    }
+                }
+                if (targetHasFocusedOrActiveWindow) {
+                    return true
                 }
             }
         } catch (_: Exception) {}
 
-        // 3. If active root belongs to another distinct user application (e.g. Chrome while target is WhatsApp)
-        if (!activeRootPkg.isNullOrEmpty() &&
-            activeRootPkg != service.packageName &&
-            activeRootPkg != targetPackage &&
-            !isLauncherPackage(service, activeRootPkg) &&
-            !isSystemOrTransientPackage(service, activeRootPkg)
-        ) {
-            return false
-        }
-
-        // 4. If active root is Launcher, SystemUI, or Recents and targetPackage has no windows, it's not in foreground
-        if (!activeRootPkg.isNullOrEmpty() &&
-            (isLauncherPackage(service, activeRootPkg) || isSystemOrTransientPackage(service, activeRootPkg))
-        ) {
-            return false
-        }
-
-        return activeRootPkg == null || activeRootPkg == targetPackage
+        return false
     }
 
     private val DOMAIN_PREFIXES = setOf(

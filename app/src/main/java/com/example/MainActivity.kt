@@ -1839,7 +1839,7 @@ fun DashboardView(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -1848,12 +1848,6 @@ fun DashboardView(
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
-                        IconButton(
-                            onClick = { zoomPhotoAlert = null },
-                            modifier = Modifier.testTag("dialog_close_snapshot_top_button")
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1885,29 +1879,7 @@ fun DashboardView(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Dedicated 'X' Button directly under intruder image
-                    Surface(
-                        onClick = { zoomPhotoAlert = null },
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-                        modifier = Modifier
-                            .size(44.dp)
-                            .testTag("close_under_intruder_image_button")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),

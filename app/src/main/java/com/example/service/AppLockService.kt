@@ -158,7 +158,7 @@ class AppLockService : Service() {
                             if (previousApp != null && previousApp != currentApp) {
                                 AppLockSession.markAppLeftForeground(previousApp)
                                 if (AppLockPackageHelper.isLauncherPackage(this@AppLockService, previousApp)) {
-                                    AppLockSession.clearGoToHome()
+                                    AppLockSession.clearGoToHome(forPackage = currentApp)
                                 }
                             }
                             if (!AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages) || AppLockSession.isUnlocked(currentApp)) {
@@ -213,8 +213,10 @@ class AppLockService : Service() {
                                 val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800L)
                                 val isGenuineEntry = AppLockSession.isGenuineAppEntry(currentApp)
                                 val isExitingHome = AppLockSession.isExitingToHome(currentApp)
+                                val isRecentlyExited = AppLockSession.isRecentlyExited(currentApp, 1500L)
+                                val shouldThrottle = AppLockSession.shouldThrottleLaunch(currentApp)
 
-                                if (!isUnlocked && isGenuineEntry && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
+                                if (!isUnlocked && isGenuineEntry && !isExitingHome && !isRecentlyExited && !shouldThrottle && (!isUnlockingNow || isLaunchBlocked)) {
                                     Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
                                     launchUnlockScreen(currentApp)
                                 } else if (isUnlocked) {
@@ -344,6 +346,8 @@ class AppLockService : Service() {
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
             AppLockSession.isExitingToHome(targetPackage) ||
+            AppLockSession.isRecentlyExited(targetPackage, 1500L) ||
+            AppLockSession.shouldThrottleLaunch(targetPackage) ||
             (AppLockAccessibilityService.isAccessibilityRunning && AppLockSession.currentForegroundPackage != targetPackage)
         ) {
             return

@@ -173,6 +173,9 @@ class UnlockActivity : FragmentActivity() {
     private fun goToHome() {
         val pkg = targetPackageState.value
         AppLockSession.markGoToHome(pkg)
+        if (pkg != null) {
+            AppLockSession.markAppLeftForeground(pkg)
+        }
         AppLockSession.activeUnlockingPackage = null
         try {
             val homeIntent = Intent(Intent.ACTION_MAIN).apply {

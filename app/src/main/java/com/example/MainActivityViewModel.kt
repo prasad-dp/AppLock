@@ -507,12 +507,14 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     fun setNotificationPrivacyEnabled(enabled: Boolean) {
         prefs.isNotificationPrivacyEnabled = enabled
+        com.example.service.AppLockNotificationListenerService.resetAllCounts()
     }
 
     fun getNotificationPrivacyMode(): String = prefs.notificationPrivacyMode
 
     fun setNotificationPrivacyMode(mode: String) {
         prefs.notificationPrivacyMode = mode
+        com.example.service.AppLockNotificationListenerService.resetAllCounts()
     }
 
     fun performAutoCleanupIfNeeded() {
