@@ -41,6 +41,7 @@ class NotificationPrivacyTest {
         prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
 
         AppLockSession.clearSession()
+        AppLockNotificationListenerService.resetAllCounts()
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         shadowNotificationManager = shadowOf(notificationManager)
@@ -53,7 +54,7 @@ class NotificationPrivacyTest {
     @After
     fun tearDown() {
         AppLockSession.clearSession()
-        AppLockNotificationListenerService.clearMaskedNotifications(context, "com.whatsapp")
+        AppLockNotificationListenerService.resetAllCounts()
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancelAll()
     }
@@ -65,7 +66,8 @@ class NotificationPrivacyTest {
         id: Int = 1001,
         key: String = "dummy_key_1",
         category: String? = null,
-        isGroupSummary: Boolean = false
+        isGroupSummary: Boolean = false,
+        number: Int = 0
     ): StatusBarNotification {
         val extras = Bundle().apply {
             putCharSequence(Notification.EXTRA_TITLE, title)
@@ -82,6 +84,9 @@ class NotificationPrivacyTest {
         }
         if (isGroupSummary) {
             notifBuilder.setGroup("dummy_group").setGroupSummary(true)
+        }
+        if (number > 0) {
+            notifBuilder.setNumber(number)
         }
         val notif = notifBuilder.build()
 
@@ -304,5 +309,78 @@ class NotificationPrivacyTest {
         val notif2 = shadowNotificationManager.allNotifications.last()
         assertEquals("🔒 2 new messages received", notif2.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
         assertEquals(2, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+    }
+
+    @Test
+    fun testSnapchatBundledCountParsed() {
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
+        service.setLockedPackageForTesting("com.snapchat.android")
+
+        // Snapchat posts single notification saying "3 new Snaps"
+        val snapSbn = createDummySbn(
+            packageName = "com.snapchat.android",
+            title = "Snapchat",
+            text = "3 new Snaps",
+            id = 501,
+            key = "snap_501"
+        )
+        service.onNotificationPosted(snapSbn)
+
+        val notif = shadowNotificationManager.allNotifications.last()
+        assertEquals("🔒 3 new messages received", notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(3, AppLockNotificationListenerService.getNotificationCount("com.snapchat.android"))
+    }
+
+    @Test
+    fun testSnapchatTypingNotificationIgnored() {
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
+        service.setLockedPackageForTesting("com.snapchat.android")
+
+        // 1. Typing notification
+        val typingSbn = createDummySbn(
+            packageName = "com.snapchat.android",
+            title = "Alice",
+            text = "is typing...",
+            id = 502,
+            key = "snap_typing_502"
+        )
+        service.onNotificationPosted(typingSbn)
+
+        // Typing notification should NOT create a masked notification or increment count
+        assertEquals(0, AppLockNotificationListenerService.getNotificationCount("com.snapchat.android"))
+
+        // 2. Genuine message arrives
+        val msgSbn = createDummySbn(
+            packageName = "com.snapchat.android",
+            title = "Alice",
+            text = "Hey there!",
+            id = 503,
+            key = "snap_msg_503"
+        )
+        service.onNotificationPosted(msgSbn)
+
+        val notif = shadowNotificationManager.allNotifications.last()
+        assertEquals("🔒 New message received", notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(1, AppLockNotificationListenerService.getNotificationCount("com.snapchat.android"))
+    }
+
+    @Test
+    fun testNotificationRemovedDecrementsCountAndCancels() {
+        prefs.notificationPrivacyMode = LockPreferences.NOTIF_MODE_STRICT
+
+        val sbn1 = createDummySbn("com.whatsapp", "Alice", "Hello", id = 101, key = "msg_1")
+        val sbn2 = createDummySbn("com.whatsapp", "Bob", "Hi", id = 102, key = "msg_2")
+
+        service.onNotificationPosted(sbn1)
+        service.onNotificationPosted(sbn2)
+        assertEquals(2, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+
+        // Removing 1 notification decrements count to 1
+        service.onNotificationRemoved(sbn1)
+        assertEquals(1, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
+
+        // Removing the final notification cancels the masked notification and resets count to 0
+        service.onNotificationRemoved(sbn2)
+        assertEquals(0, AppLockNotificationListenerService.getNotificationCount("com.whatsapp"))
     }
 }

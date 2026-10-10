@@ -158,7 +158,7 @@ class AppLockService : Service() {
                             if (previousApp != null && previousApp != currentApp) {
                                 AppLockSession.markAppLeftForeground(previousApp)
                                 if (AppLockPackageHelper.isLauncherPackage(this@AppLockService, previousApp)) {
-                                    AppLockSession.clearGoToHome(forPackage = currentApp)
+                                    AppLockSession.clearGoToHome()
                                 }
                             }
                             if (!AppLockPackageHelper.isPackageLocked(currentApp, lockedPackages) || AppLockSession.isUnlocked(currentApp)) {
@@ -172,6 +172,11 @@ class AppLockService : Service() {
                         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
                         for (unlockedApp in currentUnlockedApps) {
                             if (unlockedApp != currentApp) {
+                                // Do not relock apps currently in active calls or PiP mode (e.g. WhatsApp video call floating window)
+                                if (AppLockSession.isAppInActiveCallOrPip(unlockedApp)) {
+                                    continue
+                                }
+
                                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                                 val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
 
@@ -213,10 +218,8 @@ class AppLockService : Service() {
                                 val isLaunchBlocked = isUnlockingNow && (System.currentTimeMillis() - lastLaunchTime > 800L)
                                 val isGenuineEntry = AppLockSession.isGenuineAppEntry(currentApp)
                                 val isExitingHome = AppLockSession.isExitingToHome(currentApp)
-                                val isRecentlyExited = AppLockSession.isRecentlyExited(currentApp, 1500L)
-                                val shouldThrottle = AppLockSession.shouldThrottleLaunch(currentApp)
 
-                                if (!isUnlocked && isGenuineEntry && !isExitingHome && !isRecentlyExited && !shouldThrottle && (!isUnlockingNow || isLaunchBlocked)) {
+                                if (!isUnlocked && isGenuineEntry && !isExitingHome && (!isUnlockingNow || isLaunchBlocked)) {
                                     Log.d(TAG, "Locked app detected: $currentApp. Launching unlock screen. Blocked retry: $isLaunchBlocked")
                                     launchUnlockScreen(currentApp)
                                 } else if (isUnlocked) {
@@ -346,8 +349,7 @@ class AppLockService : Service() {
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
             AppLockSession.isExitingToHome(targetPackage) ||
-            AppLockSession.isRecentlyExited(targetPackage, 1500L) ||
-            AppLockSession.shouldThrottleLaunch(targetPackage) ||
+            AppLockSession.isAppInActiveCallOrPip(targetPackage) ||
             (AppLockAccessibilityService.isAccessibilityRunning && AppLockSession.currentForegroundPackage != targetPackage)
         ) {
             return

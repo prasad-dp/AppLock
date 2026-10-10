@@ -290,6 +290,29 @@ object AppLockPackageHelper {
             }
         } catch (_: Exception) {}
 
+        return activeRootPkg == null || activeRootPkg == targetPackage
+    }
+
+    /**
+     * Checks if the specified package currently has an active window in Picture-in-Picture (PiP) mode.
+     */
+    fun isPackageInPipMode(service: android.accessibilityservice.AccessibilityService, targetPackage: String): Boolean {
+        if (targetPackage.isEmpty()) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val windows = service.windows
+                if (!windows.isNullOrEmpty()) {
+                    for (window in windows) {
+                        if (window.isInPictureInPictureMode) {
+                            val windowPkg = window.root?.packageName?.toString()
+                            if (windowPkg == targetPackage) {
+                                return true
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
         return false
     }
 

@@ -27,7 +27,12 @@ object AppLockSession {
             val prev = previousApp ?: currentForegroundApp
             if (prev == null) return true
             if (prev == targetPackage) {
-                return false // User was already inside this app
+                // If user previously left foreground (e.g. task removal, recents, or departed),
+                // this is a genuine re-entry from outside.
+                if (lastExitedPackage == targetPackage || leftForegroundTimes.containsKey(targetPackage)) {
+                    return true
+                }
+                return false
             }
             return true
         }
@@ -53,6 +58,22 @@ object AppLockSession {
     @Volatile
     var lastExitTime: Long = 0L
         private set
+
+    // Ongoing call or active PiP packages to preserve sessions during floating window / active calls
+    private val ongoingCallPackages = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val pipPackages = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun setOngoingCall(packageName: String, isActive: Boolean) {
+        if (isActive) ongoingCallPackages.add(packageName) else ongoingCallPackages.remove(packageName)
+    }
+
+    fun setPipMode(packageName: String, isInPip: Boolean) {
+        if (isInPip) pipPackages.add(packageName) else pipPackages.remove(packageName)
+    }
+
+    fun isAppInActiveCallOrPip(packageName: String): Boolean {
+        return ongoingCallPackages.contains(packageName) || pipPackages.contains(packageName)
+    }
 
     fun markAppInForeground(packageName: String) {
         synchronized(unlockedApps) {
@@ -127,10 +148,8 @@ object AppLockSession {
 
     fun clearGoToHome(forPackage: String? = null) {
         synchronized(unlockedApps) {
-            if (forPackage == null || forPackage != lastHomeExitedPackage) {
-                lastHomeTransitionTime = 0L
-                lastHomeExitedPackage = null
-            }
+            lastHomeTransitionTime = 0L
+            lastHomeExitedPackage = null
         }
     }
 
@@ -220,7 +239,6 @@ object AppLockSession {
             unlockedApps.remove(packageName)
             unlockTimes.remove(packageName)
             lastActiveTimes.remove(packageName)
-            leftForegroundTimes.remove(packageName)
         }
     }
 
@@ -282,6 +300,8 @@ object AppLockSession {
             lastExitedPackage = null
             lastExitTime = 0L
             currentForegroundApp = null
+            ongoingCallPackages.clear()
+            pipPackages.clear()
         }
         activeUnlockingPackage = null
         currentForegroundPackage = null

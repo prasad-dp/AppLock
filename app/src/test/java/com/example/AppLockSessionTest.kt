@@ -384,18 +384,68 @@ fun testForegroundPackageTracking() {
         AppLockSession.setCurrentForeground(launcher)
         AppLockSession.lockApp(testApp, force = true)
 
-        // Verifications:
+        // Verifications on Home screen:
         assertTrue("isRecentlyExited must report true to shield against duplicate lock on Back press", AppLockSession.isRecentlyExited(testApp))
-        assertTrue("isExitingToHome must report true for testApp", AppLockSession.isExitingToHome(testApp))
+        assertTrue("isExitingToHome must report true for testApp on Home", AppLockSession.isExitingToHome(testApp))
 
-        // Trailing exit event for testApp arrives while previousApp was launcher:
-        // clearGoToHome(forPackage = testApp) must NOT clear the exit flag for testApp itself!
-        AppLockSession.clearGoToHome(forPackage = testApp)
-        assertTrue("Exit to home must remain intact for the exiting package itself", AppLockSession.isExitingToHome(testApp))
+        // When launching the app again, clearGoToHome clears the home exit state cleanly:
+        AppLockSession.clearGoToHome()
+        assertFalse("Exit to home must be cleared upon launching app", AppLockSession.isExitingToHome(testApp))
+    }
 
-        // But when a different app is opened, clearGoToHome clears it
-        AppLockSession.clearGoToHome(forPackage = "com.android.chrome")
-        assertFalse("Exit to home should be cleared when opening a different app", AppLockSession.isExitingToHome(testApp))
+    @Test
+    fun testGenuineEntryAfterRecentsRemoval() {
+        val testApp = "com.whatsapp"
+
+        // User was in WhatsApp and unlocked
+        AppLockSession.unlockApp(testApp)
+        AppLockSession.markAppInForeground(testApp)
+        assertTrue(AppLockSession.isUnlocked(testApp))
+
+        // User opens Recents and removes/clears WhatsApp task:
+        AppLockSession.markAppLeftForeground(testApp)
+        AppLockSession.lockApp(testApp, force = true)
+        assertFalse(AppLockSession.isUnlocked(testApp))
+
+        // Now user launches WhatsApp again from Home screen or app drawer:
+        // Even if previousApp was the same, because it is locked and left foreground, isGenuineAppEntry must be true!
+        assertTrue("Entry after task removal must be recognized as genuine launch", AppLockSession.isGenuineAppEntry(testApp, previousApp = testApp))
+    }
+
+    @Test
+    fun testVideoCallPipPreservesUnlockedSession() {
+        val testApp = "com.whatsapp"
+        val launcher = "com.google.android.apps.nexuslauncher"
+
+        // 1. User receives/answers WhatsApp video call and unlocks WhatsApp
+        AppLockSession.unlockApp(testApp)
+        AppLockSession.markAppInForeground(testApp)
+        assertTrue(AppLockSession.isUnlocked(testApp))
+
+        // 2. User minimizes video call to floating window (PiP mode) and returns to Home screen
+        AppLockSession.setPipMode(testApp, true)
+        AppLockSession.setOngoingCall(testApp, true)
+        AppLockSession.markAppLeftForeground(testApp)
+        AppLockSession.setCurrentForeground(launcher)
+
+        // Session must be recognized as active in call/PiP
+        assertTrue("WhatsApp must be recognized as in active call or PiP", AppLockSession.isAppInActiveCallOrPip(testApp))
+        assertTrue("WhatsApp must remain unlocked during PiP floating window call", AppLockSession.isUnlocked(testApp))
+
+        // 3. User taps floating window to maximize video call back to fullscreen
+        // Since it remained unlocked, maximizing happens smoothly without re-prompting
+        AppLockSession.markAppInForeground(testApp)
+        assertTrue("Maximizing video call retains unlocked state", AppLockSession.isUnlocked(testApp))
+
+        // 4. Video call ends
+        AppLockSession.setPipMode(testApp, false)
+        AppLockSession.setOngoingCall(testApp, false)
+        assertFalse(AppLockSession.isAppInActiveCallOrPip(testApp))
+
+        // User now exits WhatsApp to Home launcher:
+        AppLockSession.markAppLeftForeground(testApp)
+        AppLockSession.lockApp(testApp, force = true)
+        assertFalse("After call ends, departing WhatsApp relocks it", AppLockSession.isUnlocked(testApp))
     }
 
     @Test

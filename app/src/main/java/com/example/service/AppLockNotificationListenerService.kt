@@ -50,7 +50,9 @@ class AppLockNotificationListenerService : NotificationListenerService() {
 
         private val notificationCountMap = ConcurrentHashMap<String, Int>()
         private val activeNotificationKeys = ConcurrentHashMap<String, MutableSet<String>>()
+        private val notificationItemCounts = ConcurrentHashMap<String, ConcurrentHashMap<String, Int>>()
         private val pendingOriginalIntents = ConcurrentHashMap<String, PendingIntent>()
+        private val callNotificationKeys = ConcurrentHashMap<String, MutableSet<String>>()
 
         @Volatile
         var isServiceConnected = false
@@ -63,6 +65,7 @@ class AppLockNotificationListenerService : NotificationListenerService() {
             try {
                 notificationCountMap.remove(packageName)
                 activeNotificationKeys.remove(packageName)
+                notificationItemCounts.remove(packageName)
                 pendingOriginalIntents.remove(packageName)
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 nm?.cancel(NOTIF_TAG_PREFIX + packageName, packageName.hashCode())
@@ -77,6 +80,7 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         fun resetAllCounts() {
             notificationCountMap.clear()
             activeNotificationKeys.clear()
+            notificationItemCounts.clear()
             pendingOriginalIntents.clear()
         }
 
@@ -215,9 +219,15 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         val isOngoing = sbn.isOngoing ||
                 (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 ||
                 (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
-        if (isOngoing) return
-
         val category = notification.category
+
+        if (category == Notification.CATEGORY_CALL || (isOngoing && targetPkg.contains("whatsapp"))) {
+            val callNotifKey = sbn.key ?: "${targetPkg}_${sbn.tag ?: ""}_${sbn.id}"
+            callNotificationKeys.computeIfAbsent(targetPkg) { ConcurrentHashMap.newKeySet() }.add(callNotifKey)
+            AppLockSession.setOngoingCall(targetPkg, true)
+        }
+
+        if (isOngoing) return
         if (category == Notification.CATEGORY_CALL || category == Notification.CATEGORY_ALARM) return
 
         val mode = prefs.notificationPrivacyMode
@@ -228,12 +238,20 @@ class AppLockNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        // 7. Retain original intent for seamless transition after user unlocks
+        // 7. Filter out typing / transient status notifications (e.g. Snapchat "Alice is typing...")
+        // Cancel the notification so sensitive typing info does not leak on screen,
+        // but NEVER count as a new message!
+        if (isTypingIndicator(notification)) {
+            try { cancelNotification(sbn.key) } catch (_: Exception) {}
+            return
+        }
+
+        // 8. Retain original intent for seamless transition after user unlocks
         if (notification.contentIntent != null) {
             pendingOriginalIntents[targetPkg] = notification.contentIntent
         }
 
-        // 8. Filter out group summary notifications (e.g. WhatsApp, Gmail group containers)
+        // 9. Filter out group summary notifications (e.g. WhatsApp, Gmail group containers)
         // Group summaries must be cancelled so sensitive summaries do not leak on screen,
         // but they should NEVER increment the message count, as individual messages are already received.
         val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
@@ -245,13 +263,20 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         // Cancel original notification containing sensitive text/media
         try { cancelNotification(sbn.key) } catch (_: Exception) {}
 
-        // Track accumulated notification counts per package using distinct notification keys
+        // Track accumulated notification counts per package using distinct notification keys & item counts
         val notifKey = sbn.key ?: "${targetPkg}_${sbn.tag ?: ""}_${sbn.id}"
         val activeKeys = activeNotificationKeys.getOrPut(targetPkg) {
             java.util.Collections.synchronizedSet(mutableSetOf())
         }
         activeKeys.add(notifKey)
-        val count = activeKeys.size
+
+        val individualCount = extractNotificationMessageCount(sbn)
+        val packageItemCounts = notificationItemCounts.getOrPut(targetPkg) {
+            ConcurrentHashMap()
+        }
+        packageItemCounts[notifKey] = individualCount
+
+        val count = packageItemCounts.values.sum().coerceAtLeast(activeKeys.size)
         notificationCountMap[targetPkg] = count
 
         // 8. Resolve app metadata and visual assets
@@ -274,6 +299,7 @@ class AppLockNotificationListenerService : NotificationListenerService() {
                 category == Notification.CATEGORY_MESSAGE ||
                 category == NotificationCompat.CATEGORY_EMAIL ||
                 targetPkg.contains("whatsapp", ignoreCase = true) ||
+                targetPkg.contains("snapchat", ignoreCase = true) ||
                 targetPkg.contains("telegram", ignoreCase = true) ||
                 targetPkg.contains("signal", ignoreCase = true) ||
                 targetPkg.contains("messenger", ignoreCase = true) ||
@@ -377,6 +403,86 @@ class AppLockNotificationListenerService : NotificationListenerService() {
         }
 
         notificationManager.notify(NOTIF_TAG_PREFIX + targetPkg, targetPkg.hashCode(), maskedBuilder.build())
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        if (sbn == null) return
+        val targetPkg = sbn.packageName ?: return
+        val notifKey = sbn.key ?: "${targetPkg}_${sbn.tag ?: ""}_${sbn.id}"
+
+        val callKeys = callNotificationKeys[targetPkg]
+        val wasCallNotif = callKeys?.remove(notifKey) == true
+        if (wasCallNotif && callKeys.isEmpty()) {
+            callNotificationKeys.remove(targetPkg)
+            AppLockSession.setOngoingCall(targetPkg, false)
+        } else if (sbn.notification?.category == Notification.CATEGORY_CALL) {
+            AppLockSession.setOngoingCall(targetPkg, false)
+        }
+
+        val activeKeys = activeNotificationKeys[targetPkg] ?: return
+        activeKeys.remove(notifKey)
+        notificationItemCounts[targetPkg]?.remove(notifKey)
+
+        val packageItemCounts = notificationItemCounts[targetPkg]
+        val remainingCount = packageItemCounts?.values?.sum()?.coerceAtLeast(activeKeys.size) ?: activeKeys.size
+        notificationCountMap[targetPkg] = remainingCount
+
+        if (activeKeys.isEmpty() || remainingCount <= 0) {
+            clearMaskedNotifications(this, targetPkg)
+        }
+    }
+
+    private fun isTypingIndicator(notification: Notification): Boolean {
+        val extras = notification.extras ?: return false
+        val text = (extras.getCharSequence(Notification.EXTRA_TEXT) ?: "").toString().lowercase()
+        val title = (extras.getCharSequence(Notification.EXTRA_TITLE) ?: "").toString().lowercase()
+        val subText = (extras.getCharSequence(Notification.EXTRA_SUB_TEXT) ?: "").toString().lowercase()
+        val combined = "$title $text $subText"
+        return combined.contains("is typing") ||
+                combined.contains("typing...") ||
+                combined.contains("typing a chat") ||
+                combined.contains("typing a snap")
+    }
+
+    private fun extractNotificationMessageCount(sbn: StatusBarNotification): Int {
+        val notification = sbn.notification ?: return 1
+
+        // 1. Android standard notification number (badge / message count)
+        if (notification.number > 1) {
+            return notification.number
+        }
+
+        val extras = notification.extras ?: return 1
+
+        // 2. MessagingStyle message list
+        val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        if (!messages.isNullOrEmpty()) {
+            return messages.size
+        }
+
+        // 3. InboxStyle lines
+        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+        if (!lines.isNullOrEmpty()) {
+            return lines.size
+        }
+
+        // 4. Regex parsing for bundled text (e.g. Snapchat "3 new Snaps", "2 New Chats", "5 new messages")
+        val text = (extras.getCharSequence(Notification.EXTRA_TEXT) ?: "").toString()
+        val title = (extras.getCharSequence(Notification.EXTRA_TITLE) ?: "").toString()
+        val subText = (extras.getCharSequence(Notification.EXTRA_SUB_TEXT) ?: "").toString()
+
+        val countRegex = Regex("""(\d+)\s*(?:new\s*)?(?:messages?|chats?|snaps?)""", RegexOption.IGNORE_CASE)
+        for (source in listOf(text, title, subText)) {
+            val match = countRegex.find(source)
+            if (match != null) {
+                val parsed = match.groupValues[1].toIntOrNull()
+                if (parsed != null && parsed > 0) {
+                    return parsed
+                }
+            }
+        }
+
+        return 1
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {

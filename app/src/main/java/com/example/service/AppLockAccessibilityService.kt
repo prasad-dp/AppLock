@@ -123,6 +123,15 @@ class AppLockAccessibilityService : AccessibilityService() {
             // Auto-relock check when user is on the Home screen
             val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
             for (unlockedApp in currentUnlockedApps) {
+                // If app is in PiP floating window or active call, preserve unlocked session!
+                val isPip = AppLockPackageHelper.isPackageInPipMode(this, unlockedApp)
+                AppLockSession.setPipMode(unlockedApp, isPip)
+                if (AppLockSession.isAppInActiveCallOrPip(unlockedApp)) {
+                    lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
+                    AppLockSession.updateActiveTime(unlockedApp)
+                    continue
+                }
+
                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                 val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
 
@@ -175,7 +184,7 @@ class AppLockAccessibilityService : AccessibilityService() {
         if (previousApp != null && previousApp != pkgName) {
             AppLockSession.markAppLeftForeground(previousApp)
             if (AppLockPackageHelper.isLauncherPackage(this, previousApp)) {
-                AppLockSession.clearGoToHome(forPackage = pkgName)
+                AppLockSession.clearGoToHome()
             }
         }
         isUnlockActivityInForeground = false
@@ -186,6 +195,15 @@ class AppLockAccessibilityService : AccessibilityService() {
         val currentUnlockedApps = AppLockSession.getUnlockedAppsCopy()
         for (unlockedApp in currentUnlockedApps) {
             if (unlockedApp != pkgName) {
+                // If app is in PiP floating window or active call, preserve unlocked session!
+                val isPip = AppLockPackageHelper.isPackageInPipMode(this, unlockedApp)
+                AppLockSession.setPipMode(unlockedApp, isPip)
+                if (AppLockSession.isAppInActiveCallOrPip(unlockedApp)) {
+                    lastSeenForegroundTime[unlockedApp] = System.currentTimeMillis()
+                    AppLockSession.updateActiveTime(unlockedApp)
+                    continue
+                }
+
                 val perAppPolicy = if (lockPrefs.isPremiumUser) lockPrefs.getPerAppRelockTimeout(unlockedApp) else null
                 val relockPolicy = perAppPolicy ?: lockPrefs.reLockTimeout
 
@@ -228,6 +246,9 @@ class AppLockAccessibilityService : AccessibilityService() {
         // 5. Intercept locked app if not unlocked
         val isLocked = AppLockPackageHelper.isPackageLocked(pkgName, lockedPackages)
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && isLocked) {
+            val isTargetPip = AppLockPackageHelper.isPackageInPipMode(this, pkgName)
+            AppLockSession.setPipMode(pkgName, isTargetPip)
+
             val isUnlocked = AppLockSession.isUnlocked(pkgName)
             val isUnlockingNow = AppLockSession.activeUnlockingPackage == pkgName
             val isLaunchBlocked = isUnlockingNow && !isUnlockActivityInForeground && (System.currentTimeMillis() - lastLaunchTime > 800L)
@@ -235,11 +256,16 @@ class AppLockAccessibilityService : AccessibilityService() {
             // CRITICAL DUPLICATE LOCK PREVENTION GUARDS:
             val isGenuineEntry = AppLockSession.isGenuineAppEntry(pkgName, previousApp)
             val isExitingHome = AppLockSession.isExitingToHome(pkgName)
-            val isRecentlyExited = AppLockSession.isRecentlyExited(pkgName, 1500L)
-            val shouldThrottle = AppLockSession.shouldThrottleLaunch(pkgName)
             val isInActiveForeground = AppLockPackageHelper.isAppTargetInActiveForeground(this, pkgName)
 
-            if (!isUnlocked && isGenuineEntry && !isExitingHome && !isRecentlyExited && !shouldThrottle && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
+            // Never launch lock screen over an active PiP floating window or if in an active call and unlocked!
+            if (isTargetPip || (isUnlocked && AppLockSession.isAppInActiveCallOrPip(pkgName))) {
+                AppLockSession.markAppInForeground(pkgName)
+                AppLockSession.updateForegroundPackage(pkgName)
+                return
+            }
+
+            if (!isUnlocked && isGenuineEntry && !isExitingHome && isInActiveForeground && (!isUnlockingNow || isLaunchBlocked)) {
                 Log.d(TAG, "Instant 0ms Intercept: Locking $pkgName")
                 launchUnlockScreen(pkgName)
             } else if (isUnlocked) {
@@ -256,8 +282,8 @@ class AppLockAccessibilityService : AccessibilityService() {
     private fun launchUnlockScreen(targetPackage: String) {
         if (AppLockSession.isUnlocked(targetPackage) ||
             AppLockSession.isExitingToHome(targetPackage) ||
-            AppLockSession.isRecentlyExited(targetPackage, 1500L) ||
-            AppLockSession.shouldThrottleLaunch(targetPackage) ||
+            AppLockPackageHelper.isPackageInPipMode(this, targetPackage) ||
+            AppLockSession.isAppInActiveCallOrPip(targetPackage) ||
             !AppLockPackageHelper.isAppTargetInActiveForeground(this, targetPackage)
         ) {
             return
